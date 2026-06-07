@@ -1,4 +1,6 @@
 import json
+import os
+import stat
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -32,6 +34,7 @@ def save_config(config):
     with open(CONFIG_FILE, "w") as f:
         json.dump(config, f, indent=4)
         f.write("\n")
+    os.chmod(CONFIG_FILE, stat.S_IRUSR | stat.S_IWUSR)
 
 
 def moodle_api(config, endpoint, **params):

@@ -58,7 +58,7 @@ class App:
 
         # ── Checkbox ──────────────────────────────────────────────
         self.save_pw_var = ctk.BooleanVar(value=True)
-        ctk.CTkCheckBox(outer, text="Store user and password",
+        ctk.CTkCheckBox(outer, text="Store password",
                         variable=self.save_pw_var).pack(anchor="w", pady=(0, 10))
 
         # ── Fetch button ──────────────────────────────────────────
@@ -106,7 +106,9 @@ class App:
         ctk.CTkEntry(group, textvariable=self.password_var, width=380,
                      show="*").pack(pady=(0, 6))
 
-        ctk.CTkLabel(conn, text="Password is never stored \u2014 only an API token is saved.",
+        ctk.CTkLabel(conn,
+                     text="Password is not stored by default.\n"
+                           "config.json is locked to your user (chmod 600).",
                      font=("Segoe UI", 9),
                      text_color="gray").pack(anchor="w", pady=(6, 0))
 
@@ -212,6 +214,7 @@ class App:
 
     def _fetch(self):
         self._ui_to_config()
+        core.save_config(self.config)
         self._do_fetch()
 
     def _do_fetch(self, retried=False):
@@ -226,6 +229,9 @@ class App:
             try:
                 token = core.login(self.config["moodle_url"], username, password)
                 self.config["token"] = token
+                if not self.save_pw_var.get():
+                    self.config.pop("password", None)
+                    self.password_var.set("")
                 core.save_config(self.config)
                 self._log("Login successful, token saved.")
             except Exception as e:
