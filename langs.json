@@ -39,6 +39,12 @@
     "theme_light": "Light",
     "theme_dark": "Dark",
     "accept": "Accept",
+    "clear_creds": "Clear stored credentials",
+    "share_ics": "Share ICS",
+    "no_ics": "No ICS file found. Fetch events first.",
+    "fetch_days": "Days to look back",
+    "fetch_limit": "Max events",
+    "fetch_params": "Fetch Options",
     "login_failed_again": "Login failed again: {}"
   },
   "es": {
@@ -81,6 +87,12 @@
     "theme_light": "Claro",
     "theme_dark": "Oscuro",
     "accept": "Aceptar",
+    "clear_creds": "Borrar credenciales guardadas",
+    "share_ics": "Compartir ICS",
+    "no_ics": "No se encontr\u00f3 el archivo ICS. Obt\u00e9n eventos primero.",
+    "fetch_days": "D\u00edas hacia atr\u00e1s",
+    "fetch_limit": "M\u00e1x. eventos",
+    "fetch_params": "Opciones de obtenci\u00f3n",
     "login_failed_again": "Inicio de sesi\u00f3n fallido nuevamente: {}"
   }
 }

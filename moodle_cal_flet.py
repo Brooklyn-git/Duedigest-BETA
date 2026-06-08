@@ -26,17 +26,11 @@ THEME_MAP = {
 
 
 def main(page: ft.Page):
-    page.window.width = 560
-    page.window.height = 620
-    page.window.min_width = 480
-    page.window.min_height = 500
     page.padding = 20
     page.spacing = 0
 
     config = {}
     log_controls = []
-
-    # translatable controls registry — Text controls only (have .value)
     _txt = {}
 
     def _tr(key):
@@ -47,8 +41,6 @@ def main(page: ft.Page):
         page.title = _tr("app_title")
         for key, ctrl in _txt.items():
             ctrl.value = _tr(key)
-        tab_conn.label = _tr("connection")
-        tab_out.label = _tr("output")
         url_field.label = _tr("moodle_url")
         username_field.label = _tr("username")
         password_field.label = _tr("password")
@@ -60,7 +52,12 @@ def main(page: ft.Page):
         ics_check.label = _tr("ics_label")
         logseq_check.label = _tr("logseq_label")
         obsidian_check.label = _tr("obsidian_label")
-        fetch_btn.content = _tr("fetch")
+        days_back_field.label = _tr("fetch_days")
+        limit_field.label = _tr("fetch_limit")
+        fetch_btn.text = _tr("fetch")
+        share_btn.text = _tr("share_ics")
+        tab_conn.label = _tr("connection")
+        tab_out.label = _tr("output")
         status_text.value = _tr("ready")
         page.update()
 
@@ -77,6 +74,7 @@ def main(page: ft.Page):
             config["password"] = password_field.value
         else:
             config.pop("password", None)
+            password_field.value = ""
         config["save_password"] = save_pw_check.value
         config["output"] = {
             "ics": ics_check.value,
@@ -84,10 +82,18 @@ def main(page: ft.Page):
             "obsidian": obsidian_check.value,
         }
         config["paths"] = {
-            "ics": ics_path_field.value.strip(),
-            "logseq": logseq_path_field.value.strip(),
-            "obsidian": obsidian_path_field.value.strip(),
+            "ics": ics_path_field.value.strip() or "output/calendar.ics",
+            "logseq": logseq_path_field.value.strip() or "output/logseq/",
+            "obsidian": obsidian_path_field.value.strip() or "output/obsidian/",
         }
+        try:
+            config["fetch_days_back"] = int(days_back_field.value.strip())
+        except (ValueError, AttributeError):
+            config.pop("fetch_days_back", None)
+        try:
+            config["fetch_limit"] = int(limit_field.value.strip())
+        except (ValueError, AttributeError):
+            config.pop("fetch_limit", None)
 
     def _border():
         return ft.border.Border(
@@ -108,19 +114,30 @@ def main(page: ft.Page):
         log_view.controls = log_controls
         page.update()
 
+    def validate_url(url):
+        try:
+            core.validate_moodle_url(url)
+            return None
+        except ValueError as e:
+            return str(e)
+
+    def _url_blur(e):
+        url_field.error_text = validate_url(url_field.value.strip())
+        page.update()
+
     # ── Load config ───────────────────────────────────────────────
     try:
         config = core.load_config()
     except (FileNotFoundError, ValueError):
         config = {
-            "moodle_url": "",
+            "moodle_url": "https://ivirtual.itson.edu.mx",
             "token": "",
             "username": "",
             "password": "",
             "timezone": "",
             "language": "en",
             "theme_mode": "system",
-            "save_password": True,
+            "save_password": False,
             "output": {"ics": True, "logseq": True, "obsidian": True},
             "paths": {
                 "ics": "output/calendar.ics",
@@ -130,6 +147,7 @@ def main(page: ft.Page):
         }
     config.setdefault("language", "en")
     config.setdefault("theme_mode", "system")
+    config.setdefault("save_password", False)
 
     # ── Settings dialog ───────────────────────────────────────────
     def open_settings(e):
@@ -142,7 +160,7 @@ def main(page: ft.Page):
                 ft.DropdownOption(key="dark", text=_tr("theme_dark")),
             ],
             value=theme_val,
-            width=300,
+            expand=True,
         )
         lang_dd = ft.Dropdown(
             options=[
@@ -150,8 +168,17 @@ def main(page: ft.Page):
                 ft.DropdownOption(key="es", text="Espa\u00f1ol"),
             ],
             value=lang_val,
-            width=300,
+            expand=True,
         )
+
+        def clear_creds(ev):
+            config.pop("token", None)
+            config.pop("password", None)
+            password_field.value = ""
+            core.save_config(config)
+            dlg.open = False
+            page.update()
+
         def save_and_close(ev):
             config["theme_mode"] = theme_dd.value
             config["language"] = lang_dd.value
@@ -170,6 +197,12 @@ def main(page: ft.Page):
                     ft.Divider(height=8, color=ft.Colors.TRANSPARENT),
                     ft.Text(_tr("language"), size=12),
                     lang_dd,
+                    ft.Divider(height=8, color=ft.Colors.TRANSPARENT),
+                    ft.TextButton(
+                        _tr("clear_creds"),
+                        on_click=clear_creds,
+                        style=ft.ButtonStyle(color=ft.Colors.RED),
+                    ),
                 ],
                 width=320,
                 spacing=4,
@@ -182,18 +215,19 @@ def main(page: ft.Page):
     url_field = ft.TextField(
         label=_tr("moodle_url"),
         value=config.get("moodle_url", ""),
-        width=400,
+        expand=True,
+        on_blur=_url_blur,
     )
     username_field = ft.TextField(
         label=_tr("username"),
         value=config.get("username", ""),
-        width=400,
+        expand=True,
     )
     password_field = ft.TextField(
         label=_tr("password"),
         value=config.get("password", "") if config.get("save_password") else "",
         password=True,
-        width=400,
+        expand=True,
     )
 
     tz_list = sorted(zoneinfo.available_timezones())
@@ -203,7 +237,7 @@ def main(page: ft.Page):
         label=_tr("timezone"),
         options=tz_options,
         value=config.get("timezone", "") or None,
-        width=400,
+        expand=True,
         enable_search=True,
     )
 
@@ -245,23 +279,40 @@ def main(page: ft.Page):
     ics_path_field = ft.TextField(
         label=_tr("ics_file"),
         value=paths.get("ics", "output/calendar.ics"),
-        width=400,
+        expand=True,
     )
     logseq_path_field = ft.TextField(
         label=_tr("logseq_dir"),
         value=paths.get("logseq", "output/logseq/"),
-        width=400,
+        expand=True,
     )
     obsidian_path_field = ft.TextField(
         label=_tr("obsidian_dir"),
         value=paths.get("obsidian", "output/obsidian/"),
-        width=400,
+        expand=True,
     )
 
     fmt_heading = ft.Text(_tr("formats"), weight=ft.FontWeight.BOLD, size=13)
     _txt["formats"] = fmt_heading
     paths_heading = ft.Text(_tr("paths"), weight=ft.FontWeight.BOLD, size=13)
     _txt["paths"] = paths_heading
+
+    # ── Fetch params ────────────────────────────────────────────
+    fetch_heading = ft.Text(_tr("fetch_params"), weight=ft.FontWeight.BOLD, size=13)
+    _txt["fetch_params"] = fetch_heading
+
+    days_back_field = ft.TextField(
+        label=_tr("fetch_days"),
+        value=str(config.get("fetch_days_back", 7)),
+        expand=True,
+        keyboard_type=ft.KeyboardType.NUMBER,
+    )
+    limit_field = ft.TextField(
+        label=_tr("fetch_limit"),
+        value=str(config.get("fetch_limit", 100)),
+        expand=True,
+        keyboard_type=ft.KeyboardType.NUMBER,
+    )
 
     out_tab = ft.ListView(
         [
@@ -293,6 +344,19 @@ def main(page: ft.Page):
                 border_radius=8,
                 padding=16,
             ),
+            ft.Container(
+                content=ft.Column(
+                    [
+                        fetch_heading,
+                        days_back_field,
+                        limit_field,
+                    ],
+                    spacing=8,
+                ),
+                border=_border(),
+                border_radius=8,
+                padding=16,
+            ),
         ],
         spacing=12,
     )
@@ -308,9 +372,7 @@ def main(page: ft.Page):
         content=ft.Column(
             expand=True,
             controls=[
-                ft.TabBar(
-                    tabs=[tab_conn, tab_out],
-                ),
+                ft.TabBar(tabs=[tab_conn, tab_out]),
                 ft.TabBarView(
                     expand=True,
                     controls=[conn_tab, out_tab],
@@ -348,7 +410,7 @@ def main(page: ft.Page):
     # ── Store password checkbox ──────────────────────────────────
     save_pw_check = ft.Checkbox(
         label=_tr("store_pw"),
-        value=config.get("save_password", True),
+        value=config.get("save_password", False),
     )
 
     # ── Fetch button ─────────────────────────────────────────────
@@ -374,6 +436,7 @@ def main(page: ft.Page):
                 if not save_pw_check.value:
                     config.pop("password", None)
                     password_field.value = ""
+                    ui_to_config()
                 core.save_config(config)
                 log(_tr("login_success"))
             except Exception as e:
@@ -387,7 +450,6 @@ def main(page: ft.Page):
 
         status_text.value = _tr("fetching")
         fetch_btn.disabled = True
-        fetch_btn.content = _tr("working")
         clear_log()
         log(_tr("fetching_events"))
         page.update()
@@ -396,22 +458,23 @@ def main(page: ft.Page):
             try:
                 logs = core.run_with_config(config)
                 page.run_thread(lambda: on_fetch_done(logs, None))
-            except PermissionError as e:
+            except PermissionError as exc:
                 config.pop("token", None)
                 core.save_config(config)
                 if retried:
-                    page.run_thread(lambda: on_fetch_done([], _tr("login_failed_again").format(e)))
+                    msg = _tr("login_failed_again").format(exc)
+                    page.run_thread(lambda: on_fetch_done([], msg))
                 else:
                     log(_tr("token_expired"))
                     page.run_thread(lambda: do_fetch(True))
-            except Exception as e:
-                page.run_thread(lambda: on_fetch_done([], str(e)))
+            except Exception as exc:
+                msg = str(exc)
+                page.run_thread(lambda: on_fetch_done([], msg))
 
         threading.Thread(target=worker, daemon=True).start()
 
     def on_fetch_done(logs, error):
         fetch_btn.disabled = False
-        fetch_btn.content = _tr("fetch")
         if error:
             status_text.value = _tr("error")
             log(f"{_tr('error')}: {error}")
@@ -434,8 +497,41 @@ def main(page: ft.Page):
     fetch_btn = ft.FilledButton(
         _tr("fetch"),
         on_click=on_fetch,
-        width=300,
+        expand=True,
         height=40,
+    )
+
+    # ── Share ICS button ─────────────────────────────────────────
+    def on_share(e):
+        ics_path = config.get("paths", {}).get("ics", "output/calendar.ics")
+        full = Path(ics_path).resolve()
+        if not full.exists():
+            page.show_dialog(ft.AlertDialog(
+                title=ft.Text(_tr("error")),
+                content=ft.Text(_tr("no_ics")),
+            ))
+            return
+        try:
+            page.launch_url(f"file://{full}")
+        except Exception:
+            page.show_dialog(ft.AlertDialog(
+                title=ft.Text(_tr("share_ics")),
+                content=ft.Text(str(full)),
+            ))
+
+    share_btn = ft.OutlinedButton(
+        _tr("share_ics"),
+        icon=ft.Icons.SHARE,
+        on_click=on_share,
+        expand=True,
+        height=40,
+    )
+
+    # ── Button row ───────────────────────────────────────────────
+    btn_row = ft.Row(
+        [fetch_btn, share_btn],
+        spacing=10,
+        alignment=ft.MainAxisAlignment.CENTER,
     )
 
     # ── Log area ─────────────────────────────────────────────────
@@ -469,10 +565,7 @@ def main(page: ft.Page):
                 tabs,
                 ft.Divider(height=8, color=ft.Colors.TRANSPARENT),
                 save_pw_check,
-                ft.Container(
-                    content=fetch_btn,
-                    alignment=ft.Alignment.CENTER,
-                ),
+                btn_row,
                 ft.Divider(height=4, color=ft.Colors.TRANSPARENT),
                 log_label,
                 log_container,

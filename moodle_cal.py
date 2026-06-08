@@ -5,7 +5,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.error import URLError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 from urllib.request import urlopen
 
 try:
@@ -20,6 +20,17 @@ except (ImportError, ModuleNotFoundError):
 CONFIG_FILE = "config.json"
 
 
+def validate_moodle_url(url):
+    parsed = urlparse(url)
+    if not parsed.scheme:
+        raise ValueError("URL missing scheme (use https://)")
+    if parsed.scheme != "https":
+        raise ValueError("Moodle URL must use HTTPS")
+    if not parsed.netloc:
+        raise ValueError("Invalid Moodle URL")
+    return url.rstrip("/")
+
+
 def load_config():
     try:
         with open(CONFIG_FILE) as f:
@@ -31,6 +42,7 @@ def load_config():
 
 
 def save_config(config):
+    config.setdefault("save_password", False)
     with open(CONFIG_FILE, "w") as f:
         json.dump(config, f, indent=4)
         f.write("\n")
@@ -38,6 +50,7 @@ def save_config(config):
 
 
 def moodle_api(config, endpoint, **params):
+    validate_moodle_url(config["moodle_url"])
     params["wstoken"] = config["token"]
     params["moodlewsrestformat"] = "json"
     url = f"{config['moodle_url']}/webservice/rest/server.php?{urlencode(params)}"
@@ -51,6 +64,7 @@ def moodle_api(config, endpoint, **params):
 
 
 def login(moodle_url, username, password):
+    moodle_url = validate_moodle_url(moodle_url)
     url = f"{moodle_url}/login/token.php?{urlencode({'username': username, 'password': password, 'service': 'moodle_mobile_app'})}"
     try:
         with urlopen(url, timeout=30) as resp:
@@ -114,12 +128,14 @@ def escape_ics(text):
 
 
 def fetch_events(config):
-    timesort = int((datetime.now(timezone.utc) - timedelta(days=7)).timestamp())
+    days_back = config.get("fetch_days_back", 7)
+    limitnum = config.get("fetch_limit", 100)
+    timesort = int((datetime.now(timezone.utc) - timedelta(days=days_back)).timestamp())
     data = moodle_api(
         config,
         "core_calendar_get_action_events_by_timesort",
         timesortfrom=timesort,
-        limitnum=100,
+        limitnum=limitnum,
     )
     events = []
     if data and "events" in data:
