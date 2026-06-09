@@ -1,6 +1,6 @@
 # Moodle Calendar Bridge
 
-Extracts assignments and deadlines from iVirtual (Moodle) and outputs to ICS (for calendar apps), Logseq, and Obsidian.
+Extracts assignments and deadlines from Moodle and outputs to ICS (for calendar apps), Logseq, and Obsidian.
 
 Works as a CLI script, a desktop GUI (Flet), or an Android app (Flet APK).
 
@@ -82,7 +82,7 @@ All settings live in `config.json` (auto-created, gitignored):
 
 | Key | Default | Description |
 |---|---|---|
-| `moodle_url` | `https://ivirtual.itson.edu.mx` | Your Moodle instance |
+| `moodle_url` | `https://` | Your Moodle instance |
 | `token` | `""` | Moodle web service token (set via `--login` or GUI auth) |
 | `username` | `""` | Moodle username |
 | `save_password` | `false` | Persist password to disk (not recommended) |

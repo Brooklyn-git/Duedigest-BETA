@@ -74,7 +74,6 @@ def main(page: ft.Page):
             config["password"] = password_field.value
         else:
             config.pop("password", None)
-            password_field.value = ""
         config["save_password"] = save_pw_check.value
         config["output"] = {
             "ics": ics_check.value,
@@ -130,7 +129,7 @@ def main(page: ft.Page):
         config = core.load_config()
     except (FileNotFoundError, ValueError):
         config = {
-            "moodle_url": "https://ivirtual.itson.edu.mx",
+            "moodle_url": "https://",
             "token": "",
             "username": "",
             "password": "",
@@ -148,6 +147,10 @@ def main(page: ft.Page):
     config.setdefault("language", "en")
     config.setdefault("theme_mode", "system")
     config.setdefault("save_password", False)
+
+    # ── Platform detection ─────────────────────────────────────────
+    is_mobile = page.platform in (ft.PagePlatform.ANDROID, ft.PagePlatform.IOS)
+    share_ctrl = ft.Share() if is_mobile else None
 
     # ── Settings dialog ───────────────────────────────────────────
     def open_settings(e):
@@ -420,7 +423,7 @@ def main(page: ft.Page):
 
         if not config.get("token"):
             username = config.get("username", "")
-            password = config.get("password", "")
+            password = config.get("password") or password_field.value
             if not username or not password:
                 status_text.value = _tr("need_creds")
                 page.update()
@@ -511,12 +514,13 @@ def main(page: ft.Page):
                 content=ft.Text(_tr("no_ics")),
             ))
             return
-        try:
+        if is_mobile and share_ctrl:
+            share_ctrl.share_files([ft.ShareFile(path=str(full))])
+        else:
             page.launch_url(f"file://{full}")
-        except Exception:
             page.show_dialog(ft.AlertDialog(
                 title=ft.Text(_tr("share_ics")),
-                content=ft.Text(str(full)),
+                content=ft.Text(_tr("share_desktop_hint").format(str(full))),
             ))
 
     share_btn = ft.OutlinedButton(
@@ -557,6 +561,8 @@ def main(page: ft.Page):
 
     # ── Assemble page ────────────────────────────────────────────
     page.title = _tr("app_title")
+    if share_ctrl:
+        page.overlay.append(share_ctrl)
     page.add(
         ft.Column(
             [
