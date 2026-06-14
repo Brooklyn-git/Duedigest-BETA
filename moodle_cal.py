@@ -359,8 +359,14 @@ def cli_login(config=None):
             sys.exit(1)
 
     url = config.get("moodle_url", "").rstrip("/")
-    if not url:
-        url = input("Moodle URL: ").strip().rstrip("/")
+    while True:
+        try:
+            if not url:
+                url = input("Moodle URL: ").strip().rstrip("/")
+            validate_moodle_url(url)
+            break
+        except ValueError:
+            url = input("Moodle URL: ").strip().rstrip("/")
 
     print(f"Logging into {url} ...")
     username = input("Username: ").strip()
@@ -386,15 +392,29 @@ def cli_login(config=None):
 def main():
     import argparse
     parser = argparse.ArgumentParser(description="Moodle Calendar Bridge")
+    parser.add_argument("--moodle-url", help="Moodle instance URL (overrides config.json)")
     parser.add_argument("--login", action="store_true", help="Authenticate with Moodle username/password")
     args = parser.parse_args()
 
+    if args.moodle_url:
+        try:
+            validate_moodle_url(args.moodle_url)
+        except ValueError as e:
+            print(f"Error: {e}")
+            sys.exit(1)
+
     if args.login:
-        cli_login()
+        if args.moodle_url:
+            config = {"moodle_url": args.moodle_url.rstrip("/")}
+            cli_login(config)
+        else:
+            cli_login()
         return
 
     try:
         config = load_config()
+        if args.moodle_url:
+            config["moodle_url"] = args.moodle_url.rstrip("/")
         if not config.get("token"):
             print("Not authenticated. Run with --login to log in.")
             print(f"  python3 moodle_cal.py --login")

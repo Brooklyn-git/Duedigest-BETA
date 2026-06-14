@@ -25,8 +25,8 @@ Works as a CLI script, a desktop GUI (Flet), or an Android app (Flet APK).
 ## Installation
 
 ```bash
-git clone <repo>
-cd moodle-calendar-bridge
+git clone https://github.com/Brooklyn-git/moodle-bridge.git
+cd moodle-bridge
 python3 -m venv .venv
 source .venv/bin/activate
 pip install flet
@@ -35,12 +35,6 @@ pip install flet
 ## Usage
 
 ### GUI (desktop)
-
-```bash
-flet run moodle_cal_flet.py
-```
-
-Or directly:
 
 ```bash
 python3 moodle_cal_flet.py
