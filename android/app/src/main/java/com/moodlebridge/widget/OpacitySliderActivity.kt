@@ -147,6 +147,7 @@ class OpacitySliderActivity : ComponentActivity() {
                     Button(
                         onClick = {
                             config.setWidgetOpacity(appWidgetId.toString(), opacity)
+                            config.lastConfiguredOpacity = opacity
                             val resultIntent = Intent().apply {
                                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
                             }

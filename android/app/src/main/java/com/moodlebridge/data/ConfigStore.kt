@@ -89,10 +89,15 @@ class ConfigStore(context: Context) {
         set(value) = prefs.edit().putFloat(KEY_WIDGET_OPACITY, value).apply()
 
     fun getWidgetOpacity(widgetId: String): Float =
-        prefs.getFloat("${KEY_WIDGET_OPACITY}_$widgetId", widgetOpacity)
+        prefs.getFloat("${KEY_WIDGET_OPACITY}_$widgetId", lastConfiguredOpacity)
 
-    fun setWidgetOpacity(widgetId: String, value: Float) =
-        prefs.edit().putFloat("${KEY_WIDGET_OPACITY}_$widgetId", value).apply()
+    fun setWidgetOpacity(widgetId: String, value: Float) {
+        prefs.edit().putFloat("${KEY_WIDGET_OPACITY}_$widgetId", value).commit()
+    }
+
+    var lastConfiguredOpacity: Float
+        get() = prefs.getFloat(KEY_LAST_OPACITY, 1.0f)
+        set(value) { prefs.edit().putFloat(KEY_LAST_OPACITY, value).commit() }
 
     val isConfigured: Boolean
         get() = moodleUrl.isNotBlank() && (token.isNotBlank() || (username.isNotBlank() && password.isNotBlank()))
@@ -122,5 +127,6 @@ class ConfigStore(context: Context) {
         const val KEY_SYNC_MSG = "sync_msg"
         const val KEY_EVENT_COUNT = "event_count"
         const val KEY_WIDGET_OPACITY = "widget_opacity"
+        const val KEY_LAST_OPACITY = "last_configured_opacity"
     }
 }
