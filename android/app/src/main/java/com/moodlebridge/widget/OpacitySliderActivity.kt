@@ -48,55 +48,57 @@ class OpacitySliderActivity : ComponentActivity() {
             var opacity by remember { mutableFloatStateOf(config.getWidgetOpacity(appWidgetId.toString())) }
 
             Box(Modifier.fillMaxSize()) {
-                // Widget preview — purely visual, no interactive elements
+                // Preview + slider stacked together at the bottom
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 64.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Color(0xFF1C1C1E).copy(alpha = opacity))
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.align(Alignment.BottomCenter),
                 ) {
-                    Text(
-                        text = "Moodle Bridge",
-                        color = Color.White.copy(alpha = opacity),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        modifier = Modifier.padding(bottom = 4.dp),
-                    )
-                    Text(
-                        text = "Last sync: never",
-                        color = Color.White.copy(alpha = (opacity * 0.8f).coerceIn(0f, 1f)),
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(bottom = 8.dp),
-                    )
-                    // Visual stand-in for the fetch button in the widget
-                    Box(
+                    // Widget preview — purely visual, sits right above the slider
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(40.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Color(0xFF1976D2).copy(alpha = opacity)),
-                        contentAlignment = Alignment.Center,
+                            .padding(horizontal = 24.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color(0xFF1C1C1E).copy(alpha = opacity))
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.Center,
                     ) {
                         Text(
-                            text = "Fetch && sync",
+                            text = "Moodle Bridge",
                             color = Color.White.copy(alpha = opacity),
                             fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
+                            fontSize = 16.sp,
+                            modifier = Modifier.padding(bottom = 4.dp),
                         )
+                        Text(
+                            text = "Last sync: never",
+                            color = Color.White.copy(alpha = (opacity * 0.8f).coerceIn(0f, 1f)),
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(bottom = 8.dp),
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(40.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFF1976D2).copy(alpha = opacity)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = "Fetch && sync",
+                                color = Color.White.copy(alpha = opacity),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                            )
+                        }
                     }
-                }
 
-                // Bottom slider bar with confirm button
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .background(Color(0xEE111111))
-                        .padding(horizontal = 24.dp, vertical = 20.dp),
-                ) {
+                    // Bottom slider bar with confirm button
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xEE111111))
+                            .padding(horizontal = 24.dp, vertical = 20.dp),
+                    ) {
                     Text(
                         text = "Widget opacity",
                         color = Color.White.copy(alpha = 0.7f),
@@ -166,4 +168,5 @@ class OpacitySliderActivity : ComponentActivity() {
             }
         }
     }
+}
 }
