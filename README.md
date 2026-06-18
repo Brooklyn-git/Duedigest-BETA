@@ -2,7 +2,10 @@
 
 Extracts assignments and deadlines from Moodle and outputs to ICS (for calendar apps), Logseq, and Obsidian.
 
-Works as a CLI script, a desktop GUI (Flet), or an Android app (Flet APK).
+| Platform | Interface | Stack |
+|----------|-----------|-------|
+| **Desktop** (Linux/Mac/Windows) | CLI + GUI | Python (Flet) |
+| **Android** | Home screen widget + config app | Kotlin (Jetpack Glance) |
 
 ## Features
 
@@ -13,42 +16,33 @@ Works as a CLI script, a desktop GUI (Flet), or an Android app (Flet APK).
 - **Event caching** — detects new/changed events, generates delta ICS (`calendar_new.ics`)
 - **Auto-reauth** — token expired? Re-logs in automatically
 - **Configurable fetch window** — how many days back, max events
+- **Android home screen widget** — one-tap sync from your home screen
+- **Notification on sync** — tap notification to open ICS in your calendar app
 - **i18n** — English and Spanish
 - **Dark/Light/System theme**
 
 ## Requirements
 
+### Desktop (Python)
+
 - Python 3.9+
 - `flet` (for the GUI — `pip install flet`)
-- Core logic uses **stdlib only** (no pip needed for CLI mode on Termux)
+- Core logic uses **stdlib only**
 
-## Installation
+### Android (Kotlin widget)
 
-```bash
-git clone https://github.com/Brooklyn-git/moodle-bridge.git
-cd moodle-bridge
-python3 -m venv .venv
-source .venv/bin/activate
-pip install flet
-```
+- [Android Studio](https://developer.android.com/studio) (or JDK 17+ + Android SDK)
+- A device running Android 8.0+ (API 26)
 
 ## Usage
 
-### GUI (desktop)
+### Desktop GUI (Linux/Mac/Windows)
 
 ```bash
 python3 moodle_cal_flet.py
 ```
 
-### GUI (Android APK)
-
-```bash
-flet build apk --org "com.yourorg" --product "Moodle Calendar"
-```
-
-Install the APK on your phone. The app stores data in its sandboxed directory and can share ICS files via the Android share sheet.
-
-### CLI
+### Desktop CLI
 
 ```bash
 # First-time auth
@@ -57,6 +51,23 @@ python3 moodle_cal.py --login
 # Fetch and generate outputs
 python3 moodle_cal.py
 ```
+
+### Android widget + app
+
+Build the APK:
+
+```bash
+cd android
+./gradlew assembleDebug
+```
+
+Install `android/app/build/outputs/apk/debug/app-debug.apk` on your phone.
+
+**First launch**: Open the app → enter your Moodle URL and web service token → tap "Save & Continue".
+
+**Daily use**: Long-press your home screen → add the "Moodle Bridge" widget → tap "Sync Now" → a notification appears → tap it to open the ICS in your calendar app.
+
+To get a Moodle web service token: Profile → Security keys → Create token.
 
 ### Desktop sync with Syncthing (optional)
 
@@ -98,20 +109,32 @@ All settings live in `config.json` (auto-created, gitignored):
 - **URL validation** — only HTTPS URLs accepted (rejected at input and before every API call)
 - **config.json permissions** — set to `chmod 600` (owner-only read/write)
 - **Clear credentials** button in GUI Settings wipes stored token
+- **Kotlin Android app** stores credentials in app-private SharedPreferences; token is entered directly (no password)
 - On Android, app data is sandboxed by the OS
 
 ## Project structure
 
 ```
 moodle-calendar-bridge/
-├── moodle_cal.py          # Core logic (stdlib-only)
-├── moodle_cal_flet.py     # Flet GUI (desktop + mobile)
-├── config.json            # Configuration (gitignored)
-├── langs.json             # Translations (en/es)
-├── sync_to_android.sh     # Desktop: run + trigger Syncthing
-├── import_fossify.sh      # Termux: open ICS in Fossify
+├── moodle_cal.py              # Core logic (stdlib-only)
+├── moodle_cal_flet.py         # Flet GUI (desktop)
+├── config.json                # Configuration (gitignored)
+├── langs.json                 # Translations (en/es)
+├── sync_to_android.sh         # Desktop: run + trigger Syncthing
+├── import_fossify.sh          # Termux: open ICS in Fossify
+├── android/                   # Kotlin Android app (widget + config)
+│   ├── app/
+│   │   ├── build.gradle.kts
+│   │   └── src/main/java/com/moodlebridge/
+│   │       ├── MainActivity.kt
+│   │       ├── data/           # ConfigStore, MoodleApi, IcsGenerator, Event
+│   │       ├── worker/         # SyncWorker (WorkManager)
+│   │       ├── widget/         # SyncWidget (Jetpack Glance)
+│   │       └── ui/             # SettingsScreen (Jetpack Compose)
+│   ├── build.gradle.kts
+│   └── settings.gradle.kts
 ├── README.md
-└── output/                # Generated files (gitignored)
+└── output/                     # Generated files (gitignored)
     ├── calendar.ics
     ├── calendar_new.ics
     ├── .event_cache.json
