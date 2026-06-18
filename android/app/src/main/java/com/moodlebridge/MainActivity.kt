@@ -289,10 +289,10 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                             }
                         }
                         Spacer(Modifier.height(12.dp))
-                        Text("Widget opacity", style = MaterialTheme.typography.labelMedium)
+                        Text("Default opacity (new widgets)", style = MaterialTheme.typography.labelMedium)
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("%.0f".format(widgetOpacity * 100), style = MaterialTheme.typography.bodySmall, modifier = Modifier.width(32.dp))
-                            Slider(value = widgetOpacity, onValueChange = { widgetOpacity = it; config.widgetOpacity = it }, valueRange = 0.1f..1.0f, modifier = Modifier.weight(1f))
+                            Slider(value = widgetOpacity, onValueChange = { widgetOpacity = it; config.widgetOpacity = it }, valueRange = 0f..1.0f, modifier = Modifier.weight(1f))
                         }
                         Spacer(Modifier.height(12.dp))
                         TextButton(onClick = {

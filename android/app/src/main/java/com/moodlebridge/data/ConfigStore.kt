@@ -88,6 +88,12 @@ class ConfigStore(context: Context) {
         get() = prefs.getFloat(KEY_WIDGET_OPACITY, 1.0f)
         set(value) = prefs.edit().putFloat(KEY_WIDGET_OPACITY, value).apply()
 
+    fun getWidgetOpacity(widgetId: String): Float =
+        prefs.getFloat("${KEY_WIDGET_OPACITY}_$widgetId", widgetOpacity)
+
+    fun setWidgetOpacity(widgetId: String, value: Float) =
+        prefs.edit().putFloat("${KEY_WIDGET_OPACITY}_$widgetId", value).apply()
+
     val isConfigured: Boolean
         get() = moodleUrl.isNotBlank() && (token.isNotBlank() || (username.isNotBlank() && password.isNotBlank()))
 

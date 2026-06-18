@@ -25,6 +25,16 @@
             android:theme="@style/Theme.MoodleBridge.Dialog"
             android:excludeFromRecents="true" />
 
+        <activity
+            android:name=".widget.OpacitySliderActivity"
+            android:exported="true"
+            android:theme="@style/Theme.MoodleBridge.SliderOverlay"
+            android:excludeFromRecents="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
         <receiver
             android:name=".widget.SyncWidgetReceiver"
             android:exported="true">

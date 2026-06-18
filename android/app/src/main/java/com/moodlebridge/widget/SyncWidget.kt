@@ -1,17 +1,14 @@
 package com.moodlebridge.widget
 
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.action.ActionParameters
-import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
@@ -42,8 +39,9 @@ class SyncWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val config = ConfigStore(context)
+        val widgetId = id.toString()
         provideContent {
-            SyncWidgetContent(context, config)
+            SyncWidgetContent(context, config, widgetId)
         }
     }
 
@@ -73,11 +71,11 @@ class FetchAndSyncAction : ActionCallback {
 }
 
 @Composable
-private fun SyncWidgetContent(context: Context, config: ConfigStore) {
+private fun SyncWidgetContent(context: Context, config: ConfigStore, widgetId: String) {
     val lastSync = config.lastSyncTimestamp
     val message = config.lastSyncMessage
     val count = config.eventCount
-    val opacity = config.widgetOpacity.coerceIn(0f, 1f)
+    val opacity = config.getWidgetOpacity(widgetId).coerceIn(0f, 1f)
 
     val timeText = if (lastSync > 0) {
         val sdf = SimpleDateFormat("MMM dd HH:mm", Locale.getDefault())
@@ -86,67 +84,75 @@ private fun SyncWidgetContent(context: Context, config: ConfigStore) {
         "Not synced yet"
     }
 
-    val openApp = remember(context) {
-        ComponentName(context, com.moodlebridge.MainActivity::class.java)
-    }
-
     Column(
         modifier = GlanceModifier
             .fillMaxWidth()
-            .background(ColorProvider(Color(0xFFFFFFFF).copy(alpha = opacity)))
-            .clickable(actionStartActivity(openApp))
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .background(ColorProvider(Color(0xFF1C1C1E).copy(alpha = opacity)))
     ) {
-        Text(
-            text = "Moodle Bridge",
-            style = TextStyle(
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
-            ),
-            modifier = GlanceModifier.padding(bottom = 4.dp),
-        )
-
-        Text(
-            text = timeText,
-            style = TextStyle(fontSize = 11.sp),
-            modifier = GlanceModifier.padding(bottom = 2.dp),
-        )
-
-        if (message.isNotBlank()) {
-            Text(
-                text = message,
-                style = TextStyle(fontSize = 11.sp),
-                modifier = GlanceModifier.padding(bottom = 6.dp),
-            )
-        }
-
-        if (count > 0) {
-            Text(
-                text = "$count upcoming event(s)",
-                style = TextStyle(fontSize = 11.sp),
-                modifier = GlanceModifier.padding(bottom = 8.dp),
-            )
-        }
-
-        Row(
-            modifier = GlanceModifier
-                .fillMaxWidth()
-                .height(40.dp)
-                .background(ColorProvider(Color(0xFF43A047)))
-                .clickable(actionRunCallback<FetchAndSyncAction>())
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+        Column(
+            modifier = GlanceModifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "Fetch && sync",
+                text = "Moodle Bridge",
                 style = TextStyle(
                     color = ColorProvider(Color(0xFFFFFFFF)),
                     fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp,
+                    fontSize = 14.sp,
                 ),
+                modifier = GlanceModifier.padding(bottom = 4.dp),
             )
+
+            Text(
+                text = timeText,
+                style = TextStyle(
+                    color = ColorProvider(Color(0xFFFFFFFF)),
+                    fontSize = 11.sp,
+                ),
+                modifier = GlanceModifier.padding(bottom = 2.dp),
+            )
+
+            if (message.isNotBlank()) {
+                Text(
+                    text = message,
+                    style = TextStyle(
+                        color = ColorProvider(Color(0xFFFFFFFF)),
+                        fontSize = 11.sp,
+                    ),
+                    modifier = GlanceModifier.padding(bottom = 6.dp),
+                )
+            }
+
+            if (count > 0) {
+                Text(
+                    text = "$count upcoming event(s)",
+                    style = TextStyle(
+                        color = ColorProvider(Color(0xFFFFFFFF)),
+                        fontSize = 11.sp,
+                    ),
+                    modifier = GlanceModifier.padding(bottom = 8.dp),
+                )
+            }
+
+            Row(
+                modifier = GlanceModifier
+                    .fillMaxWidth()
+                    .height(40.dp)
+                    .background(ColorProvider(Color(0xFF1976D2)))
+                    .clickable(actionRunCallback<FetchAndSyncAction>())
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "Fetch && sync",
+                    style = TextStyle(
+                        color = ColorProvider(Color(0xFFFFFFFF)),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                    ),
+                )
+            }
         }
     }
 }
