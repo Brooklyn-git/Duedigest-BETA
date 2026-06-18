@@ -1,7 +1,9 @@
 package com.moodlebridge.data
 
 import android.net.Uri
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.IOException
@@ -83,6 +85,29 @@ class MoodleApi(
     }
 
     companion object {
+        fun login(baseUrl: String, username: String, password: String): String {
+            val client = OkHttpClient.Builder()
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS)
+                .build()
+            val url = "${baseUrl.trimEnd('/')}/login/token.php"
+            val body = FormBody.Builder()
+                .add("username", username)
+                .add("password", password)
+                .add("service", "moodle_mobile_app")
+                .build()
+            val request = Request.Builder()
+                .url(url)
+                .post(body)
+                .build()
+            val response = client.newCall(request).execute()
+            val responseBody = response.body?.string() ?: throw IOException("Empty login response")
+            val json = Json { ignoreUnknownKeys = true }
+            val result = json.decodeFromString<LoginResponse>(responseBody)
+            if (result.token != null) return result.token
+            throw IOException(result.error ?: "Login failed")
+        }
+
         private fun Map<String, String>.toQueryString(): String =
             entries.joinToString("&") { "${it.key}=${Uri.encode(it.value)}" }
 
@@ -99,6 +124,12 @@ class MoodleApi(
     }
 }
 
+@Serializable
+private data class LoginResponse(
+    val token: String? = null,
+    val error: String? = null,
+)
+
 private fun MoodleEvent.toEvent() = Event(
     id = id?.toString() ?: "unknown",
     name = name ?: "Untitled",
@@ -108,5 +139,5 @@ private fun MoodleEvent.toEvent() = Event(
     eventtype = eventtype ?: "",
     url = url ?: "",
     course = course?.shortname ?: "",
-    modname = modname ?: "",
+    modname = modulename ?: "",
 )

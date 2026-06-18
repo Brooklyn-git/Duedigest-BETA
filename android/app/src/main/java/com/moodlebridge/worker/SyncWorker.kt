@@ -12,6 +12,8 @@ import com.moodlebridge.data.ConfigStore
 import com.moodlebridge.data.IcsGenerator
 import com.moodlebridge.data.MoodleApi
 import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class SyncWorker(
     context: Context,
@@ -25,22 +27,36 @@ class SyncWorker(
             return Result.failure()
         }
 
+        if (config.token.isBlank()) {
+            val newToken = try {
+                withContext(Dispatchers.IO) {
+                    MoodleApi.login(config.moodleUrl, config.username, config.password)
+                }
+            } catch (e: Exception) {
+                config.lastSyncMessage = "Auth failed: ${e.message}"
+                return Result.failure()
+            }
+            config.token = newToken
+        }
+
         val api = MoodleApi(config.moodleUrl, config.token)
 
         return try {
-            val events = api.fetchEvents()
-            val ics = IcsGenerator.generate(events)
+            val events = api.fetchEvents(config.fetchDaysBack, config.fetchLimit)
 
-            val icsDir = File(applicationContext.cacheDir, "ics")
-            icsDir.mkdirs()
-            val icsFile = File(icsDir, "calendar.ics")
-            icsFile.writeText(ics)
+            if (config.icsEnabled) {
+                val ics = IcsGenerator.generate(events)
+                val icsDir = File(applicationContext.cacheDir, "ics")
+                icsDir.mkdirs()
+                val icsFile = File(icsDir, "calendar.ics")
+                icsFile.writeText(ics)
+            }
 
             config.lastSyncTimestamp = System.currentTimeMillis()
             config.lastSyncMessage = "Synced ${events.size} events"
             config.eventCount = events.size
 
-            notifyIcsFile(icsFile, events.size)
+            notifyResult(events.size)
             Result.success()
         } catch (e: Exception) {
             config.lastSyncMessage = "Error: ${e.message ?: "Unknown"}"
@@ -53,15 +69,16 @@ class SyncWorker(
         }
     }
 
-    private fun notifyIcsFile(icsFile: File, eventCount: Int) {
-        val uri = FileProvider.getUriForFile(
-            applicationContext,
-            "${applicationContext.packageName}.fileprovider",
-            icsFile,
-        )
-
+    private fun notifyResult(eventCount: Int) {
         val openIntent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, "text/calendar")
+            setDataAndType(
+                FileProvider.getUriForFile(
+                    applicationContext,
+                    "${applicationContext.packageName}.fileprovider",
+                    File(applicationContext.cacheDir, "ics/calendar.ics"),
+                ),
+                "text/calendar",
+            )
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }

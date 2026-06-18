@@ -16,9 +16,61 @@ class ConfigStore(context: Context) {
         get() = prefs.getString(KEY_TOKEN, "") ?: ""
         set(value) = prefs.edit().putString(KEY_TOKEN, value).apply()
 
+    var username: String
+        get() = prefs.getString(KEY_USERNAME, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_USERNAME, value).apply()
+
+    var password: String
+        get() = prefs.getString(KEY_PASSWORD, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_PASSWORD, value).apply()
+
+    var savePassword: Boolean
+        get() = prefs.getBoolean(KEY_SAVE_PW, false)
+        set(value) = prefs.edit().putBoolean(KEY_SAVE_PW, value).apply()
+
     var timezone: String
-        get() = prefs.getString(KEY_TZ, "UTC") ?: "UTC"
+        get() = prefs.getString(KEY_TZ, "") ?: ""
         set(value) = prefs.edit().putString(KEY_TZ, value).apply()
+
+    var icsEnabled: Boolean
+        get() = prefs.getBoolean(KEY_ICS, true)
+        set(value) = prefs.edit().putBoolean(KEY_ICS, value).apply()
+
+    var logseqEnabled: Boolean
+        get() = prefs.getBoolean(KEY_LOGSEQ, false)
+        set(value) = prefs.edit().putBoolean(KEY_LOGSEQ, value).apply()
+
+    var obsidianEnabled: Boolean
+        get() = prefs.getBoolean(KEY_OBSIDIAN, false)
+        set(value) = prefs.edit().putBoolean(KEY_OBSIDIAN, value).apply()
+
+    var icsPath: String
+        get() = prefs.getString(KEY_ICS_PATH, "calendar.ics") ?: "calendar.ics"
+        set(value) = prefs.edit().putString(KEY_ICS_PATH, value).apply()
+
+    var logseqPath: String
+        get() = prefs.getString(KEY_LOGSEQ_PATH, "logseq/") ?: "logseq/"
+        set(value) = prefs.edit().putString(KEY_LOGSEQ_PATH, value).apply()
+
+    var obsidianPath: String
+        get() = prefs.getString(KEY_OBSIDIAN_PATH, "obsidian/") ?: "obsidian/"
+        set(value) = prefs.edit().putString(KEY_OBSIDIAN_PATH, value).apply()
+
+    var fetchDaysBack: Int
+        get() = prefs.getInt(KEY_DAYS_BACK, 7)
+        set(value) = prefs.edit().putInt(KEY_DAYS_BACK, value).apply()
+
+    var fetchLimit: Int
+        get() = prefs.getInt(KEY_FETCH_LIMIT, 100)
+        set(value) = prefs.edit().putInt(KEY_FETCH_LIMIT, value).apply()
+
+    var language: String
+        get() = (prefs.getString(KEY_LANG, "en") ?: "").takeIf { it.isNotBlank() } ?: "en"
+        set(value) = prefs.edit().putString(KEY_LANG, value).apply()
+
+    var themeMode: String
+        get() = prefs.getString(KEY_THEME, "system") ?: "system"
+        set(value) = prefs.edit().putString(KEY_THEME, value).apply()
 
     var lastSyncTimestamp: Long
         get() = prefs.getLong(KEY_LAST_SYNC, 0L)
@@ -33,18 +85,31 @@ class ConfigStore(context: Context) {
         set(value) = prefs.edit().putInt(KEY_EVENT_COUNT, value).apply()
 
     val isConfigured: Boolean
-        get() = moodleUrl.isNotBlank() && token.isNotBlank()
+        get() = moodleUrl.isNotBlank() && (token.isNotBlank() || (username.isNotBlank() && password.isNotBlank()))
 
     fun clear() {
         prefs.edit().clear().apply()
     }
 
-    companion object {
-        private const val KEY_URL = "moodle_url"
-        private const val KEY_TOKEN = "token"
-        private const val KEY_TZ = "timezone"
-        private const val KEY_LAST_SYNC = "last_sync"
-        private const val KEY_SYNC_MSG = "sync_msg"
-        private const val KEY_EVENT_COUNT = "event_count"
+    private companion object {
+        const val KEY_URL = "moodle_url"
+        const val KEY_TOKEN = "token"
+        const val KEY_USERNAME = "username"
+        const val KEY_PASSWORD = "password"
+        const val KEY_SAVE_PW = "save_password"
+        const val KEY_TZ = "timezone"
+        const val KEY_ICS = "ics_enabled"
+        const val KEY_LOGSEQ = "logseq_enabled"
+        const val KEY_OBSIDIAN = "obsidian_enabled"
+        const val KEY_ICS_PATH = "ics_path"
+        const val KEY_LOGSEQ_PATH = "logseq_path"
+        const val KEY_OBSIDIAN_PATH = "obsidian_path"
+        const val KEY_DAYS_BACK = "fetch_days_back"
+        const val KEY_FETCH_LIMIT = "fetch_limit"
+        const val KEY_LANG = "language"
+        const val KEY_THEME = "theme_mode"
+        const val KEY_LAST_SYNC = "last_sync"
+        const val KEY_SYNC_MSG = "sync_msg"
+        const val KEY_EVENT_COUNT = "event_count"
     }
 }

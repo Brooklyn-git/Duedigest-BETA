@@ -1,10 +1,12 @@
 package com.moodlebridge.widget
 
+import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
-import android.graphics.Color
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.action.actionStartActivity
@@ -18,10 +20,10 @@ import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.padding
-import androidx.glance.layout.dp
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
+import androidx.glance.unit.ColorProvider
 import com.moodlebridge.MainActivity
 import com.moodlebridge.data.ConfigStore
 import java.text.SimpleDateFormat
@@ -59,11 +61,8 @@ private fun SyncWidgetContent(context: Context, config: ConfigStore) {
         "Not synced yet"
     }
 
-    val intent = remember(context) {
-        Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            putExtra("sync", true)
-        }
+    val componentName = remember(context) {
+        ComponentName(context, MainActivity::class.java)
     }
 
     Column(
@@ -76,21 +75,21 @@ private fun SyncWidgetContent(context: Context, config: ConfigStore) {
             text = "Moodle Bridge",
             style = TextStyle(
                 fontWeight = FontWeight.Bold,
-                fontSize = 14.dp,
+                fontSize = 14.sp,
             ),
             modifier = GlanceModifier.padding(bottom = 4.dp),
         )
 
         Text(
             text = timeText,
-            style = TextStyle(fontSize = 11.dp),
+            style = TextStyle(fontSize = 11.sp),
             modifier = GlanceModifier.padding(bottom = 2.dp),
         )
 
         if (message.isNotBlank()) {
             Text(
                 text = message,
-                style = TextStyle(fontSize = 11.dp),
+                style = TextStyle(fontSize = 11.sp),
                 modifier = GlanceModifier.padding(bottom = 6.dp),
             )
         }
@@ -98,7 +97,7 @@ private fun SyncWidgetContent(context: Context, config: ConfigStore) {
         if (count > 0) {
             Text(
                 text = "$count upcoming event(s)",
-                style = TextStyle(fontSize = 11.dp),
+                style = TextStyle(fontSize = 11.sp),
                 modifier = GlanceModifier.padding(bottom = 8.dp),
             )
         }
@@ -106,8 +105,8 @@ private fun SyncWidgetContent(context: Context, config: ConfigStore) {
         Row(
             modifier = GlanceModifier
                 .fillMaxWidth()
-                .background(Color(0xFF1976D2))
-                .clickable(actionStartActivity(intent))
+                .background(ColorProvider(Color(0xFF1976D2)))
+                .clickable(actionStartActivity(componentName))
                 .padding(horizontal = 16.dp, vertical = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalAlignment = Alignment.CenterVertically,
@@ -115,9 +114,9 @@ private fun SyncWidgetContent(context: Context, config: ConfigStore) {
             Text(
                 text = "Sync Now",
                 style = TextStyle(
-                    color = Color.WHITE,
+                    color = ColorProvider(Color(0xFFFFFFFF)),
                     fontWeight = FontWeight.Bold,
-                    fontSize = 13.dp,
+                    fontSize = 13.sp,
                 ),
             )
         }

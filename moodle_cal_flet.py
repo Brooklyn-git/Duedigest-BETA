@@ -179,7 +179,6 @@ async def main(page: ft.Page):
 
     # ── Platform detection ─────────────────────────────────────────
     is_mobile = page.platform in (ft.PagePlatform.ANDROID, ft.PagePlatform.IOS)
-    share_ctrl = ft.Share() if is_mobile else None
 
     # ── Settings dialog ───────────────────────────────────────────
     def open_settings(e):
@@ -262,15 +261,10 @@ async def main(page: ft.Page):
         expand=True,
     )
 
-    tz_list = sorted(zoneinfo.available_timezones())
-    tz_options = [ft.DropdownOption(key=z, text=z) for z in tz_list]
-
-    timezone_field = ft.Dropdown(
+    timezone_field = ft.TextField(
         label=_tr("timezone"),
-        options=tz_options,
-        value=config.get("timezone", "") or None,
+        value=config.get("timezone", ""),
         expand=True,
-        enable_search=True,
     )
 
     conn_tip = ft.Text(
@@ -344,6 +338,8 @@ async def main(page: ft.Page):
             page.update()
 
     def _path_row(field, browse_handler):
+        if is_mobile:
+            return field
         btn = ft.IconButton(
             icon=ft.Icons.FOLDER_OPEN,
             tooltip=_tr("browse"),
@@ -570,8 +566,13 @@ async def main(page: ft.Page):
                 content=ft.Text(_tr("no_ics")),
             ))
             return
-        if is_mobile and share_ctrl:
-            share_ctrl.share_files([ft.ShareFile(path=str(full))])
+        if is_mobile:
+            page.set_clipboard(str(full))
+            page.launch_url(f"file://{full}")
+            page.show_dialog(ft.AlertDialog(
+                title=ft.Text(_tr("share_ics")),
+                content=ft.Text(_tr("share_mobile_hint").format(str(full))),
+            ))
         else:
             page.launch_url(f"file://{full}")
             page.show_dialog(ft.AlertDialog(
@@ -617,8 +618,6 @@ async def main(page: ft.Page):
 
     # ── Assemble page ────────────────────────────────────────────
     page.title = _tr("app_title")
-    if share_ctrl:
-        page.overlay.append(share_ctrl)
 
     page.add(
         ft.Column(
