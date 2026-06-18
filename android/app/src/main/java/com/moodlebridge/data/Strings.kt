@@ -42,6 +42,7 @@ object Strings {
         "theme_dark" to "Dark",
         "accept" to "Accept",
         "cancel" to "Cancel",
+        "browse" to "Browse",
         "clear_creds" to "Delete user data",
     )
 
@@ -85,6 +86,7 @@ object Strings {
         "theme_dark" to "Oscuro",
         "accept" to "Aceptar",
         "cancel" to "Cancelar",
+        "browse" to "Examinar",
         "clear_creds" to "Borrar datos de usuario",
     )
 
