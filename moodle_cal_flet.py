@@ -6,7 +6,9 @@ Run with:  flet run moodle_cal_flet.py
 Build APK: flet build apk --org "com.yourorg" --product "Moodle Calendar"
 """
 
+import asyncio
 import json
+import subprocess
 import threading
 import zoneinfo
 from pathlib import Path
@@ -14,6 +16,33 @@ from pathlib import Path
 import moodle_cal as core
 
 import flet as ft
+
+
+def _native_save_file():
+    try:
+        r = subprocess.run(
+            ["zenity", "--file-selection", "--save", "--filename=calendar.ics",
+             "--title=Save ICS file"],
+            capture_output=True, text=True, timeout=60,
+        )
+        if r.returncode == 0:
+            return r.stdout.strip()
+    except FileNotFoundError:
+        pass
+    return None
+
+
+def _native_pick_directory(title="Select directory"):
+    try:
+        r = subprocess.run(
+            ["zenity", "--file-selection", "--directory", f"--title={title}"],
+            capture_output=True, text=True, timeout=60,
+        )
+        if r.returncode == 0:
+            return r.stdout.strip()
+    except FileNotFoundError:
+        pass
+    return None
 
 with open(Path(__file__).parent / "langs.json") as _f:
     LANG = json.load(_f)
@@ -25,7 +54,7 @@ THEME_MAP = {
 }
 
 
-def main(page: ft.Page):
+async def main(page: ft.Page):
     page.padding = 20
     page.spacing = 0
 
@@ -279,6 +308,7 @@ def main(page: ft.Page):
     obsidian_check = ft.Checkbox(label=_tr("obsidian_label"), value=config.get("output", {}).get("obsidian", True))
 
     paths = config.get("paths", {})
+
     ics_path_field = ft.TextField(
         label=_tr("ics_file"),
         value=paths.get("ics", "output/calendar.ics"),
@@ -294,6 +324,32 @@ def main(page: ft.Page):
         value=paths.get("obsidian", "output/obsidian/"),
         expand=True,
     )
+
+    async def _browse_ics(e):
+        path = await asyncio.to_thread(_native_save_file)
+        if path:
+            ics_path_field.value = path
+            page.update()
+
+    async def _browse_logseq(e):
+        path = await asyncio.to_thread(_native_pick_directory, "Select Logseq directory")
+        if path:
+            logseq_path_field.value = path
+            page.update()
+
+    async def _browse_obsidian(e):
+        path = await asyncio.to_thread(_native_pick_directory, "Select Obsidian directory")
+        if path:
+            obsidian_path_field.value = path
+            page.update()
+
+    def _path_row(field, browse_handler):
+        btn = ft.IconButton(
+            icon=ft.Icons.FOLDER_OPEN,
+            tooltip=_tr("browse"),
+            on_click=browse_handler,
+        )
+        return ft.Row([field, btn], spacing=4, vertical_alignment=ft.CrossAxisAlignment.CENTER)
 
     fmt_heading = ft.Text(_tr("formats"), weight=ft.FontWeight.BOLD, size=13)
     _txt["formats"] = fmt_heading
@@ -337,9 +393,9 @@ def main(page: ft.Page):
                 content=ft.Column(
                     [
                         paths_heading,
-                        ics_path_field,
-                        logseq_path_field,
-                        obsidian_path_field,
+                        _path_row(ics_path_field, _browse_ics),
+                        _path_row(logseq_path_field, _browse_logseq),
+                        _path_row(obsidian_path_field, _browse_obsidian),
                     ],
                     spacing=8,
                 ),
@@ -563,6 +619,7 @@ def main(page: ft.Page):
     page.title = _tr("app_title")
     if share_ctrl:
         page.overlay.append(share_ctrl)
+
     page.add(
         ft.Column(
             [

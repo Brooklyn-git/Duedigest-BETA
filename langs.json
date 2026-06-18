@@ -46,6 +46,7 @@
     "fetch_days": "Days to look back",
     "fetch_limit": "Max events",
     "fetch_params": "Fetch Options",
+    "browse": "Browse",
     "login_failed_again": "Login failed again: {}"
   },
   "es": {
@@ -95,6 +96,7 @@
     "fetch_days": "D\u00edas hacia atr\u00e1s",
     "fetch_limit": "M\u00e1x. eventos",
     "fetch_params": "Opciones de obtenci\u00f3n",
+    "browse": "Examinar",
     "login_failed_again": "Inicio de sesi\u00f3n fallido nuevamente: {}"
   }
 }
