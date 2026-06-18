@@ -1,14 +1,17 @@
 package com.moodlebridge.widget
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.action.ActionParameters
+import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
@@ -83,10 +86,15 @@ private fun SyncWidgetContent(context: Context, config: ConfigStore) {
         "Not synced yet"
     }
 
+    val openApp = remember(context) {
+        ComponentName(context, com.moodlebridge.MainActivity::class.java)
+    }
+
     Column(
         modifier = GlanceModifier
             .fillMaxWidth()
             .background(ColorProvider(Color(0xFFFFFFFF).copy(alpha = opacity)))
+            .clickable(actionStartActivity(openApp))
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
