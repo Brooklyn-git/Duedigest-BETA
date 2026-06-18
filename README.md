@@ -1,42 +1,43 @@
 # Moodle Calendar Bridge
 
-Extracts assignments and deadlines from Moodle and outputs to ICS (for calendar apps), Logseq, and Obsidian.
+Fetches deadlines and activities from Moodle and pushes them to your calendar app. Desktop (Python) and Android (Kotlin) are fully featured — both can log in, fetch, and generate ICS/Markdown. The Android app also includes a home screen widget for one-tap sync.
 
 | Platform | Interface | Stack |
 |----------|-----------|-------|
-| **Desktop** (Linux/Mac/Windows) | CLI + GUI | Python (Flet) |
-| **Android** | Home screen widget + config app | Kotlin (Jetpack Glance) |
+| **Desktop** (Linux/Mac/Windows) | CLI + GUI | Python (stdlib + Flet) |
+| **Android** | App + home screen widget | Kotlin (Compose, Jetpack Glance, WorkManager, OkHttp) |
 
 ## Features
 
 - Fetches upcoming deadlines via Moodle REST API (`core_calendar_get_action_events_by_timesort` + `mod_assign_get_assignments`)
-- **ICS** — imports into Fossify Calendar, Google Calendar, Thunderbird, etc.
+- **ICS** — RFC 5545, importable into any calendar app
 - **Logseq** — Markdown pages with `DEADLINE:` property
-- **Obsidian** — Markdown notes with `due:` in YAML frontmatter
+- **Obsidian** — Markdown daily notes with `due:` in YAML frontmatter
 - **Event caching** — detects new/changed events, generates delta ICS (`calendar_new.ics`)
-- **Auto-reauth** — token expired? Re-logs in automatically
-- **Configurable fetch window** — how many days back, max events
-- **Android home screen widget** — one-tap sync from your home screen
-- **Notification on sync** — tap notification to open ICS in your calendar app
+- **Auto-reauth** — re-logs in automatically when token expires
+- **Configurable fetch window** — days back and event limit
+- **Android app** — login, fetch events, generate ICS and MD, settings (theme, language), widget.
+- **Android home screen widget** — per-instance opacity, one-tap sync from your home screen
+- **Widget opacity** — adjustable per widget on first placement (slider + confirm), or globally from app settings
+- **Sync notification** — tap to open ICS in your calendar app
 - **i18n** — English and Spanish
-- **Dark/Light/System theme**
+- **Dark / Light / System theme**
 
 ## Requirements
 
 ### Desktop (Python)
 
 - Python 3.9+
-- `flet` (for the GUI — `pip install flet`)
-- Core logic uses **stdlib only**
+- `flet` for the GUI (`pip install flet`; core logic is stdlib-only)
 
-### Android (Kotlin widget)
+### Android
 
-- [Android Studio](https://developer.android.com/studio) (or JDK 17+ + Android SDK)
-- A device running Android 8.0+ (API 26)
+- [Android Studio](https://developer.android.com/studio) or JDK 17+ + Android SDK
+- Device running Android 8.0+ (API 26)
 
 ## Usage
 
-### Desktop GUI (Linux/Mac/Windows)
+### Desktop GUI
 
 ```bash
 python3 moodle_cal_flet.py
@@ -52,7 +53,7 @@ python3 moodle_cal.py --login
 python3 moodle_cal.py
 ```
 
-### Android widget + app
+### Android app + widget
 
 Build the APK:
 
@@ -63,35 +64,24 @@ cd android
 
 Install `android/app/build/outputs/apk/debug/app-debug.apk` on your phone.
 
-**First launch**: Open the app → enter your Moodle URL and web service token → tap "Save & Continue".
+**First launch**: Open the app → enter Moodle URL, username, password → tap "Fetch". The app supports ICS generation, Logseq/Obsidian Markdown, event caching, theme switching, and language selection — same capabilities as the desktop version.
 
-**Daily use**: Long-press your home screen → add the "Moodle Bridge" widget → tap "Sync Now" → a notification appears → tap it to open the ICS in your calendar app.
+**Widget** (extra): Long-press home screen → add "Moodle Bridge" widget → configure opacity with the slider → tap "Confirm". The widget shows the last sync state and a "Fetch && sync" button.
 
-To get a Moodle web service token: Profile → Security keys → Create token.
+**Sync from widget**: Tap "Fetch && sync" → notification appears with the result → tap it to open the ICS in your calendar app.
 
-### Desktop sync with Syncthing (optional)
-
-```bash
-./sync_to_android.sh   # runs script + triggers Syncthing rescan
-```
-
-### Termux (optional)
-
-```bash
-./import_fossify.sh    # opens ICS in Fossify Calendar
-```
 
 ## Configuration
 
-All settings live in `config.json` (auto-created, gitignored):
+### Desktop (`config.json`)
 
 | Key | Default | Description |
 |---|---|---|
-| `moodle_url` | `https://` | Your Moodle instance |
-| `token` | `""` | Moodle web service token (set via `--login` or GUI auth) |
+| `moodle_url` | — | Your Moodle instance URL |
+| `token` | `""` | Web service token (set via `--login` or GUI login) |
 | `username` | `""` | Moodle username |
-| `save_password` | `false` | Persist password to disk (not recommended) |
-| `timezone` | auto-detect | IANA timezone (e.g. `America/Hermosillo`) |
+| `save_password` | `false` | Persist password (not recommended) |
+| `timezone` | auto-detect | IANA timezone, e.g. `America/Hermosillo` |
 | `language` | `en` | `en` or `es` |
 | `theme_mode` | `system` | `system`, `light`, or `dark` |
 | `output.ics` | `true` | Generate ICS file |
@@ -100,44 +90,47 @@ All settings live in `config.json` (auto-created, gitignored):
 | `paths.ics` | `output/calendar.ics` | ICS output path |
 | `paths.logseq` | `output/logseq/` | Logseq output directory |
 | `paths.obsidian` | `output/obsidian/` | Obsidian output directory |
-| `fetch_days_back` | `7` | How many days back to look for events |
-| `fetch_limit` | `100` | Maximum events to fetch per request |
+| `fetch_days_back` | `7` | Days back to look for events |
+| `fetch_limit` | `100` | Max events per request |
 
-## Security
+### Android (in-app settings)
 
-- **Password never stored by default** — discarded after login; only the token is kept
-- **URL validation** — only HTTPS URLs accepted (rejected at input and before every API call)
-- **config.json permissions** — set to `chmod 600` (owner-only read/write)
-- **Clear credentials** button in GUI Settings wipes stored token
-- **Kotlin Android app** stores credentials in app-private SharedPreferences; token is entered directly (no password)
-- On Android, app data is sandboxed by the OS
+The Android app stores credentials, preferences, and per-widget opacity in app-private SharedPreferences. Configure via the app's settings screen.
 
 ## Project structure
 
 ```
 moodle-calendar-bridge/
-├── moodle_cal.py              # Core logic (stdlib-only)
-├── moodle_cal_flet.py         # Flet GUI (desktop)
-├── config.json                # Configuration (gitignored)
+├── moodle_cal.py              # Core logic — fetch, parse, generate outputs (stdlib-only)
+├── moodle_cal_flet.py         # Desktop GUI (Flet)
+├── config.json                # Desktop configuration (gitignored)
 ├── langs.json                 # Translations (en/es)
-├── sync_to_android.sh         # Desktop: run + trigger Syncthing
-├── import_fossify.sh          # Termux: open ICS in Fossify
-├── android/                   # Kotlin Android app (widget + config)
+├── android/                   # Kotlin Android app
 │   ├── app/
 │   │   ├── build.gradle.kts
-│   │   └── src/main/java/com/moodlebridge/
-│   │       ├── MainActivity.kt
-│   │       ├── data/           # ConfigStore, MoodleApi, IcsGenerator, Event
-│   │       ├── worker/         # SyncWorker (WorkManager)
-│   │       ├── widget/         # SyncWidget (Jetpack Glance)
-│   │       └── ui/             # SettingsScreen (Jetpack Compose)
+│   │   └── src/main/
+│   │       ├── AndroidManifest.xml
+│   │       ├── res/
+│   │       │   ├── layout/sync_widget_initial.xml
+│   │       │   ├── values/strings.xml, themes.xml
+│   │       │   └── xml/sync_widget_info.xml, file_paths.xml
+│   │       └── java/com/moodlebridge/
+│   │           ├── MainActivity.kt           # App UI + settings (Compose)
+│   │           ├── PasswordPromptActivity.kt  # Quick password prompt
+│   │           ├── data/                      # ConfigStore, MoodleApi, IcsGenerator, Strings
+│   │           ├── worker/SyncWorker.kt       # Background sync (WorkManager)
+│   │           └── widget/                    # SyncWidget (Glance), OpacitySliderActivity
 │   ├── build.gradle.kts
 │   └── settings.gradle.kts
-├── README.md
-└── output/                     # Generated files (gitignored)
-    ├── calendar.ics
-    ├── calendar_new.ics
-    ├── .event_cache.json
-    ├── logseq/
-    └── obsidian/
+├── AGENTS.md                  # Dev notes (architecture, API, design decisions)
+├── LICENSE
+└── README.md
 ```
+
+## Security
+
+- **Password never stored by default** — discarded after login; only the token is kept
+- **URL validation** — only HTTPS URLs accepted
+- **config.json permissions** — set to `chmod 600` (owner-only read/write)
+- **Clear credentials** button in settings wipes stored token
+- **Android** stores data in app-private SharedPreferences, sandboxed by the OS
