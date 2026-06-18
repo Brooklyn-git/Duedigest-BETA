@@ -19,6 +19,12 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".PasswordPromptActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MoodleBridge.Dialog"
+            android:excludeFromRecents="true" />
+
         <receiver
             android:name=".widget.SyncWidgetReceiver"
             android:exported="true">

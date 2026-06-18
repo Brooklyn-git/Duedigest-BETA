@@ -24,20 +24,27 @@ class SyncWorker(
         val config = ConfigStore(applicationContext)
         if (!config.isConfigured) {
             config.lastSyncMessage = "Not configured"
+            notifyNeedConfig()
             return Result.failure()
         }
 
-        if (config.token.isBlank()) {
-            val newToken = try {
-                withContext(Dispatchers.IO) {
-                    MoodleApi.login(config.moodleUrl, config.username, config.password)
-                }
-            } catch (e: Exception) {
-                config.lastSyncMessage = "Auth failed: ${e.message}"
-                return Result.failure()
-            }
-            config.token = newToken
+        val overridePassword = inputData.getString("override_password") ?: ""
+        val pw = if (overridePassword.isNotBlank()) overridePassword else config.password
+        if (pw.isBlank()) {
+            config.lastSyncMessage = "Password needed"
+            notifyNeedPassword()
+            return Result.failure()
         }
+
+        val newToken = try {
+            withContext(Dispatchers.IO) {
+                MoodleApi.login(config.moodleUrl, config.username, pw)
+            }
+        } catch (e: Exception) {
+            config.lastSyncMessage = "Auth failed: ${e.message}"
+            return Result.failure()
+        }
+        config.token = newToken
 
         val api = MoodleApi(config.moodleUrl, config.token)
 
@@ -50,6 +57,9 @@ class SyncWorker(
                 icsDir.mkdirs()
                 val icsFile = File(icsDir, "calendar.ics")
                 icsFile.writeText(ics)
+
+                // Auto-open ICS with default calendar app
+                openIcsInCalendar()
             }
 
             config.lastSyncTimestamp = System.currentTimeMillis()
@@ -67,6 +77,54 @@ class SyncWorker(
             }
             Result.retry()
         }
+    }
+
+    private fun openIcsInCalendar() {
+        val icsFile = File(applicationContext.cacheDir, "ics/calendar.ics")
+        if (!icsFile.exists()) return
+        val uri = FileProvider.getUriForFile(applicationContext, "${applicationContext.packageName}.fileprovider", icsFile)
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "text/calendar")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        applicationContext.startActivity(intent)
+    }
+
+    private fun notifyNeedPassword() {
+        val intent = Intent(applicationContext, com.moodlebridge.MainActivity::class.java).apply {
+            putExtra("sync", "true")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        }
+        val pendingIntent = android.app.PendingIntent.getActivity(
+            applicationContext, 2, intent,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE,
+        )
+        val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_menu_info_details)
+            .setContentTitle("Moodle Sync")
+            .setContentText("Password needed — tap to enter")
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .build()
+        NotificationManagerCompat.from(applicationContext).notify(2, notification)
+    }
+
+    private fun notifyNeedConfig() {
+        val intent = Intent(applicationContext, com.moodlebridge.MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        }
+        val pendingIntent = android.app.PendingIntent.getActivity(
+            applicationContext, 3, intent,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE,
+        )
+        val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_menu_info_details)
+            .setContentTitle("Moodle Sync")
+            .setContentText("Configure the app first")
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .build()
+        NotificationManagerCompat.from(applicationContext).notify(3, notification)
     }
 
     private fun notifyResult(eventCount: Int) {

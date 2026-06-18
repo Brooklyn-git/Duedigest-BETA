@@ -84,6 +84,10 @@ class ConfigStore(context: Context) {
         get() = prefs.getInt(KEY_EVENT_COUNT, 0)
         set(value) = prefs.edit().putInt(KEY_EVENT_COUNT, value).apply()
 
+    var widgetOpacity: Float
+        get() = prefs.getFloat(KEY_WIDGET_OPACITY, 1.0f)
+        set(value) = prefs.edit().putFloat(KEY_WIDGET_OPACITY, value).apply()
+
     val isConfigured: Boolean
         get() = moodleUrl.isNotBlank() && (token.isNotBlank() || (username.isNotBlank() && password.isNotBlank()))
 
@@ -111,5 +115,6 @@ class ConfigStore(context: Context) {
         const val KEY_LAST_SYNC = "last_sync"
         const val KEY_SYNC_MSG = "sync_msg"
         const val KEY_EVENT_COUNT = "event_count"
+        const val KEY_WIDGET_OPACITY = "widget_opacity"
     }
 }

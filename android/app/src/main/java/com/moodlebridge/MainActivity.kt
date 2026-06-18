@@ -48,6 +48,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Tab
@@ -62,6 +63,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -98,7 +100,7 @@ class MainActivity : ComponentActivity() {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
                 registerForActivityResult(ActivityResultContracts.RequestPermission()) { }.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
-        setContent { MainContent(config = config, autoSync = intent?.getBooleanExtra("sync", false) == true) }
+        setContent { MainContent(config = config, autoSync = intent?.getStringExtra("sync") == "true") }
     }
     private fun createNotificationChannel() {
         val ch = NotificationChannel(SyncWorker.CHANNEL_ID, "Moodle Sync", NotificationManager.IMPORTANCE_DEFAULT)
@@ -145,8 +147,19 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     var statusText by remember { mutableStateOf(config.lastSyncMessage) }
     val logLines = remember { mutableStateListOf<String>() }
     var tzExpanded by remember { mutableStateOf(false) }
+    var widgetOpacity by remember { mutableFloatStateOf(config.widgetOpacity) }
 
     fun addLog(msg: String) { logLines.add(msg) }
+
+    fun doSync(pw: String) {
+        isWorking = true; logLines.clear(); statusText = ""
+        scope.launch {
+            doFetch(context, config, url, username, pw, tz, savePw,
+                icsEnabled, logseqEnabled, obsidianEnabled, icsPath, logseqPath, obsidianPath,
+                daysBackText, limitText, lang, { addLog(it) }, { statusText = it }, { errorDialogMsg = it },
+                { isWorking = false })
+        }
+    }
 
     MoodleBridgeTheme(themeMode = themeMode) {
         Scaffold(
@@ -167,7 +180,17 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                 )
             },
         ) { padding ->
-            LaunchedEffect(autoSync) { if (autoSync && config.isConfigured && !isWorking) isWorking = true }
+            LaunchedEffect(autoSync) {
+                if (autoSync && config.isConfigured && !isWorking) {
+                    if (config.password.isBlank()) {
+                        val i = Intent(context, PasswordPromptActivity::class.java).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+                        context.startActivity(i)
+                    } else {
+                        config.token = ""
+                        doSync(config.password)
+                    }
+                }
+            }
             Column(Modifier.padding(padding).fillMaxSize()) {
                 // ── Tabs (bigger touch targets) ─────────────────
                 TabRow(selectedTabIndex = selectedTab) {
@@ -208,12 +231,8 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
 
                 // ── Buttons ─────────────────────────────────────
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button(onClick = {
-                        isWorking = true; logLines.clear(); statusText = ""
-                        scope.launch { doFetch(context, config, url, username, password, tz, savePw,
-                            icsEnabled, logseqEnabled, obsidianEnabled, icsPath, logseqPath, obsidianPath,
-                            daysBackText, limitText, lang, { addLog(it) }, { statusText = it }, { errorDialogMsg = it }, { isWorking = false }) }
-                    }, enabled = url.isNotBlank() && username.isNotBlank() && password.isNotBlank() && !isWorking,
+                    Button(onClick = { doSync(password) },
+                        enabled = url.isNotBlank() && username.isNotBlank() && password.isNotBlank() && !isWorking,
                         modifier = Modifier.weight(1f)) {
                         Text(if (isWorking) Strings.get("working", lang) else Strings.get("fetch", lang))
                     }
@@ -268,6 +287,12 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                                     Text(lbl, style = MaterialTheme.typography.bodySmall)
                                 }
                             }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        Text("Widget opacity", style = MaterialTheme.typography.labelMedium)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("%.0f".format(widgetOpacity * 100), style = MaterialTheme.typography.bodySmall, modifier = Modifier.width(32.dp))
+                            Slider(value = widgetOpacity, onValueChange = { widgetOpacity = it; config.widgetOpacity = it }, valueRange = 0.1f..1.0f, modifier = Modifier.weight(1f))
                         }
                         Spacer(Modifier.height(12.dp))
                         TextButton(onClick = {
