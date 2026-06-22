@@ -40,17 +40,17 @@ Fetches deadlines and activities from Moodle and pushes them to your calendar ap
 ### Desktop GUI
 
 ```bash
-python3 moodle_cal_flet.py
+python3 desktop/moodle_cal_flet.py
 ```
 
 ### Desktop CLI
 
 ```bash
 # First-time auth
-python3 moodle_cal.py --login
+python3 desktop/moodle_cal.py --login
 
 # Fetch and generate outputs
-python3 moodle_cal.py
+python3 desktop/moodle_cal.py
 ```
 
 ### Android app + widget
@@ -101,10 +101,12 @@ The Android app stores credentials, preferences, and per-widget opacity in app-p
 
 ```
 moodle-calendar-bridge/
-├── moodle_cal.py              # Core logic — fetch, parse, generate outputs (stdlib-only)
-├── moodle_cal_flet.py         # Desktop GUI (Flet)
-├── config.json                # Desktop configuration (gitignored)
-├── langs.json                 # Translations (en/es)
+├── desktop/
+│   ├── moodle_cal.py              # Core logic — fetch, parse, generate outputs (stdlib-only)
+│   ├── moodle_cal_flet.py         # Desktop GUI (Flet)
+│   ├── config.json                # Desktop configuration (gitignored)
+│   ├── langs.json                 # Translations (en/es)
+│   └── test_pipeline.py           # Test / validation
 ├── android/                   # Kotlin Android app
 │   ├── app/
 │   │   ├── build.gradle.kts

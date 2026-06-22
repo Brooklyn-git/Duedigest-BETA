@@ -17,7 +17,7 @@ except (ImportError, ModuleNotFoundError):
         ZoneInfo = None
 
 
-CONFIG_FILE = "config.json"
+CONFIG_FILE = str(Path(__file__).parent / "config.json")
 
 
 def validate_moodle_url(url):
