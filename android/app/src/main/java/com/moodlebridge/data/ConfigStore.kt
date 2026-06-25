@@ -2,11 +2,19 @@ package com.moodlebridge.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKeys
 
 class ConfigStore(context: Context) {
 
     private val prefs: SharedPreferences =
-        context.getSharedPreferences("moodle_bridge", Context.MODE_PRIVATE)
+        EncryptedSharedPreferences.create(
+            "moodle_bridge",
+            MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC),
+            context,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
+        )
 
     var moodleUrl: String
         get() = prefs.getString(KEY_URL, "") ?: ""

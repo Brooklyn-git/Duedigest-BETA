@@ -8,3 +8,4 @@
     android:configure="com.moodlebridge.widget.OpacitySliderActivity"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen" />
+ 
