@@ -28,7 +28,8 @@ Fetches deadlines and activities from Moodle and pushes them to your calendar ap
 ### Desktop (Python)
 
 - Python 3.9+
-- `flet` for the GUI (`pip install flet`; core logic is stdlib-only)
+- `flet` for the GUI (`pip install flet`)
+- `keyring` for saving credentials in the OS keychain (optional — `pip install keyring`; core and GUI work without it, but passwords fall back to config.json if absent)
 
 ### Android
 

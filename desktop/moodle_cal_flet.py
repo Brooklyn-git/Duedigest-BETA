@@ -17,6 +17,10 @@ import moodle_cal as core
 
 import flet as ft
 
+# Placeholder shown in the password field when the password is stored
+# in the OS keychain but not visible in the text field.
+_SAVED = "••••••••"
+
 
 def _native_save_file():
     try:
@@ -100,7 +104,11 @@ async def main(page: ft.Page):
         config["username"] = username_field.value.strip()
         config["timezone"] = (timezone_field.value or "").strip()
         if save_pw_check.value:
-            config["password"] = password_field.value
+            val = password_field.value
+            if val and val != _SAVED:
+                config["password"] = val
+            else:
+                config.pop("password", None)
         else:
             config.pop("password", None)
         config["save_password"] = save_pw_check.value
@@ -206,6 +214,10 @@ async def main(page: ft.Page):
             config.pop("token", None)
             config.pop("password", None)
             password_field.value = ""
+            core.delete_password(
+                config.get("moodle_url", ""),
+                config.get("username", ""),
+            )
             core.save_config(config)
             dlg.open = False
             page.update()
@@ -254,9 +266,14 @@ async def main(page: ft.Page):
         value=config.get("username", ""),
         expand=True,
     )
+    _pw_saved = (
+        config.get("save_password")
+        and not config.get("password")
+        and core.get_password(config.get("moodle_url", ""), config.get("username", ""))
+    )
     password_field = ft.TextField(
         label=_tr("password"),
-        value=config.get("password", "") if config.get("save_password") else "",
+        value=config.get("password") or (_SAVED if _pw_saved else ""),
         password=True,
         expand=True,
     )
@@ -471,11 +488,16 @@ async def main(page: ft.Page):
     # ── Fetch button ─────────────────────────────────────────────
     def do_fetch(retried=False):
         ui_to_config()
+        if core.HAS_KEYRING:
+            config.pop("password", None)
         core.save_config(config)
 
         if not config.get("token"):
             username = config.get("username", "")
-            password = config.get("password") or password_field.value
+            pw_field = password_field.value
+            if pw_field == _SAVED:
+                pw_field = ""
+            password = pw_field or core.resolve_password(config)
             if not username or not password:
                 status_text.value = _tr("need_creds")
                 page.update()
@@ -488,10 +510,24 @@ async def main(page: ft.Page):
             try:
                 token = core.login(config["moodle_url"], username, password)
                 config["token"] = token
-                if not save_pw_check.value:
+                if save_pw_check.value:
+                    core.store_password(
+                        config["moodle_url"],
+                        config["username"],
+                        password,
+                    )
+                    config.pop("password", None)
+                    password_field.value = _SAVED
+                else:
                     config.pop("password", None)
                     password_field.value = ""
-                    ui_to_config()
+                    core.delete_password(
+                        config.get("moodle_url", ""),
+                        config.get("username", ""),
+                    )
+                ui_to_config()
+                if core.HAS_KEYRING and config.get("save_password"):
+                    config.pop("password", None)
                 core.save_config(config)
                 log(_tr("login_success"))
             except Exception as e:

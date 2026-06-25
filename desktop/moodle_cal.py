@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 import json
 import os
 import stat
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any, TypedDict
 from urllib.error import URLError
 from urllib.parse import urlencode, urlparse
 from urllib.request import urlopen
@@ -19,8 +22,67 @@ except (ImportError, ModuleNotFoundError):
 
 CONFIG_FILE = str(Path(__file__).parent / "config.json")
 
+try:
+    import keyring
+    HAS_KEYRING = True
+except ImportError:
+    HAS_KEYRING = False
 
-def validate_moodle_url(url):
+KEYRING_SERVICE = "moodle-calendar-bridge"
+
+
+def _kr_user(moodle_url: str, username: str) -> str:
+    return f"{moodle_url}/{username}"
+
+
+def store_password(moodle_url: str, username: str, password: str) -> None:
+    if not HAS_KEYRING:
+        return
+    try:
+        keyring.set_password(KEYRING_SERVICE, _kr_user(moodle_url, username), password)
+    except Exception:
+        pass
+
+
+def get_password(moodle_url: str, username: str) -> str | None:
+    if not HAS_KEYRING:
+        return None
+    try:
+        return keyring.get_password(KEYRING_SERVICE, _kr_user(moodle_url, username))
+    except Exception:
+        return None
+
+
+def delete_password(moodle_url: str, username: str) -> None:
+    if not HAS_KEYRING:
+        return
+    try:
+        keyring.delete_password(KEYRING_SERVICE, _kr_user(moodle_url, username))
+    except Exception:
+        pass
+
+
+def resolve_password(config: dict[str, Any]) -> str | None:
+    """Try keyring first, then config.json (backward compat)."""
+    pw = get_password(config.get("moodle_url", ""), config.get("username", ""))
+    if pw:
+        return pw
+    return config.get("password")
+
+
+class Event(TypedDict):
+    id: int | str
+    name: str
+    description: str
+    timestart: int
+    timeduration: int
+    eventtype: str
+    url: str
+    course: str
+    modname: str
+
+
+def validate_moodle_url(url: str) -> str:
     parsed = urlparse(url)
     if not parsed.scheme:
         raise ValueError("URL missing scheme (use https://)")
@@ -31,7 +93,7 @@ def validate_moodle_url(url):
     return url.rstrip("/")
 
 
-def load_config():
+def load_config() -> dict[str, Any]:
     try:
         with open(CONFIG_FILE) as f:
             return json.load(f)
@@ -41,7 +103,7 @@ def load_config():
         raise ValueError(f"config.json is not valid JSON: {e}")
 
 
-def save_config(config):
+def save_config(config: dict[str, Any]) -> None:
     config.setdefault("save_password", False)
     with open(CONFIG_FILE, "w") as f:
         json.dump(config, f, indent=4)
@@ -49,7 +111,7 @@ def save_config(config):
     os.chmod(CONFIG_FILE, stat.S_IRUSR | stat.S_IWUSR)
 
 
-def moodle_api(config, endpoint, **params):
+def moodle_api(config: dict[str, Any], endpoint: str, **params: Any) -> dict[str, Any]:
     validate_moodle_url(config["moodle_url"])
     params["wstoken"] = config["token"]
     params["moodlewsrestformat"] = "json"
@@ -63,7 +125,7 @@ def moodle_api(config, endpoint, **params):
         raise ValueError(f"Invalid JSON from {endpoint}")
 
 
-def login(moodle_url, username, password):
+def login(moodle_url: str, username: str, password: str) -> str:
     moodle_url = validate_moodle_url(moodle_url)
     url = f"{moodle_url}/login/token.php?{urlencode({'username': username, 'password': password, 'service': 'moodle_mobile_app'})}"
     try:
@@ -82,7 +144,7 @@ def login(moodle_url, username, password):
     return data["token"]
 
 
-def strip_html(text):
+def strip_html(text: str) -> str:
     import re
     text = re.sub(r"<[^>]+>", "", text)
     text = text.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
@@ -90,7 +152,7 @@ def strip_html(text):
     return text.strip()
 
 
-def system_timezone():
+def system_timezone() -> datetime.tzinfo:
     if ZoneInfo is None:
         return timezone.utc
     try:
@@ -109,7 +171,7 @@ def system_timezone():
     return timezone.utc
 
 
-def resolve_tz(config):
+def resolve_tz(config: dict[str, Any]) -> datetime.tzinfo:
     if config.get("timezone"):
         try:
             if ZoneInfo is not None:
@@ -119,15 +181,15 @@ def resolve_tz(config):
     return system_timezone()
 
 
-def fmt_ics_dt(ts, tz):
+def fmt_ics_dt(ts: int, tz: datetime.tzinfo) -> str:
     return datetime.fromtimestamp(ts, tz).strftime("%Y%m%dT%H%M%S")
 
 
-def escape_ics(text):
+def escape_ics(text: str) -> str:
     return text.replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,").replace("\n", "\\n")
 
 
-def fetch_events(config):
+def fetch_events(config: dict[str, Any]) -> list[Event]:
     days_back = config.get("fetch_days_back", 7)
     limitnum = config.get("fetch_limit", 100)
     timesort = int((datetime.now(timezone.utc) - timedelta(days=days_back)).timestamp())
@@ -179,7 +241,7 @@ def fetch_events(config):
     return events
 
 
-def generate_ics(config, events):
+def generate_ics(config: dict[str, Any], events: list[Event]) -> str:
     tz = resolve_tz(config)
     lines = [
         "BEGIN:VCALENDAR",
@@ -213,7 +275,7 @@ def generate_ics(config, events):
     return "\r\n".join(lines) + "\r\n"
 
 
-def generate_logseq(config, events):
+def generate_logseq(config: dict[str, Any], events: list[Event]) -> None:
     tz = resolve_tz(config)
     out_dir = Path(config.get("paths", {}).get("logseq", "output/logseq/"))
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -234,7 +296,7 @@ def generate_logseq(config, events):
         (out_dir / f"{safe_name}.md").write_text(content)
 
 
-def generate_obsidian(config, events):
+def generate_obsidian(config: dict[str, Any], events: list[Event]) -> None:
     tz = resolve_tz(config)
     out_dir = Path(config.get("paths", {}).get("obsidian", "output/obsidian/"))
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -262,7 +324,7 @@ CACHE_DIR = "output"
 CACHE_FILE = ".event_cache.json"
 
 
-def read_cache():
+def read_cache() -> dict[str, int]:
     try:
         with open(Path(CACHE_DIR) / CACHE_FILE) as f:
             return json.load(f)
@@ -270,17 +332,17 @@ def read_cache():
         return {}
 
 
-def write_cache(cache):
+def write_cache(cache: dict[str, int]) -> None:
     Path(CACHE_DIR).mkdir(parents=True, exist_ok=True)
     with open(Path(CACHE_DIR) / CACHE_FILE, "w") as f:
         json.dump(cache, f)
         f.write("\n")
 
 
-def diff_events(events, cache):
-    new_ids = set()
-    changed_ids = set()
-    event_map = {}
+def diff_events(events: list[Event], cache: dict[str, int]) -> tuple[list[Event], list[Event], list[Event]]:
+    new_ids: set[str] = set()
+    changed_ids: set[str] = set()
+    event_map: dict[str, Event] = {}
     for ev in events:
         eid = str(ev["id"])
         event_map[eid] = ev
@@ -296,13 +358,14 @@ def diff_events(events, cache):
     return new_events, changed_events, new_or_changed
 
 
-def build_cache(events):
+def build_cache(events: list[Event]) -> dict[str, int]:
     return {str(ev["id"]): ev["timestart"] for ev in events}
 
 
-def run_with_config(config):
-    logs = []
-    def log(msg):
+def run_with_config(config: dict[str, Any]) -> list[str]:
+    logs: list[str] = []
+
+    def log(msg: str) -> None:
         logs.append(msg)
         print(msg)
 
@@ -347,18 +410,18 @@ def run_with_config(config):
     return logs
 
 
-def cli_login(config=None):
+def cli_login(config: dict[str, Any] | None = None) -> dict[str, Any]:
     import getpass
     if config is None:
         try:
             config = load_config()
         except FileNotFoundError:
-            config = {"moodle_url": input("Moodle URL: ").strip()}
+            config: dict[str, Any] = {"moodle_url": input("Moodle URL: ").strip()}
         except ValueError as e:
             print(f"Error: {e}")
             sys.exit(1)
 
-    url = config.get("moodle_url", "").rstrip("/")
+    url: str = config.get("moodle_url", "").rstrip("/")
     while True:
         try:
             if not url:
@@ -369,27 +432,27 @@ def cli_login(config=None):
             url = input("Moodle URL: ").strip().rstrip("/")
 
     print(f"Logging into {url} ...")
-    username = input("Username: ").strip()
-    password = getpass.getpass("Password: ")
+    username: str = input("Username: ").strip()
+    password: str = getpass.getpass("Password: ")
 
     token = login(url, username, password)
 
     config["moodle_url"] = url
     config["token"] = token
     config["username"] = username
-    save = input("Save password to config.json? (y/N): ").strip().lower()
+    save = input("Save password for automatic re-login? (y/N): ").strip().lower()
     if save == "y":
-        config["password"] = password
+        store_password(url, username, password)
         config["save_password"] = True
     else:
-        config.pop("password", None)
         config["save_password"] = False
+    config.pop("password", None)
     save_config(config)
     print("Token saved to config.json")
     return config
 
 
-def main():
+def main() -> None:
     import argparse
     parser = argparse.ArgumentParser(description="Moodle Calendar Bridge")
     parser.add_argument("--moodle-url", help="Moodle instance URL (overrides config.json)")
