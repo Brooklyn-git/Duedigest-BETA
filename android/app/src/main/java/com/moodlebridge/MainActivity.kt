@@ -83,7 +83,9 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.moodlebridge.data.ConfigStore
 import com.moodlebridge.data.IcsGenerator
+import com.moodlebridge.data.MarkdownGenerator
 import com.moodlebridge.data.MoodleApi
+import com.moodlebridge.data.PathResolver
 import com.moodlebridge.data.Strings
 import com.moodlebridge.worker.SyncWorker
 import java.io.File
@@ -342,8 +344,24 @@ private suspend fun doFetch(
         onLog("${Strings.get("found_events", lang)} ${events.size}")
 
         if (config.icsEnabled) {
-            withContext(Dispatchers.IO) { File(context.cacheDir, "ics").also { it.mkdirs() }; File(File(context.cacheDir, "ics"), "calendar.ics").writeText(IcsGenerator.generate(events)) }
-            onLog("ICS -> ${context.cacheDir}/ics/calendar.ics")
+            val icsContent = IcsGenerator.generate(events)
+            withContext(Dispatchers.IO) {
+                File(context.cacheDir, "ics/calendar.ics").also { it.parentFile?.mkdirs(); it.writeText(icsContent) }
+                if (config.icsPath.isNotBlank()) PathResolver.writeIcs(context, config.icsPath, icsContent)
+            }
+            onLog("ICS -> ${config.icsPath.ifBlank { "${context.cacheDir}/ics/calendar.ics" }}")
+        }
+        if (config.logseqEnabled) {
+            val logseqFiles = MarkdownGenerator.generateLogseq(events)
+            val logseqTarget = config.logseqPath.ifBlank { "${context.cacheDir}/logseq" }
+            withContext(Dispatchers.IO) { PathResolver.writeMarkdownFiles(context, logseqTarget, "logseq", logseqFiles) }
+            onLog("Logseq -> ${config.logseqPath.ifBlank { "${context.cacheDir}/logseq/" }}")
+        }
+        if (config.obsidianEnabled) {
+            val obsidianFiles = MarkdownGenerator.generateObsidian(events)
+            val obsidianTarget = config.obsidianPath.ifBlank { "${context.cacheDir}/obsidian" }
+            withContext(Dispatchers.IO) { PathResolver.writeMarkdownFiles(context, obsidianTarget, "obsidian", obsidianFiles) }
+            onLog("Obsidian -> ${config.obsidianPath.ifBlank { "${context.cacheDir}/obsidian/" }}")
         }
 
         config.lastSyncTimestamp = System.currentTimeMillis()
@@ -409,9 +427,25 @@ private fun OutputTabContent(
     obsidianPath: String, onObsidianPathChange: (String) -> Unit,
     daysBackText: String, onDaysBackChange: (String) -> Unit, limitText: String, onLimitChange: (String) -> Unit, lang: String,
 ) {
-    val icsPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/calendar")) { uri -> uri?.let { onIcsPathChange(it.toString()) } }
-    val logseqPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri -> uri?.let { onLogseqPathChange(uri.toString()) } }
-    val obsidianPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri -> uri?.let { onObsidianPathChange(uri.toString()) } }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val icsPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/calendar")) { uri ->
+        uri?.let {
+            context.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            onIcsPathChange(it.toString())
+        }
+    }
+    val logseqPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        uri?.let {
+            context.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            onLogseqPathChange(it.toString())
+        }
+    }
+    val obsidianPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        uri?.let {
+            context.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            onObsidianPathChange(it.toString())
+        }
+    }
     Column(Modifier.fillMaxWidth().padding(16.dp)) {
         Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
             Column(Modifier.padding(16.dp)) {

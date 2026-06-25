@@ -10,31 +10,31 @@ Fetches deadlines and activities from Moodle and pushes them to your calendar ap
 ## Features
 
 - Fetches upcoming deadlines via Moodle REST API (`core_calendar_get_action_events_by_timesort` + `mod_assign_get_assignments`)
-- **ICS** — RFC 5545, importable into any calendar app
+- **ICS** — RFC 5545, importable into any calendar app (primary output)
 - **Logseq** — Markdown pages with `DEADLINE:` property
 - **Obsidian** — Markdown daily notes with `due:` in YAML frontmatter
-- **Event caching** — detects new/changed events, generates delta ICS (`calendar_new.ics`)
-- **Auto-reauth** — re-logs in automatically when token expires
+- **Delta ICS** — detects new/changed events via cache, generates `calendar_new.ics` for incremental import (desktop only)
+- **Auto-reauth** — re-logs in automatically when token expires on both platforms
 - **Configurable fetch window** — days back and event limit
-- **Android app** — login, fetch events, generate ICS and MD, settings (theme, language), widget.
-- **Android home screen widget** — per-instance opacity, one-tap sync from your home screen
-- **Widget opacity** — adjustable per widget on first placement (slider + confirm), or globally from app settings
-- **Sync notification** — tap to open ICS in your calendar app
-- **i18n** — English and Spanish
+- **Android app** — login, fetch events, generate ICS, settings (theme, language), widget
+- **Android home screen widget** — per-instance opacity slider on first placement, one-tap "Fetch && sync" button, tap notification to open ICS in calendar app
+- **i18n** — English and Spanish on both platforms
 - **Dark / Light / System theme**
+- **API contract** — `desktop/moodle_api.yaml` (OpenAPI 3.0) documents both endpoints + auth as single source of truth across platforms
 
 ## Requirements
 
 ### Desktop (Python)
 
-- Python 3.9+
+- Python 3.9+ (stdlib-only core — runs in Termux without pip)
 - `flet` for the GUI (`pip install flet`)
-- `keyring` for saving credentials in the OS keychain (optional — `pip install keyring`; core and GUI work without it, but passwords fall back to config.json if absent)
+- `keyring` for saving credentials in the OS keychain (optional — `pip install keyring`; falls back to config.json if absent)
 
 ### Android
 
 - [Android Studio](https://developer.android.com/studio) or JDK 17+ + Android SDK
 - Device running Android 8.0+ (API 26)
+- Dependencies resolved automatically by Gradle (OkHttp, Compose, Glance, WorkManager, kotlinx-serialization, security-crypto)
 
 ## Usage
 
@@ -65,7 +65,7 @@ cd android
 
 Install `android/app/build/outputs/apk/debug/app-debug.apk` on your phone.
 
-**First launch**: Open the app → enter Moodle URL, username, password → tap "Fetch". The app supports ICS generation, Logseq/Obsidian Markdown, event caching, theme switching, and language selection — same capabilities as the desktop version.
+**First launch**: Open the app → enter Moodle URL, username, password → tap "Fetch". The app supports ICS generation, theme switching, and language selection.
 
 **Widget** (extra): Long-press home screen → add "Moodle Bridge" widget → configure opacity with the slider → tap "Confirm". The widget shows the last sync state and a "Fetch && sync" button.
 
@@ -96,7 +96,7 @@ Install `android/app/build/outputs/apk/debug/app-debug.apk` on your phone.
 
 ### Android (in-app settings)
 
-The Android app stores credentials, preferences, and per-widget opacity in app-private SharedPreferences. Configure via the app's settings screen.
+The Android app stores credentials, preferences, and per-widget opacity in EncryptedSharedPreferences (AES-256 GCM). Configure via the app's settings screen.
 
 ## Project structure
 
@@ -105,26 +105,43 @@ moodle-calendar-bridge/
 ├── desktop/
 │   ├── moodle_cal.py              # Core logic — fetch, parse, generate outputs (stdlib-only)
 │   ├── moodle_cal_flet.py         # Desktop GUI (Flet)
+│   ├── moodle_api.yaml            # OpenAPI 3.0 contract for all Moodle endpoints
 │   ├── config.json                # Desktop configuration (gitignored)
 │   ├── langs.json                 # Translations (en/es)
-│   └── test_pipeline.py           # Test / validation
-├── android/                   # Kotlin Android app
-│   ├── app/
-│   │   ├── build.gradle.kts
-│   │   └── src/main/
-│   │       ├── AndroidManifest.xml
-│   │       ├── res/
-│   │       │   ├── layout/sync_widget_initial.xml
-│   │       │   ├── values/strings.xml, themes.xml
-│   │       │   └── xml/sync_widget_info.xml, file_paths.xml
-│   │       └── java/com/moodlebridge/
-│   │           ├── MainActivity.kt           # App UI + settings (Compose)
-│   │           ├── PasswordPromptActivity.kt  # Quick password prompt
-│   │           ├── data/                      # ConfigStore, MoodleApi, IcsGenerator, Strings
-│   │           ├── worker/SyncWorker.kt       # Background sync (WorkManager)
-│   │           └── widget/                    # SyncWidget (Glance), OpacitySliderActivity
-│   ├── build.gradle.kts
-│   └── settings.gradle.kts
+│   └── test_pipeline.py           # Test / validation (incl. contract conformance)
+├── android/
+│   ├── build.gradle.kts           # Root build — AGP 8.12.2, Kotlin 2.1.10
+│   ├── settings.gradle.kts
+│   ├── local.properties           # SDK path (machine-local)
+│   ├── gradlew / gradlew.bat     # Gradle wrapper
+│   ├── gradle/wrapper/
+│   └── app/
+│       ├── build.gradle.kts       # App deps: Compose, Glance, WorkManager, OkHttp, security-crypto
+│       └── src/main/
+│           ├── AndroidManifest.xml
+│           ├── res/
+│           │   ├── layout/
+│           │   │   └── sync_widget_initial.xml
+│           │   ├── values/
+│           │   │   ├── strings.xml
+│           │   │   └── themes.xml
+│           │   └── xml/
+│           │       ├── sync_widget_info.xml
+│           │       └── file_paths.xml
+│           └── java/com/moodlebridge/
+│               ├── MainActivity.kt              # App UI + settings (Compose)
+│               ├── PasswordPromptActivity.kt     # Quick password prompt (dialog-themed)
+│               ├── data/
+│               │   ├── ConfigStore.kt            # EncryptedSharedPreferences wrapper
+│               │   ├── Event.kt                  # Data classes for API + internal Event model
+│               │   ├── IcsGenerator.kt           # ICS rendering (RFC 5545 VEVENT)
+│               │   ├── MoodleApi.kt              # REST client (OkHttp, login + 2 endpoints)
+│               │   └── Strings.kt                # i18n strings (en/es)
+│               ├── worker/
+│               │   └── SyncWorker.kt             # Background sync (WorkManager)
+│               └── widget/
+│                   ├── SyncWidget.kt             # Glance widget (per-instance opacity)
+│                   └── OpacitySliderActivity.kt  # Widget configure activity (slider + confirm)
 ├── AGENTS.md                  # Dev notes (architecture, API, design decisions)
 ├── LICENSE
 └── README.md
@@ -132,8 +149,19 @@ moodle-calendar-bridge/
 
 ## Security
 
-- **Password never stored by default** — discarded after login; only the token is kept
+### Desktop
+
+- **Password never persisted by default** — discarded after login; only the token stays on disk
+- **OS keychain** — password can be stored securely via `keyring` (optional, `pip install keyring`)
+- **Token stored in `config.json`** — file permissions set to `600` (owner-only)
 - **URL validation** — only HTTPS URLs accepted
-- **config.json permissions** — set to `chmod 600` (owner-only read/write)
-- **Clear credentials** button in settings wipes stored token
-- **Android** stores data in app-private SharedPreferences, sandboxed by the OS
+- **Clear credentials** button in settings wipes token + keychain entry
+- **Auto-reauth** — if token expires, re-authenticates using stored password (no manual re-entry)
+
+### Android
+
+- **AES-256 GCM encryption** — all credentials and preferences stored via `EncryptedSharedPreferences` (keys encrypted with AES-256 SIV, values with AES-256 GCM, master key in Android Keystore)
+- **Cloud backup disabled** — `android:allowBackup="false"` prevents credential leakage via Google Drive
+- **FileProvider** — ICS files shared via `content://` URI with `androidx.core.content.FileProvider` (no `file://` leaks)
+- **Clear credentials** button in settings wipes all SharedPreferences
+- **Password prompt** — when no password is stored, the widget launches `PasswordPromptActivity` (dialog-themed, no recents entry) to request one without exposing existing data

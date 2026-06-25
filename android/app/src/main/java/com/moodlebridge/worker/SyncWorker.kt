@@ -10,7 +10,9 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.moodlebridge.data.ConfigStore
 import com.moodlebridge.data.IcsGenerator
+import com.moodlebridge.data.MarkdownGenerator
 import com.moodlebridge.data.MoodleApi
+import com.moodlebridge.data.PathResolver
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -52,14 +54,28 @@ class SyncWorker(
             val events = api.fetchEvents(config.fetchDaysBack, config.fetchLimit)
 
             if (config.icsEnabled) {
-                val ics = IcsGenerator.generate(events)
-                val icsDir = File(applicationContext.cacheDir, "ics")
-                icsDir.mkdirs()
-                val icsFile = File(icsDir, "calendar.ics")
-                icsFile.writeText(ics)
-
-                // Auto-open ICS with default calendar app
+                val icsContent = IcsGenerator.generate(events)
+                // Always write to cache for FileProvider auto-open
+                File(applicationContext.cacheDir, "ics/calendar.ics").also {
+                    it.parentFile?.mkdirs(); it.writeText(icsContent)
+                }
+                // Also write to user path if configured
+                if (config.icsPath.isNotBlank()) {
+                    PathResolver.writeIcs(applicationContext, config.icsPath, icsContent)
+                }
                 openIcsInCalendar()
+            }
+            if (config.logseqEnabled) {
+                PathResolver.writeMarkdownFiles(applicationContext,
+                    config.logseqPath.ifBlank { "${applicationContext.cacheDir}/logseq" },
+                    "logseq",
+                    MarkdownGenerator.generateLogseq(events))
+            }
+            if (config.obsidianEnabled) {
+                PathResolver.writeMarkdownFiles(applicationContext,
+                    config.obsidianPath.ifBlank { "${applicationContext.cacheDir}/obsidian" },
+                    "obsidian",
+                    MarkdownGenerator.generateObsidian(events))
             }
 
             config.lastSyncTimestamp = System.currentTimeMillis()
