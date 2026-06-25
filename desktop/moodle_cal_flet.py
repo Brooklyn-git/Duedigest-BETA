@@ -214,6 +214,7 @@ async def main(page: ft.Page):
             config.pop("token", None)
             config.pop("password", None)
             password_field.value = ""
+            password_error.value = ""
             core.delete_password(
                 config.get("moodle_url", ""),
                 config.get("username", ""),
@@ -271,12 +272,19 @@ async def main(page: ft.Page):
         and not config.get("password")
         and core.get_password(config.get("moodle_url", ""), config.get("username", ""))
     )
+    password_error = ft.Text("", size=11, color=ft.Colors.RED)
     password_field = ft.TextField(
         label=_tr("password"),
         value=config.get("password") or (_SAVED if _pw_saved else ""),
         password=True,
         expand=True,
+        on_change=lambda e: clear_password_error(),
     )
+
+    def clear_password_error():
+        password_error.value = ""
+        if hasattr(page, "update"):
+            page.update()
 
     timezone_field = ft.TextField(
         label=_tr("timezone"),
@@ -299,6 +307,7 @@ async def main(page: ft.Page):
                         url_field,
                         username_field,
                         password_field,
+                        password_error,
                         ft.Divider(height=4, color=ft.Colors.TRANSPARENT),
                         timezone_field,
                     ],
@@ -525,18 +534,17 @@ async def main(page: ft.Page):
                         config.get("moodle_url", ""),
                         config.get("username", ""),
                     )
+                password_error.value = ""
                 ui_to_config()
                 if core.HAS_KEYRING and config.get("save_password"):
                     config.pop("password", None)
                 core.save_config(config)
                 log(_tr("login_success"))
             except Exception as e:
+                password_error.value = f"* {e}" if "Invalid login" in str(e).lower() else f"* {e}"
+                log(_tr("login_failed") + f": {e}")
                 status_text.value = _tr("login_failed")
                 page.update()
-                page.show_dialog(ft.AlertDialog(
-                    title=ft.Text(_tr("login_failed")),
-                    content=ft.Text(str(e)),
-                ))
                 return
 
         status_text.value = _tr("fetching")
