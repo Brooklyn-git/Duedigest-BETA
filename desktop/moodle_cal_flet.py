@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Moodle Calendar Bridge — Flet GUI.
+"""DueNest — Flet GUI.
 
 Requires: pip install flet
 Run with:  flet run moodle_cal_flet.py
-Build APK: flet build apk --org "com.yourorg" --product "Moodle Calendar"
+Build APK: flet build apk --org "com.yourorg" --product "DueNest"
 """
 
 import asyncio

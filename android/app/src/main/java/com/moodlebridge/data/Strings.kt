@@ -3,8 +3,8 @@ package com.moodlebridge.data
 object Strings {
 
     private val en = mapOf(
-        "app_title" to "Moodle Calendar Bridge",
-        "subtitle" to "Sync deadlines to ICS, Logseq, Obsidian",
+        "app_title" to "DueNest",
+        "subtitle" to "Sync Moodle deadlines to ICS, Logseq, Obsidian",
         "connection" to "Connection",
         "output" to "Output",
         "moodle_url" to "Moodle URL",
@@ -44,11 +44,19 @@ object Strings {
         "cancel" to "Cancel",
         "browse" to "Browse",
         "clear_creds" to "Delete user data",
+        "notifications" to "Notifications",
+        "notif_enable" to "Enable reminders",
+        "reminder" to "Reminder",
+        "daily" to "Daily",
+        "weekly" to "Weekly",
+        "custom" to "Custom",
+        "add_hour" to "Add hour",
+        "notif_body" to "Have you checked your assignments today?\nLet's check them out!",
     )
 
     private val es = mapOf(
-        "app_title" to "Moodle Calendar Bridge",
-        "subtitle" to "Sincroniza fechas l\u00edmite a ICS, Logseq, Obsidian",
+        "app_title" to "DueNest",
+        "subtitle" to "Sincroniza fechas l\u00edmite de Moodle a ICS, Logseq, Obsidian",
         "connection" to "Conexi\u00f3n",
         "output" to "Salida",
         "moodle_url" to "URL de Moodle",
@@ -88,6 +96,14 @@ object Strings {
         "cancel" to "Cancelar",
         "browse" to "Examinar",
         "clear_creds" to "Borrar datos de usuario",
+        "notifications" to "Notificaciones",
+        "notif_enable" to "Activar recordatorios",
+        "reminder" to "Recordatorio",
+        "daily" to "Diario",
+        "weekly" to "Semanal",
+        "custom" to "Personalizado",
+        "add_hour" to "Agregar hora",
+        "notif_body" to "\u00bfHas revisado tus tareas hoy?\n\u00a1Vamos a revisarlas!",
     )
 
     fun get(key: String, lang: String = "en"): String {

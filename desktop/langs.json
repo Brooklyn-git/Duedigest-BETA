@@ -1,7 +1,7 @@
 {
   "en": {
-    "app_title": "Moodle Calendar Bridge",
-    "subtitle": "Sync deadlines to ICS, Logseq, Obsidian",
+    "app_title": "DueNest",
+    "subtitle": "Sync Moodle deadlines to ICS, Logseq, Obsidian",
     "connection": "Connection",
     "output": "Output",
     "moodle_url": "Moodle URL",
@@ -51,8 +51,8 @@
     "login_failed_again": "Login failed again: {}"
   },
   "es": {
-    "app_title": "Moodle Calendar Bridge",
-    "subtitle": "Sincroniza fechas l\u00edmite a ICS, Logseq, Obsidian",
+    "app_title": "DueNest",
+    "subtitle": "Sincroniza fechas l\u00edmite de Moodle a ICS, Logseq, Obsidian",
     "connection": "Conexi\u00f3n",
     "output": "Salida",
     "moodle_url": "URL de Moodle",

@@ -6,11 +6,11 @@ object IcsGenerator {
         val lines = mutableListOf(
             "BEGIN:VCALENDAR",
             "VERSION:2.0",
-            "PRODID:-//Moodle Calendar Bridge//EN",
-            "X-WR-CALNAME:Moodle Calendar",
+            "PRODID:-//DueNest//EN",
+            "X-WR-CALNAME:DueNest",
         )
         for (ev in events) {
-            val uid = "${ev.id}@moodle-calendar-bridge"
+            val uid = "${ev.id}@duenest"
             val dtstart = fmtIcsDt(ev.timestart)
             val durationSec = ev.timeduration
             val endTs = if (durationSec > 0) ev.timestart + durationSec else ev.timestart + 3600

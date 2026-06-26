@@ -92,6 +92,26 @@ class ConfigStore(context: Context) {
         get() = prefs.getInt(KEY_EVENT_COUNT, 0)
         set(value) = prefs.edit().putInt(KEY_EVENT_COUNT, value).apply()
 
+    var notificationsEnabled: Boolean
+        get() = prefs.getBoolean(KEY_NOTIF_ENABLED, false)
+        set(value) = prefs.edit().putBoolean(KEY_NOTIF_ENABLED, value).apply()
+
+    var notificationScheduleType: String
+        get() = prefs.getString(KEY_NOTIF_SCHEDULE, "daily") ?: "daily"
+        set(value) = prefs.edit().putString(KEY_NOTIF_SCHEDULE, value).apply()
+
+    var notificationCustomDays: String
+        get() = prefs.getString(KEY_NOTIF_CUSTOM_DAYS, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_NOTIF_CUSTOM_DAYS, value).apply()
+
+    var notificationCustomHours: String
+        get() = prefs.getString(KEY_NOTIF_CUSTOM_HOURS, "9:00") ?: "9:00"
+        set(value) = prefs.edit().putString(KEY_NOTIF_CUSTOM_HOURS, value).apply()
+
+    var notification24hFormat: Boolean
+        get() = prefs.getBoolean(KEY_NOTIF_24H, true)
+        set(value) = prefs.edit().putBoolean(KEY_NOTIF_24H, value).apply()
+
     var widgetOpacity: Float
         get() = prefs.getFloat(KEY_WIDGET_OPACITY, 1.0f)
         set(value) = prefs.edit().putFloat(KEY_WIDGET_OPACITY, value).apply()
@@ -136,5 +156,10 @@ class ConfigStore(context: Context) {
         const val KEY_EVENT_COUNT = "event_count"
         const val KEY_WIDGET_OPACITY = "widget_opacity"
         const val KEY_LAST_OPACITY = "last_configured_opacity"
+        const val KEY_NOTIF_ENABLED = "notifications_enabled"
+        const val KEY_NOTIF_SCHEDULE = "notif_schedule_type"
+        const val KEY_NOTIF_CUSTOM_DAYS = "notif_custom_days"
+        const val KEY_NOTIF_CUSTOM_HOURS = "notif_custom_hours"
+        const val KEY_NOTIF_24H = "notif_24h_format"
     }
 }

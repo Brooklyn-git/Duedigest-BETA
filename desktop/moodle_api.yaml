@@ -1,6 +1,6 @@
 openapi: "3.0.3"
 info:
-  title: Moodle Web Service API — Moodle Calendar Bridge
+  title: Moodle Web Service API — DueNest
   description: >
     Subset of the Moodle REST API consumed by both the desktop (Python) and
     Android (Kotlin) implementations. This is the single source of truth for

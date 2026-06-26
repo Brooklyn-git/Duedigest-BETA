@@ -1,6 +1,6 @@
-# Moodle Calendar Bridge
+# DueNest
 
-Fetches deadlines and activities from Moodle and pushes them to your calendar app. Desktop (Python) and Android (Kotlin) are fully featured — both can log in, fetch, and generate ICS/Markdown. The Android app also includes a home screen widget for one-tap sync.
+DueNest fetches deadlines and activities from Moodle and pushes them to your calendar app. Desktop (Python) and Android (Kotlin) are fully featured — both can log in, fetch, and generate ICS/Markdown. The Android app also includes a home screen widget for one-tap sync.
 
 | Platform | Interface | Stack |
 |----------|-----------|-------|

@@ -246,11 +246,11 @@ def generate_ics(config: dict[str, Any], events: list[Event]) -> str:
     lines = [
         "BEGIN:VCALENDAR",
         "VERSION:2.0",
-        "PRODID:-//Moodle Calendar Bridge//EN",
-        "X-WR-CALNAME:Moodle Calendar",
+        "PRODID:-//DueNest//EN",
+        "X-WR-CALNAME:DueNest",
     ]
     for ev in events:
-        uid = f"{ev['id']}@moodle-calendar-bridge"
+        uid = f"{ev['id']}@duenest"
         dtstart = fmt_ics_dt(ev["timestart"], tz)
         duration_sec = ev.get("timeduration", 0)
         if duration_sec > 0:
@@ -454,7 +454,7 @@ def cli_login(config: dict[str, Any] | None = None) -> dict[str, Any]:
 
 def main() -> None:
     import argparse
-    parser = argparse.ArgumentParser(description="Moodle Calendar Bridge")
+    parser = argparse.ArgumentParser(description="DueNest — Moodle deadline sync")
     parser.add_argument("--moodle-url", help="Moodle instance URL (overrides config.json)")
     parser.add_argument("--login", action="store_true", help="Authenticate with Moodle username/password")
     args = parser.parse_args()

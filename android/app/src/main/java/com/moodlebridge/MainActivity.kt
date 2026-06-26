@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -47,6 +48,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
@@ -73,12 +75,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import android.app.TimePickerDialog
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.moodlebridge.data.ConfigStore
@@ -87,7 +96,9 @@ import com.moodlebridge.data.MarkdownGenerator
 import com.moodlebridge.data.MoodleApi
 import com.moodlebridge.data.PathResolver
 import com.moodlebridge.data.Strings
+import com.moodlebridge.worker.NotificationWorker
 import com.moodlebridge.worker.SyncWorker
+import androidx.work.WorkManager
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -105,8 +116,10 @@ class MainActivity : ComponentActivity() {
         setContent { MainContent(config = config, autoSync = intent?.getStringExtra("sync") == "true") }
     }
     private fun createNotificationChannel() {
-        val ch = NotificationChannel(SyncWorker.CHANNEL_ID, "Moodle Sync", NotificationManager.IMPORTANCE_DEFAULT)
-        getSystemService(NotificationManager::class.java).createNotificationChannel(ch)
+        val syncCh = NotificationChannel(SyncWorker.CHANNEL_ID, "Moodle Sync", NotificationManager.IMPORTANCE_DEFAULT)
+        getSystemService(NotificationManager::class.java).createNotificationChannel(syncCh)
+        val reminderCh = NotificationChannel(NotificationWorker.CHANNEL_ID, "DueNest Reminders", NotificationManager.IMPORTANCE_DEFAULT)
+        getSystemService(NotificationManager::class.java).createNotificationChannel(reminderCh)
     }
 }
 
@@ -149,7 +162,32 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     var statusText by remember { mutableStateOf(config.lastSyncMessage) }
     val logLines = remember { mutableStateListOf<String>() }
     var tzExpanded by remember { mutableStateOf(false) }
-    var widgetOpacity by remember { mutableFloatStateOf(config.widgetOpacity) }
+    var notifEnabled by remember { mutableStateOf(config.notificationsEnabled) }
+    var notifScheduleType by remember { mutableStateOf(config.notificationScheduleType) }
+    var notif24hFormat by remember { mutableStateOf(config.notification24hFormat) }
+    fun parseDayList(s: String): List<Int> = s.split(",").mapNotNull { it.trim().toIntOrNull() }
+    fun parseHourList(s: String): List<String> = s.split(",").mapNotNull { t ->
+        val v = t.trim()
+        if (v.contains(":")) v else v.toIntOrNull()?.let { h -> if (h < 24) "${h}:00" else "$h" }
+    }
+    var notifCustomDaysList by remember { mutableStateOf(parseDayList(config.notificationCustomDays)) }
+    var notifCustomHoursList by remember { mutableStateOf(parseHourList(config.notificationCustomHours)) }
+
+    fun parseHour(s: String): Int {
+        val parts = s.split(":")
+        return parts[0].toIntOrNull() ?: 0
+    }
+    fun parseMinute(s: String): Int {
+        val parts = s.split(":")
+        return if (parts.size > 1) parts[1].toIntOrNull() ?: 0 else 0
+    }
+    fun formatTime(s: String): String {
+        val h = parseHour(s); val m = parseMinute(s)
+        if (notif24hFormat) return String.format("%02d:%02d", h, m)
+        val ampm = if (h < 12) "AM" else "PM"
+        val h12 = when { h == 0 -> 12; h > 12 -> h - 12; else -> h }
+        return String.format("%d:%02d %s", h12, m, ampm)
+    }
 
     fun addLog(msg: String) { logLines.add(msg) }
 
@@ -291,10 +329,141 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                             }
                         }
                         Spacer(Modifier.height(12.dp))
-                        Text("Default opacity (new widgets)", style = MaterialTheme.typography.labelMedium)
+                        Text(Strings.get("notifications", lang), style = MaterialTheme.typography.labelMedium)
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("%.0f".format(widgetOpacity * 100), style = MaterialTheme.typography.bodySmall, modifier = Modifier.width(32.dp))
-                            Slider(value = widgetOpacity, onValueChange = { widgetOpacity = it; config.widgetOpacity = it }, valueRange = 0f..1.0f, modifier = Modifier.weight(1f))
+                            Checkbox(checked = notifEnabled, onCheckedChange = { enabled ->
+                                notifEnabled = enabled
+                                config.notificationsEnabled = enabled
+                                if (enabled) {
+                                    NotificationWorker.schedule(context, notifScheduleType)
+                                } else {
+                                    NotificationWorker.cancel(context)
+                                }
+                            })
+                            Spacer(Modifier.width(4.dp))
+                            Text(Strings.get("notif_enable", lang), style = MaterialTheme.typography.bodySmall)
+                        }
+                        AnimatedVisibility(visible = notifEnabled) {
+                            Column(modifier = Modifier.padding(start = 8.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    val types = listOf("daily" to "Daily", "weekly" to "Weekly", "custom" to "Custom")
+                                    types.forEach { (key, label) ->
+                                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier
+                                            .clickable {
+                                                notifScheduleType = key
+                                                config.notificationScheduleType = key
+                                                NotificationWorker.schedule(context, key)
+                                            }
+                                            .padding(end = 12.dp),
+                                        ) {
+                                            RadioButton(selected = notifScheduleType == key, onClick = {
+                                                notifScheduleType = key
+                                                config.notificationScheduleType = key
+                                                NotificationWorker.schedule(context, key)
+                                            })
+                                            Spacer(Modifier.width(2.dp))
+                                            Text(label, style = MaterialTheme.typography.bodyMedium)
+                                        }
+                                    }
+                                }
+                                if (notifScheduleType == "custom") {
+                                    Spacer(Modifier.height(8.dp))
+                                    val dayNames = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+                                    Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
+                                        dayNames.forEachIndexed { index, name ->
+                                            val isSelected = index in notifCustomDaysList
+                                            Box(contentAlignment = Alignment.Center,
+                                                modifier = Modifier
+                                                    .clip(CircleShape)
+                                                    .size(36.dp)
+                                                    .background(
+                                                        if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                                        CircleShape,
+                                                    )
+                                                    .clickable {
+                                                        notifCustomDaysList = if (isSelected) notifCustomDaysList - index else notifCustomDaysList + index
+                                                        config.notificationCustomDays = notifCustomDaysList.sorted().joinToString(",")
+                                                    },
+                                            ) {
+                                                Text(name.first().toString(),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
+                                            }
+                                        }
+                                    }
+                                    Spacer(Modifier.height(8.dp))
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                                    ) {
+                                        notifCustomHoursList.forEachIndexed { i, timeStr ->
+                                            val h = parseHour(timeStr); val m = parseMinute(timeStr)
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.padding(end = 1.dp),
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .clip(RoundedCornerShape(6.dp))
+                                                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp)),
+                                                ) {
+                                                    TextButton(
+                                                        onClick = {
+                                                            val ctx = context
+                                                            TimePickerDialog(ctx, { _, newH, newM ->
+                                                                val newStr = String.format("%d:%02d", newH, newM)
+                                                                notifCustomHoursList = notifCustomHoursList.toMutableList().also { it[i] = newStr }
+                                                                config.notificationCustomHours = notifCustomHoursList.joinToString(",")
+                                                            }, h, m, false).show()
+                                                        },
+                                                        modifier = Modifier.height(18.dp),
+                                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                                                    ) {
+                                                        Text(formatTime(timeStr), style = MaterialTheme.typography.bodySmall)
+                                                    }
+                                                }
+                                                if (notifCustomHoursList.size > 1) {
+                                                    TextButton(
+                                                        onClick = {
+                                                            notifCustomHoursList = notifCustomHoursList.toMutableList().also { it.removeAt(i) }
+                                                            config.notificationCustomHours = notifCustomHoursList.joinToString(",")
+                                                        },
+                                                        modifier = Modifier.height(18.dp),
+                                                        contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp),
+                                                    ) {
+                                                        Text("\u2212",
+                                                            style = MaterialTheme.typography.titleSmall,
+                                                            color = MaterialTheme.colorScheme.error,
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        TextButton(onClick = {
+                                            val ctx = context
+                                            TimePickerDialog(ctx, { _, h, m ->
+                                                val newStr = String.format("%d:%02d", h, m)
+                                                notifCustomHoursList = notifCustomHoursList + newStr
+                                                config.notificationCustomHours = notifCustomHoursList.joinToString(",")
+                                            }, 9, 0, false).show()
+                                        }, modifier = Modifier.height(18.dp),
+                                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                                        ) {
+                                            Text("+ ${Strings.get("add_hour", lang)}", style = MaterialTheme.typography.bodySmall)
+                                        }
+                                    }
+                                    Spacer(Modifier.height(4.dp))
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        RadioButton(selected = notif24hFormat, onClick = { notif24hFormat = true; config.notification24hFormat = true })
+                                        Spacer(Modifier.width(2.dp))
+                                        Text("24h", style = MaterialTheme.typography.bodySmall)
+                                        Spacer(Modifier.width(12.dp))
+                                        RadioButton(selected = !notif24hFormat, onClick = { notif24hFormat = false; config.notification24hFormat = false })
+                                        Spacer(Modifier.width(2.dp))
+                                        Text("12h", style = MaterialTheme.typography.bodySmall)
+                                    }
+                                }
+                            }
                         }
                         Spacer(Modifier.height(12.dp))
                         TextButton(onClick = {
