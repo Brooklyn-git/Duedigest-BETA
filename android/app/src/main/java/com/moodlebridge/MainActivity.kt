@@ -335,7 +335,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                                 notifEnabled = enabled
                                 config.notificationsEnabled = enabled
                                 if (enabled) {
-                                    NotificationWorker.schedule(context, notifScheduleType)
+                                    NotificationWorker.schedule(context)
                                 } else {
                                     NotificationWorker.cancel(context)
                                 }
@@ -352,14 +352,14 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                                             .clickable {
                                                 notifScheduleType = key
                                                 config.notificationScheduleType = key
-                                                NotificationWorker.schedule(context, key)
+                                                NotificationWorker.schedule(context)
                                             }
                                             .padding(end = 12.dp),
                                         ) {
                                             RadioButton(selected = notifScheduleType == key, onClick = {
                                                 notifScheduleType = key
                                                 config.notificationScheduleType = key
-                                                NotificationWorker.schedule(context, key)
+                                                NotificationWorker.schedule(context)
                                             })
                                             Spacer(Modifier.width(2.dp))
                                             Text(label, style = MaterialTheme.typography.bodyMedium)
@@ -383,6 +383,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                                                     .clickable {
                                                         notifCustomDaysList = if (isSelected) notifCustomDaysList - index else notifCustomDaysList + index
                                                         config.notificationCustomDays = notifCustomDaysList.sorted().joinToString(",")
+                                                        NotificationWorker.schedule(context)
                                                     },
                                             ) {
                                                 Text(name.first().toString(),
@@ -414,6 +415,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                                                                 val newStr = String.format("%d:%02d", newH, newM)
                                                                 notifCustomHoursList = notifCustomHoursList.toMutableList().also { it[i] = newStr }
                                                                 config.notificationCustomHours = notifCustomHoursList.joinToString(",")
+                                                                NotificationWorker.schedule(context)
                                                             }, h, m, false).show()
                                                         },
                                                         modifier = Modifier.height(18.dp),
@@ -427,6 +429,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                                                         onClick = {
                                                             notifCustomHoursList = notifCustomHoursList.toMutableList().also { it.removeAt(i) }
                                                             config.notificationCustomHours = notifCustomHoursList.joinToString(",")
+                                                            NotificationWorker.schedule(context)
                                                         },
                                                         modifier = Modifier.height(18.dp),
                                                         contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp),
@@ -445,6 +448,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                                                 val newStr = String.format("%d:%02d", h, m)
                                                 notifCustomHoursList = notifCustomHoursList + newStr
                                                 config.notificationCustomHours = notifCustomHoursList.joinToString(",")
+                                                NotificationWorker.schedule(context)
                                             }, 9, 0, false).show()
                                         }, modifier = Modifier.height(18.dp),
                                             contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),

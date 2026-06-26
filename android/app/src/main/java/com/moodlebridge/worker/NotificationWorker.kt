@@ -6,8 +6,8 @@ import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.work.CoroutineWorker
-import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.moodlebridge.MainActivity
@@ -27,20 +27,27 @@ class NotificationWorker(
 
         val now = Calendar.getInstance()
         val currentDay = now.get(Calendar.DAY_OF_WEEK) - 1
-        val currentHour = now.get(Calendar.HOUR_OF_DAY)
+        val dayMinutes = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
 
         val shouldShow = when (config.notificationScheduleType) {
             "daily" -> true
             "weekly" -> true
             "custom" -> {
-                val days = parseList(config.notificationCustomDays)
-                val hours = parseList(config.notificationCustomHours)
-                days.contains(currentDay) && hours.contains(currentHour)
+                val days = parseIntList(config.notificationCustomDays)
+                val times = parseTimeList(config.notificationCustomHours)
+                val dayOk = days.isEmpty() || currentDay in days
+                val timeOk = times.any { (h, m) ->
+                    val t = h * 60 + m
+                    t in (dayMinutes - 15)..(dayMinutes + 2)
+                }
+                dayOk && timeOk
             }
             else -> false
         }
 
         if (shouldShow) showReminder()
+
+        Companion.schedule(applicationContext)
         return Result.success()
     }
 
@@ -83,29 +90,25 @@ class NotificationWorker(
         NotificationManagerCompat.from(applicationContext).notify(100, notification)
     }
 
-    private fun parseList(value: String): List<Int> =
-        value.split(",").mapNotNull {
-            val t = it.trim()
-            if (t.contains(":")) t.substringBefore(":").toIntOrNull() else t.toIntOrNull()
-        }
-
     companion object {
         const val CHANNEL_ID = "due_nest_reminder"
         const val WORK_NAME = "due_nest_notification_worker"
 
-        fun schedule(context: Context, type: String) {
-            val intervalHours = when (type) {
-                "daily" -> 24
-                "weekly" -> 168
-                "custom" -> 1
-                else -> 24
+        fun schedule(context: Context) {
+            val config = ConfigStore(context)
+            if (!config.notificationsEnabled) {
+                WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
+                return
             }
-            val request = PeriodicWorkRequestBuilder<NotificationWorker>(
-                intervalHours.toLong(), TimeUnit.HOURS
-            ).build()
-            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+
+            val delayMinutes = calculateDelay(config)
+            val request = OneTimeWorkRequestBuilder<NotificationWorker>()
+                .setInitialDelay(delayMinutes, TimeUnit.MINUTES)
+                .build()
+
+            WorkManager.getInstance(context).enqueueUniqueWork(
                 WORK_NAME,
-                ExistingPeriodicWorkPolicy.UPDATE,
+                ExistingWorkPolicy.REPLACE,
                 request,
             )
         }
@@ -113,5 +116,53 @@ class NotificationWorker(
         fun cancel(context: Context) {
             WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
         }
+
+        private fun calculateDelay(config: ConfigStore): Long {
+            val now = Calendar.getInstance()
+            val currentMinutes = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
+            val currentDay = now.get(Calendar.DAY_OF_WEEK) - 1
+
+            return when (config.notificationScheduleType) {
+                "daily" -> 24 * 60L
+                "weekly" -> 7 * 24 * 60L
+                "custom" -> {
+                    val times = parseTimeList(config.notificationCustomHours)
+                    val days = parseIntList(config.notificationCustomDays).toSet()
+                    val allDays = days.isEmpty()
+                    if (times.isEmpty()) return 60L
+
+                    val sortedTimes = times.map { (h, m) -> h * 60 + m }.sorted()
+
+                    for (t in sortedTimes) {
+                        if (t > currentMinutes) return (t - currentMinutes).toLong()
+                    }
+
+                    for (offset in 1..7) {
+                        val d = (currentDay + offset) % 7
+                        if (allDays || d in days) {
+                            val t = sortedTimes.first()
+                            return (offset * 24 * 60L + t - currentMinutes).coerceAtLeast(1)
+                        }
+                    }
+                    7 * 24 * 60L
+                }
+                else -> 24 * 60L
+            }
+        }
+
+        private fun parseIntList(value: String): List<Int> =
+            value.split(",").mapNotNull {
+                val t = it.trim()
+                if (t.contains(":")) t.substringBefore(":").toIntOrNull() else t.toIntOrNull()
+            }
+
+        private fun parseTimeList(value: String): List<Pair<Int, Int>> =
+            value.split(",").mapNotNull {
+                val t = it.trim()
+                val parts = t.split(":")
+                val h = parts[0].toIntOrNull() ?: return@mapNotNull null
+                val m = if (parts.size > 1) parts[1].toIntOrNull() ?: 0 else 0
+                h to m
+            }
     }
 }
