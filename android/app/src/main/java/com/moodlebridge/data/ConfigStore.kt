@@ -135,6 +135,10 @@ class ConfigStore(context: Context) {
         get() = prefs.getString(KEY_TASK_COMPLETION, "{}") ?: "{}"
         set(value) = prefs.edit().putString(KEY_TASK_COMPLETION, value).apply()
 
+    var taskEventCache: String
+        get() = prefs.getString(KEY_TASK_EVENT_CACHE, "[]") ?: "[]"
+        set(value) = prefs.edit().putString(KEY_TASK_EVENT_CACHE, value).apply()
+
     var lastConfiguredOpacity: Float
         get() = prefs.getFloat(KEY_LAST_OPACITY, 1.0f)
         set(value) { prefs.edit().putFloat(KEY_LAST_OPACITY, value).commit() }
@@ -176,5 +180,6 @@ class ConfigStore(context: Context) {
         const val KEY_TASKS_ENABLED = "tasks_enabled"
         const val KEY_TASKS_PATH = "tasks_path"
         const val KEY_TASK_COMPLETION = "task_completion"
+        const val KEY_TASK_EVENT_CACHE = "task_event_cache"
     }
 }

@@ -42,6 +42,7 @@ data class Assignment(
 @Serializable
 data class AssignResponse(val courses: List<AssignCourse>? = null)
 
+@Serializable
 data class Event(
     val id: String,
     val name: String,

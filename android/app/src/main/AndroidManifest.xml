@@ -35,15 +35,38 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".widget.TaskOpacitySliderActivity"
+            android:exported="true"
+            android:theme="@style/Theme.MoodleBridge.SliderOverlay"
+            android:excludeFromRecents="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
         <receiver
             android:name=".widget.SyncWidgetReceiver"
-            android:exported="true">
+            android:exported="true"
+            android:label="DueNest Sync">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/sync_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.TaskWidgetReceiver"
+            android:exported="true"
+            android:label="DueNest Tasks">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/task_widget_info" />
         </receiver>
 
         <provider

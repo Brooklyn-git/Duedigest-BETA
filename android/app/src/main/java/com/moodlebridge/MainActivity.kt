@@ -224,7 +224,11 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                 daysBackText, limitText, lang, tasksEnabled, tasksOutputPath,
                 { addLog(it) }, { statusText = it }, { errorDialogMsg = it },
                 { isWorking = false },
-                { events -> fetchedEvents = events; expandedTaskId = null; regenerateTasksFile() })
+                { events ->
+                    fetchedEvents = events; expandedTaskId = null
+                    config.taskEventCache = Json.encodeToString(events)
+                    regenerateTasksFile()
+                })
         }
     }
 
