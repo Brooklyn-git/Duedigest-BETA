@@ -62,6 +62,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -165,6 +166,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
 
     var selectedTab by remember { mutableIntStateOf(0) }
     var showSettings by remember { mutableStateOf(false) }
+    var showOutputSettings by remember { mutableStateOf(false) }
     var isWorking by remember { mutableStateOf(false) }
     var errorDialogMsg by remember { mutableStateOf<String?>(null) }
     var statusText by remember { mutableStateOf(config.lastSyncMessage) }
@@ -233,7 +235,24 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     }
 
     MoodleBridgeTheme(themeMode = themeMode) {
-        Scaffold(
+        if (showOutputSettings) {
+            OutputSettingsPage(
+                icsEnabled = icsEnabled, onIcsEnabledChange = { icsEnabled = it },
+                logseqEnabled = logseqEnabled, onLogseqEnabledChange = { logseqEnabled = it },
+                obsidianEnabled = obsidianEnabled, onObsidianEnabledChange = { obsidianEnabled = it },
+                icsPath = icsPath, onIcsPathChange = { icsPath = it },
+                logseqPath = logseqPath, onLogseqPathChange = { logseqPath = it },
+                obsidianPath = obsidianPath, onObsidianPathChange = { obsidianPath = it },
+                daysBackText = daysBackText, onDaysBackChange = { daysBackText = it },
+                limitText = limitText, onLimitChange = { limitText = it },
+                tasksEnabled = tasksEnabled, onTasksEnabledChange = { tasksEnabled = it; config.tasksEnabled = it },
+                tasksOutputPath = tasksOutputPath, onTasksPathChange = { tasksOutputPath = it; config.tasksOutputPath = it },
+                lang = lang,
+                onBack = { showOutputSettings = false },
+                onSettings = { showSettings = true },
+            )
+        } else {
+            Scaffold(
             topBar = {
                 TopAppBar(
                     title = {
@@ -263,11 +282,10 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                 }
             }
             Column(Modifier.padding(padding).fillMaxSize()) {
-                // ── Tabs (bigger touch targets) ─────────────────
+                // ── Tabs ────────────────────────────────────────
                 TabRow(selectedTabIndex = selectedTab) {
                     listOf(
                         Strings.get("connection", lang),
-                        Strings.get("output", lang),
                         Strings.get("tasks", lang),
                     ).forEachIndexed { i, t ->
                         Tab(selected = selectedTab == i, onClick = { selectedTab = i },
@@ -285,19 +303,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                             passwordVisible = passwordVisible, onPasswordVisibleChange = { passwordVisible = it },
                             tz = tz, onTzChange = { tz = it }, tzExpanded = tzExpanded,
                             onTzExpandedChange = { tzExpanded = it }, lang = lang)
-                        1 -> OutputTabContent(
-                            icsEnabled = icsEnabled, onIcsEnabledChange = { icsEnabled = it },
-                            logseqEnabled = logseqEnabled, onLogseqEnabledChange = { logseqEnabled = it },
-                            obsidianEnabled = obsidianEnabled, onObsidianEnabledChange = { obsidianEnabled = it },
-                            icsPath = icsPath, onIcsPathChange = { icsPath = it },
-                            logseqPath = logseqPath, onLogseqPathChange = { logseqPath = it },
-                            obsidianPath = obsidianPath, onObsidianPathChange = { obsidianPath = it },
-                            daysBackText = daysBackText, onDaysBackChange = { daysBackText = it },
-                            limitText = limitText, onLimitChange = { limitText = it },
-                            tasksEnabled = tasksEnabled, onTasksEnabledChange = { tasksEnabled = it; config.tasksEnabled = it },
-                            tasksOutputPath = tasksOutputPath, onTasksPathChange = { tasksOutputPath = it; config.tasksOutputPath = it },
-                            lang = lang)
-                        2 -> TasksTabContent(
+                        else -> TasksTabContent(
                             events = fetchedEvents, completionMap = taskCompletionMap,
                             expandedId = expandedTaskId, onExpandedChange = { expandedTaskId = it },
                             onToggleCompletion = { id ->
@@ -336,12 +342,14 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                 if (isWorking) { LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 16.dp)); Spacer(Modifier.height(4.dp)) }
 
                 // ── Log ─────────────────────────────────────────
-                Text(Strings.get("log", lang), style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp))
-                Card(Modifier.fillMaxWidth().weight(2f).padding(horizontal = 16.dp)
-                    .clip(RoundedCornerShape(8.dp)).border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                    LazyColumn(Modifier.fillMaxSize().padding(8.dp)) {
-                        items(logLines.toList()) { line -> Text(line, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace) }
+                if (selectedTab != 1) {
+                    Text(Strings.get("log", lang), style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp))
+                    Card(Modifier.fillMaxWidth().weight(2f).padding(horizontal = 16.dp)
+                        .clip(RoundedCornerShape(8.dp)).border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                        LazyColumn(Modifier.fillMaxSize().padding(8.dp)) {
+                            items(logLines.toList()) { line -> Text(line, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace) }
+                        }
                     }
                 }
 
@@ -350,6 +358,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
             }
         }
+        } // end else
 
         // ── Error dialog ────────────────────────────────────────
         if (errorDialogMsg != null) {
@@ -522,6 +531,13 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                             }
                         }
                         Spacer(Modifier.height(12.dp))
+                        Button(
+                            onClick = { showSettings = false; showOutputSettings = true },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("Output Settings")
+                        }
+                        Spacer(Modifier.height(8.dp))
                         TextButton(onClick = {
                             config.token = ""
                             config.password = ""
@@ -537,6 +553,59 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                     }
                 },
                 confirmButton = { TextButton(onClick = { showSettings = false }) { Text("OK") } })
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun OutputSettingsPage(
+    icsEnabled: Boolean, onIcsEnabledChange: (Boolean) -> Unit,
+    logseqEnabled: Boolean, onLogseqEnabledChange: (Boolean) -> Unit,
+    obsidianEnabled: Boolean, onObsidianEnabledChange: (Boolean) -> Unit,
+    icsPath: String, onIcsPathChange: (String) -> Unit,
+    logseqPath: String, onLogseqPathChange: (String) -> Unit,
+    obsidianPath: String, onObsidianPathChange: (String) -> Unit,
+    daysBackText: String, onDaysBackChange: (String) -> Unit,
+    limitText: String, onLimitChange: (String) -> Unit,
+    tasksEnabled: Boolean, onTasksEnabledChange: (Boolean) -> Unit,
+    tasksOutputPath: String, onTasksPathChange: (String) -> Unit,
+    lang: String,
+    onBack: () -> Unit,
+    onSettings: () -> Unit,
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Output Settings") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onSettings) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+            )
+        },
+    ) { padding ->
+        Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState())) {
+            OutputTabContent(
+                icsEnabled = icsEnabled, onIcsEnabledChange = onIcsEnabledChange,
+                logseqEnabled = logseqEnabled, onLogseqEnabledChange = onLogseqEnabledChange,
+                obsidianEnabled = obsidianEnabled, onObsidianEnabledChange = onObsidianEnabledChange,
+                icsPath = icsPath, onIcsPathChange = onIcsPathChange,
+                logseqPath = logseqPath, onLogseqPathChange = onLogseqPathChange,
+                obsidianPath = obsidianPath, onObsidianPathChange = onObsidianPathChange,
+                daysBackText = daysBackText, onDaysBackChange = onDaysBackChange,
+                limitText = limitText, onLimitChange = onLimitChange,
+                tasksEnabled = tasksEnabled, onTasksEnabledChange = onTasksEnabledChange,
+                tasksOutputPath = tasksOutputPath, onTasksPathChange = onTasksPathChange,
+                lang = lang,
+            )
         }
     }
 }
