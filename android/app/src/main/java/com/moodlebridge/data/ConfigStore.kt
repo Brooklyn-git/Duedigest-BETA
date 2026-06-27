@@ -53,7 +53,7 @@ class ConfigStore(context: Context) {
         set(value) = prefs.edit().putBoolean(KEY_OBSIDIAN, value).apply()
 
     var icsPath: String
-        get() = prefs.getString(KEY_ICS_PATH, "calendar.ics") ?: "calendar.ics"
+        get() = prefs.getString(KEY_ICS_PATH, "") ?: ""
         set(value) = prefs.edit().putString(KEY_ICS_PATH, value).apply()
 
     var logseqPath: String

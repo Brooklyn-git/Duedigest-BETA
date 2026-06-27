@@ -212,9 +212,22 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
         config.taskCompletionState = Json.encodeToString(taskCompletionMap)
     }
 
+    fun fileExists(path: String): Boolean {
+        return if (path.startsWith("content://")) {
+            try {
+                val uri = Uri.parse(path)
+                context.contentResolver.openInputStream(uri)?.use { true } ?: false
+            } catch (_: Exception) { false }
+        } else {
+            File(path).exists()
+        }
+    }
+
     fun regenerateTasksFile() {
         if (!tasksEnabled || tasksOutputPath.isBlank()) return
-        val content = if (config.lastSyncTimestamp == 0L && fetchedEvents.isEmpty()) {
+        val isFirstLaunch = config.lastSyncTimestamp == 0L && fetchedEvents.isEmpty()
+        if (isFirstLaunch && fileExists(tasksOutputPath)) return
+        val content = if (isFirstLaunch) {
             MarkdownGenerator.generateIntroMd(lang)
         } else {
             MarkdownGenerator.generateTasksList(fetchedEvents, taskCompletionMap)
@@ -326,21 +339,25 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                     }
                 }
 
-                // ── Save password ───────────────────────────────
-                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = savePw, onCheckedChange = { savePw = it })
-                    Spacer(Modifier.width(4.dp))
-                    Text(Strings.get("store_pw", lang), style = MaterialTheme.typography.bodySmall)
-                }
-
-                // ── Buttons ─────────────────────────────────────
-                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button(onClick = { doSync(password) },
-                        enabled = url.isNotBlank() && username.isNotBlank() && password.isNotBlank() && !isWorking,
-                        modifier = Modifier.weight(1f)) {
-                        Text(if (isWorking) Strings.get("working", lang) else Strings.get("fetch", lang))
+                if (selectedTab == 0) {
+                    // ── Save password ─────────────────────────────
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = savePw, onCheckedChange = { savePw = it })
+                        Spacer(Modifier.width(4.dp))
+                        Text(Strings.get("store_pw", lang), style = MaterialTheme.typography.bodySmall)
                     }
-                    OutlinedButton(onClick = { shareIcs(context, config) }, modifier = Modifier.weight(1f)) { Text(Strings.get("share_ics", lang)) }
+
+                    // ── Buttons ─────────────────────────────────
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Button(onClick = { doSync(password) },
+                            enabled = url.isNotBlank() && username.isNotBlank() && password.isNotBlank() && !isWorking,
+                            modifier = Modifier.weight(1f)) {
+                            Text(if (isWorking) Strings.get("working", lang) else Strings.get("fetch", lang))
+                        }
+                        if (icsEnabled) {
+                            OutlinedButton(onClick = { shareIcs(context, config) }, modifier = Modifier.weight(1f)) { Text(Strings.get("share_ics", lang)) }
+                        }
+                    }
                 }
 
                 // ── Progress ────────────────────────────────────
