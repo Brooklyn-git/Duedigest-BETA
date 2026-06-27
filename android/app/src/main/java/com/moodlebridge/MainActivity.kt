@@ -25,9 +25,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -131,7 +132,7 @@ private fun MoodleBridgeTheme(themeMode: String, content: @Composable () -> Unit
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     var themeMode by remember { mutableStateOf(config.themeMode) }
@@ -393,15 +394,14 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                                         }
                                     }
                                     Spacer(Modifier.height(8.dp))
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                                    FlowRow(
+                                        horizontalArrangement = Arrangement.spacedBy(0.dp),
+                                        verticalArrangement = Arrangement.spacedBy(2.dp),
                                     ) {
                                         notifCustomHoursList.forEachIndexed { i, timeStr ->
                                             val h = parseHour(timeStr); val m = parseMinute(timeStr)
                                             Row(
                                                 verticalAlignment = Alignment.CenterVertically,
-                                                modifier = Modifier.padding(end = 1.dp),
                                             ) {
                                                 Box(
                                                     modifier = Modifier
@@ -418,7 +418,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                                                                 NotificationWorker.schedule(context)
                                                             }, h, m, false).show()
                                                         },
-                                                        modifier = Modifier.height(18.dp),
+                                                        modifier = Modifier.height(24.dp),
                                                         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
                                                     ) {
                                                         Text(formatTime(timeStr), style = MaterialTheme.typography.bodySmall)
@@ -431,7 +431,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                                                             config.notificationCustomHours = notifCustomHoursList.joinToString(",")
                                                             NotificationWorker.schedule(context)
                                                         },
-                                                        modifier = Modifier.height(18.dp),
+                                                        modifier = Modifier.height(24.dp),
                                                         contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp),
                                                     ) {
                                                         Text("\u2212",
@@ -450,7 +450,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                                                 config.notificationCustomHours = notifCustomHoursList.joinToString(",")
                                                 NotificationWorker.schedule(context)
                                             }, 9, 0, false).show()
-                                        }, modifier = Modifier.height(18.dp),
+                                        }, modifier = Modifier.height(24.dp),
                                             contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
                                         ) {
                                             Text("+ ${Strings.get("add_hour", lang)}", style = MaterialTheme.typography.bodySmall)
@@ -458,13 +458,13 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                                     }
                                     Spacer(Modifier.height(4.dp))
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        RadioButton(selected = notif24hFormat, onClick = { notif24hFormat = true; config.notification24hFormat = true })
-                                        Spacer(Modifier.width(2.dp))
-                                        Text("24h", style = MaterialTheme.typography.bodySmall)
-                                        Spacer(Modifier.width(12.dp))
                                         RadioButton(selected = !notif24hFormat, onClick = { notif24hFormat = false; config.notification24hFormat = false })
                                         Spacer(Modifier.width(2.dp))
                                         Text("12h", style = MaterialTheme.typography.bodySmall)
+                                        Spacer(Modifier.width(12.dp))
+                                        RadioButton(selected = notif24hFormat, onClick = { notif24hFormat = true; config.notification24hFormat = true })
+                                        Spacer(Modifier.width(2.dp))
+                                        Text("24h", style = MaterialTheme.typography.bodySmall)
                                     }
                                 }
                             }
