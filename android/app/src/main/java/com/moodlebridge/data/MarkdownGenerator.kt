@@ -4,6 +4,34 @@ import java.util.Calendar
 
 object MarkdownGenerator {
 
+    fun generateTasksList(events: List<Event>, completionMap: Map<String, Boolean>): String {
+        val sorted = events.sortedBy { it.timestart }
+        val grouped = sorted.groupBy { it.course.ifBlank { "General" } }.toSortedMap()
+
+        return buildString {
+            appendLine("# Tasks")
+            appendLine()
+            for ((course, courseEvents) in grouped) {
+                appendLine("## $course")
+                for (ev in courseEvents) {
+                    val cal = Calendar.getInstance().apply { timeInMillis = ev.timestart * 1000 }
+                    val y = cal.get(Calendar.YEAR)
+                    val m = String.format("%02d", cal.get(Calendar.MONTH) + 1)
+                    val d = String.format("%02d", cal.get(Calendar.DAY_OF_MONTH))
+                    val dayNames = arrayOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+                    val day = dayNames[cal.get(Calendar.DAY_OF_WEEK) - 1]
+                    val h = String.format("%02d", cal.get(Calendar.HOUR_OF_DAY))
+                    val min = String.format("%02d", cal.get(Calendar.MINUTE))
+                    val checked = completionMap[ev.id] == true
+                    val mark = if (checked) "x" else " "
+                    val title = ev.name.replace("[", "\\[").replace("]", "\\]")
+                    appendLine("- [$mark] $title (due: $y-$m-$d $day $h:$min)")
+                }
+                appendLine()
+            }
+        }
+    }
+
     fun generateLogseq(events: List<Event>): List<Pair<String, String>> {
         return events.map { ev ->
             val cal = Calendar.getInstance().apply { timeInMillis = ev.timestart * 1000 }

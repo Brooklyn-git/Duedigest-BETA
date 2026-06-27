@@ -52,6 +52,12 @@ object Strings {
         "custom" to "Custom",
         "add_hour" to "Add hour",
         "notif_body" to "Have you checked your assignments today?\nLet's check them out!",
+        "tasks" to "Tasks",
+        "no_tasks" to "No tasks yet.\nTap Fetch to load tasks.",
+        "open_in_browser" to "Open in browser",
+        "clear_completed" to "Clear completed",
+        "tasks_path" to "Tasks file (.md)",
+        "collapse" to "Collapse",
     )
 
     private val es = mapOf(
@@ -104,6 +110,12 @@ object Strings {
         "custom" to "Personalizado",
         "add_hour" to "Agregar hora",
         "notif_body" to "\u00bfHas revisado tus tareas hoy?\n\u00a1Vamos a revisarlas!",
+        "tasks" to "Tareas",
+        "no_tasks" to "A\u00fan no hay tareas.\nPresiona Obtener para cargarlas.",
+        "open_in_browser" to "Abrir en navegador",
+        "clear_completed" to "Limpiar completadas",
+        "tasks_path" to "Archivo de tareas (.md)",
+        "collapse" to "Colapsar",
     )
 
     fun get(key: String, lang: String = "en"): String {

@@ -123,6 +123,18 @@ class ConfigStore(context: Context) {
         prefs.edit().putFloat("${KEY_WIDGET_OPACITY}_$widgetId", value).commit()
     }
 
+    var tasksEnabled: Boolean
+        get() = prefs.getBoolean(KEY_TASKS_ENABLED, true)
+        set(value) = prefs.edit().putBoolean(KEY_TASKS_ENABLED, value).apply()
+
+    var tasksOutputPath: String
+        get() = prefs.getString(KEY_TASKS_PATH, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_TASKS_PATH, value).apply()
+
+    var taskCompletionState: String
+        get() = prefs.getString(KEY_TASK_COMPLETION, "{}") ?: "{}"
+        set(value) = prefs.edit().putString(KEY_TASK_COMPLETION, value).apply()
+
     var lastConfiguredOpacity: Float
         get() = prefs.getFloat(KEY_LAST_OPACITY, 1.0f)
         set(value) { prefs.edit().putFloat(KEY_LAST_OPACITY, value).commit() }
@@ -161,5 +173,8 @@ class ConfigStore(context: Context) {
         const val KEY_NOTIF_CUSTOM_DAYS = "notif_custom_days"
         const val KEY_NOTIF_CUSTOM_HOURS = "notif_custom_hours"
         const val KEY_NOTIF_24H = "notif_24h_format"
+        const val KEY_TASKS_ENABLED = "tasks_enabled"
+        const val KEY_TASKS_PATH = "tasks_path"
+        const val KEY_TASK_COMPLETION = "task_completion"
     }
 }

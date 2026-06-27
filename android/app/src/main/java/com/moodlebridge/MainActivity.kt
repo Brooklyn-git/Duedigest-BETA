@@ -76,8 +76,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -92,6 +95,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.moodlebridge.data.ConfigStore
+import com.moodlebridge.data.Event
 import com.moodlebridge.data.IcsGenerator
 import com.moodlebridge.data.MarkdownGenerator
 import com.moodlebridge.data.MoodleApi
@@ -101,6 +105,9 @@ import com.moodlebridge.worker.NotificationWorker
 import com.moodlebridge.worker.SyncWorker
 import androidx.work.WorkManager
 import java.io.File
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -173,6 +180,13 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     }
     var notifCustomDaysList by remember { mutableStateOf(parseDayList(config.notificationCustomDays)) }
     var notifCustomHoursList by remember { mutableStateOf(parseHourList(config.notificationCustomHours)) }
+    var fetchedEvents by remember { mutableStateOf(listOf<Event>()) }
+    var taskCompletionMap by remember { mutableStateOf(
+        try { Json.decodeFromString<Map<String, Boolean>>(config.taskCompletionState) } catch (_: Exception) { emptyMap() }
+    ) }
+    var expandedTaskId by remember { mutableStateOf<String?>(null) }
+    var tasksEnabled by remember { mutableStateOf(config.tasksEnabled) }
+    var tasksOutputPath by remember { mutableStateOf(config.tasksOutputPath) }
 
     fun parseHour(s: String): Int {
         val parts = s.split(":")
@@ -192,13 +206,25 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
 
     fun addLog(msg: String) { logLines.add(msg) }
 
+    fun saveCompletionMap() {
+        config.taskCompletionState = Json.encodeToString(taskCompletionMap)
+    }
+
+    fun regenerateTasksFile() {
+        if (!tasksEnabled || tasksOutputPath.isBlank()) return
+        val content = MarkdownGenerator.generateTasksList(fetchedEvents, taskCompletionMap)
+        PathResolver.writeIcs(context, tasksOutputPath, content)
+    }
+
     fun doSync(pw: String) {
         isWorking = true; logLines.clear(); statusText = ""
         scope.launch {
             doFetch(context, config, url, username, pw, tz, savePw,
                 icsEnabled, logseqEnabled, obsidianEnabled, icsPath, logseqPath, obsidianPath,
-                daysBackText, limitText, lang, { addLog(it) }, { statusText = it }, { errorDialogMsg = it },
-                { isWorking = false })
+                daysBackText, limitText, lang, tasksEnabled, tasksOutputPath,
+                { addLog(it) }, { statusText = it }, { errorDialogMsg = it },
+                { isWorking = false },
+                { events -> fetchedEvents = events; expandedTaskId = null; regenerateTasksFile() })
         }
     }
 
@@ -235,7 +261,11 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
             Column(Modifier.padding(padding).fillMaxSize()) {
                 // ── Tabs (bigger touch targets) ─────────────────
                 TabRow(selectedTabIndex = selectedTab) {
-                    listOf(Strings.get("connection", lang), Strings.get("output", lang)).forEachIndexed { i, t ->
+                    listOf(
+                        Strings.get("connection", lang),
+                        Strings.get("output", lang),
+                        Strings.get("tasks", lang),
+                    ).forEachIndexed { i, t ->
                         Tab(selected = selectedTab == i, onClick = { selectedTab = i },
                             text = { Text(t, style = MaterialTheme.typography.titleMedium) },
                             modifier = Modifier.height(56.dp))
@@ -259,7 +289,25 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                             logseqPath = logseqPath, onLogseqPathChange = { logseqPath = it },
                             obsidianPath = obsidianPath, onObsidianPathChange = { obsidianPath = it },
                             daysBackText = daysBackText, onDaysBackChange = { daysBackText = it },
-                            limitText = limitText, onLimitChange = { limitText = it }, lang = lang)
+                            limitText = limitText, onLimitChange = { limitText = it },
+                            tasksEnabled = tasksEnabled, onTasksEnabledChange = { tasksEnabled = it; config.tasksEnabled = it },
+                            tasksOutputPath = tasksOutputPath, onTasksPathChange = { tasksOutputPath = it; config.tasksOutputPath = it },
+                            lang = lang)
+                        2 -> TasksTabContent(
+                            events = fetchedEvents, completionMap = taskCompletionMap,
+                            expandedId = expandedTaskId, onExpandedChange = { expandedTaskId = it },
+                            onToggleCompletion = { id ->
+                                taskCompletionMap = taskCompletionMap.toMutableMap().also { it[id] = !(it[id] ?: false) }
+                                saveCompletionMap()
+                                regenerateTasksFile()
+                            },
+                            onClearCompleted = {
+                                taskCompletionMap = emptyMap()
+                                saveCompletionMap()
+                                regenerateTasksFile()
+                                expandedTaskId = null
+                            },
+                            lang = lang)
                     }
                 }
 
@@ -495,13 +543,16 @@ private suspend fun doFetch(
     icsEnabled: Boolean, logseqEnabled: Boolean, obsidianEnabled: Boolean,
     icsPath: String, logseqPath: String, obsidianPath: String,
     daysBackText: String, limitText: String, lang: String,
+    tasksEnabled: Boolean, tasksOutputPath: String,
     onLog: (String) -> Unit, onStatus: (String) -> Unit, onError: (String) -> Unit, onDone: () -> Unit,
+    onEventsFetched: (List<Event>) -> Unit = {},
 ) {
     try {
         config.moodleUrl = url.trimEnd('/'); config.username = username.trim(); config.timezone = tz.trim()
         config.savePassword = savePw; if (savePw) config.password = password else config.password = ""
         config.icsEnabled = icsEnabled; config.logseqEnabled = logseqEnabled; config.obsidianEnabled = obsidianEnabled
         config.icsPath = icsPath; config.logseqPath = logseqPath; config.obsidianPath = obsidianPath
+        config.tasksEnabled = tasksEnabled; config.tasksOutputPath = tasksOutputPath
         config.fetchDaysBack = daysBackText.toIntOrNull() ?: 7; config.fetchLimit = limitText.toIntOrNull() ?: 100
 
         var token = config.token
@@ -537,6 +588,8 @@ private suspend fun doFetch(
             onLog("Obsidian -> ${config.obsidianPath.ifBlank { "${context.cacheDir}/obsidian/" }}")
         }
 
+        onEventsFetched(events)
+
         config.lastSyncTimestamp = System.currentTimeMillis()
         config.lastSyncMessage = "${Strings.get("done", lang)} \u2014 ${events.size} events"
         config.eventCount = events.size
@@ -557,6 +610,165 @@ private fun shareIcs(context: Context, config: ConfigStore) {
     context.startActivity(Intent(Intent.ACTION_VIEW).apply {
         setDataAndType(uri, "text/calendar"); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
     })
+}
+
+@Composable
+private fun TasksTabContent(
+    events: List<Event>, completionMap: Map<String, Boolean>,
+    expandedId: String?, onExpandedChange: (String?) -> Unit,
+    onToggleCompletion: (String) -> Unit, onClearCompleted: () -> Unit, lang: String,
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    if (events.isEmpty()) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(Strings.get("no_tasks", lang), style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        return
+    }
+
+    val sorted = events.sortedBy { it.timestart }
+    val grouped = sorted.groupBy { it.course.ifBlank { "General" } }.toSortedMap()
+
+    Column(Modifier.fillMaxWidth().padding(16.dp)) {
+        grouped.forEach { (course, courseEvents) ->
+            Text(course, style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
+            courseEvents.forEach { ev ->
+                val isDone = completionMap[ev.id] == true
+                val isExpanded = expandedId == ev.id
+                TaskCard(
+                    event = ev, isDone = isDone, isExpanded = isExpanded,
+                    onToggle = { onToggleCompletion(ev.id) },
+                    onExpand = { onExpandedChange(if (isExpanded) null else ev.id) },
+                    lang = lang, context = context,
+                )
+                Spacer(Modifier.height(4.dp))
+            }
+        }
+        if (completionMap.any { it.value }) {
+            Spacer(Modifier.height(12.dp))
+            TextButton(onClick = onClearCompleted, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                Text(Strings.get("clear_completed", lang), color = MaterialTheme.colorScheme.error)
+            }
+            Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
+@Composable
+private fun TaskCard(
+    event: Event, isDone: Boolean, isExpanded: Boolean,
+    onToggle: () -> Unit, onExpand: () -> Unit, lang: String, context: android.content.Context,
+) {
+    val cal = java.util.Calendar.getInstance().apply { timeInMillis = event.timestart * 1000 }
+    val now = java.util.Calendar.getInstance()
+    val diffDays = ((cal.timeInMillis - now.timeInMillis) / (1000 * 60 * 60 * 24)).toInt()
+    val relativeDate = when {
+        diffDays < 0 -> "overdue"
+        diffDays == 0 -> "today"
+        diffDays == 1 -> "tomorrow"
+        diffDays <= 7 -> "in $diffDays days"
+        else -> {
+            val y = cal.get(java.util.Calendar.YEAR)
+            val m = String.format("%02d", cal.get(java.util.Calendar.MONTH) + 1)
+            val d = String.format("%02d", cal.get(java.util.Calendar.DAY_OF_MONTH))
+            val h = String.format("%02d", cal.get(java.util.Calendar.HOUR_OF_DAY))
+            val min = String.format("%02d", cal.get(java.util.Calendar.MINUTE))
+            "$y-$m-$d $h:$min"
+        }
+    }
+    val overdueColor = MaterialTheme.colorScheme.error
+    val dateColor = if (diffDays < 0) overdueColor else MaterialTheme.colorScheme.onSurfaceVariant
+
+    val cardModifier = if (isDone && !isExpanded) {
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .drawBehind {
+                drawRect(
+                    color = Color(0xFF4CAF50).copy(alpha = 0.6f),
+                    topLeft = androidx.compose.ui.geometry.Offset.Zero,
+                    size = androidx.compose.ui.geometry.Size(4.dp.toPx(), size.height),
+                )
+            }
+            .alpha(0.6f)
+            .clickable { onExpand() }
+    } else {
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f))
+            .clickable { onExpand() }
+    }
+
+    Column(modifier = cardModifier) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 4.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Checkbox(checked = isDone, onCheckedChange = { onToggle() },
+                modifier = Modifier.size(24.dp))
+            Spacer(Modifier.width(4.dp))
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(MaterialTheme.colorScheme.secondaryContainer)
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+            ) {
+                Text(event.course.ifBlank { "?" }, style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer)
+            }
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = event.name,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+                textDecoration = if (isDone) TextDecoration.LineThrough else TextDecoration.None,
+                color = if (isDone) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurface,
+                maxLines = if (isDone && !isExpanded) 1 else Int.MAX_VALUE,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(
+                text = relativeDate,
+                style = MaterialTheme.typography.bodySmall,
+                color = dateColor,
+            )
+            if (isDone && !isExpanded) {
+                Spacer(Modifier.width(4.dp))
+                Text("\u25B2", style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        AnimatedVisibility(visible = isExpanded) {
+            Column(modifier = Modifier.padding(start = 40.dp, end = 8.dp, bottom = 8.dp)) {
+                if (event.description.isNotBlank()) {
+                    Text(event.description, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(6.dp))
+                }
+                if (event.url.isNotBlank()) {
+                    TextButton(
+                        onClick = {
+                            val i = android.content.Intent(android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse(event.url))
+                            context.startActivity(i.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                        },
+                        modifier = Modifier.height(28.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    ) {
+                        Text(Strings.get("open_in_browser", lang), style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+                TextButton(onClick = onExpand,
+                    modifier = Modifier.height(24.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                ) {
+                    Text(Strings.get("collapse", lang) + " \u25B2", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -598,7 +810,10 @@ private fun OutputTabContent(
     obsidianEnabled: Boolean, onObsidianEnabledChange: (Boolean) -> Unit,
     icsPath: String, onIcsPathChange: (String) -> Unit, logseqPath: String, onLogseqPathChange: (String) -> Unit,
     obsidianPath: String, onObsidianPathChange: (String) -> Unit,
-    daysBackText: String, onDaysBackChange: (String) -> Unit, limitText: String, onLimitChange: (String) -> Unit, lang: String,
+    daysBackText: String, onDaysBackChange: (String) -> Unit, limitText: String, onLimitChange: (String) -> Unit,
+    tasksEnabled: Boolean = true, onTasksEnabledChange: (Boolean) -> Unit = {},
+    tasksOutputPath: String = "", onTasksPathChange: (String) -> Unit = {},
+    lang: String,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val icsPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/calendar")) { uri ->
@@ -619,6 +834,12 @@ private fun OutputTabContent(
             onObsidianPathChange(it.toString())
         }
     }
+    val tasksPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/markdown")) { uri ->
+        uri?.let {
+            context.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            onTasksPathChange(it.toString())
+        }
+    }
     Column(Modifier.fillMaxWidth().padding(16.dp)) {
         Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
             Column(Modifier.padding(16.dp)) {
@@ -626,6 +847,7 @@ private fun OutputTabContent(
                 Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(checked = icsEnabled, onCheckedChange = onIcsEnabledChange); Spacer(Modifier.width(4.dp)); Text(Strings.get("ics_label", lang)) }
                 Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(checked = logseqEnabled, onCheckedChange = onLogseqEnabledChange); Spacer(Modifier.width(4.dp)); Text(Strings.get("logseq_label", lang)) }
                 Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(checked = obsidianEnabled, onCheckedChange = onObsidianEnabledChange); Spacer(Modifier.width(4.dp)); Text(Strings.get("obsidian_label", lang)) }
+                Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(checked = tasksEnabled, onCheckedChange = onTasksEnabledChange); Spacer(Modifier.width(4.dp)); Text(Strings.get("tasks_path", lang)) }
             }
         }
         Spacer(Modifier.height(12.dp))
@@ -645,6 +867,11 @@ private fun OutputTabContent(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(value = obsidianPath, onValueChange = onObsidianPathChange, label = { Text(Strings.get("obsidian_dir", lang)) }, singleLine = true, modifier = Modifier.weight(1f), enabled = obsidianEnabled)
                     TextButton(onClick = { obsidianPicker.launch(null) }, enabled = obsidianEnabled) { Text("\u2026") }
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(value = tasksOutputPath, onValueChange = onTasksPathChange, label = { Text(Strings.get("tasks_path", lang)) }, singleLine = true, modifier = Modifier.weight(1f), enabled = tasksEnabled)
+                    TextButton(onClick = { tasksPicker.launch("tasks.md") }, enabled = tasksEnabled) { Text("\u2026") }
                 }
             }
         }
