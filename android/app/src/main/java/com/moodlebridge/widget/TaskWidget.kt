@@ -84,51 +84,56 @@ private fun TaskWidgetContent(context: Context, config: ConfigStore, widgetId: S
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
-            .background(ColorProvider(Color(0xFF1C1C1E).copy(alpha = opacity)))
-            .padding(12.dp),
+            .background(ColorProvider(Color(0xFF1C1C1E).copy(alpha = opacity))),
     ) {
-        Text(
-            text = "Pending Tasks",
-            style = TextStyle(
-                color = ColorProvider(Color(0xFFFFFFFF)),
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
-            ),
-            modifier = GlanceModifier.padding(bottom = 6.dp),
-        )
-
-        if (unchecked.isEmpty()) {
+        Column(
+            modifier = GlanceModifier
+                .padding(12.dp)
+                .defaultWeight(),
+        ) {
             Text(
-                text = if (events.isEmpty()) "No tasks yet.\nSync to load tasks."
-                       else "All tasks completed!",
+                text = "Pending Tasks",
                 style = TextStyle(
-                    color = ColorProvider(Color(0xFF888888)),
-                    fontSize = 11.sp,
-                ),
-            )
-        } else {
-            Text(
-                text = "${unchecked.size} pending",
-                style = TextStyle(
-                    color = ColorProvider(Color(0xFF888888)),
-                    fontSize = 11.sp,
+                    color = ColorProvider(Color(0xFFFFFFFF)),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
                 ),
                 modifier = GlanceModifier.padding(bottom = 6.dp),
             )
-            val shown = unchecked.take(6)
-            val remaining = unchecked.size - shown.size
-            for (ev in shown) {
-                TaskWidgetRow(ev)
-            }
-            if (remaining > 0) {
+
+            if (unchecked.isEmpty()) {
                 Text(
-                    text = "+$remaining more",
+                    text = if (events.isEmpty()) "No tasks yet.\nSync to load tasks."
+                           else "All tasks completed!",
                     style = TextStyle(
                         color = ColorProvider(Color(0xFF888888)),
-                        fontSize = 10.sp,
+                        fontSize = 11.sp,
                     ),
-                    modifier = GlanceModifier.padding(top = 2.dp),
                 )
+            } else {
+                Text(
+                    text = "${unchecked.size} pending",
+                    style = TextStyle(
+                        color = ColorProvider(Color(0xFF888888)),
+                        fontSize = 11.sp,
+                    ),
+                    modifier = GlanceModifier.padding(bottom = 6.dp),
+                )
+                val shown = unchecked.take(6)
+                val remaining = unchecked.size - shown.size
+                for (ev in shown) {
+                    TaskWidgetRow(ev)
+                }
+                if (remaining > 0) {
+                    Text(
+                        text = "+$remaining more",
+                        style = TextStyle(
+                            color = ColorProvider(Color(0xFF888888)),
+                            fontSize = 10.sp,
+                        ),
+                        modifier = GlanceModifier.padding(top = 2.dp),
+                    )
+                }
             }
         }
 

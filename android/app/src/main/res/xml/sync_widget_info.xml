@@ -7,6 +7,8 @@
     android:initialLayout="@layout/sync_widget_initial"
     android:configure="com.moodlebridge.widget.OpacitySliderActivity"
     android:resizeMode="horizontal|vertical"
+    android:minResizeWidth="40dp"
+    android:minResizeHeight="120dp"
     android:widgetCategory="home_screen"
     android:label="DueNest Sync" />
  

@@ -7,5 +7,7 @@
     android:initialLayout="@layout/task_widget_initial"
     android:configure="com.moodlebridge.widget.TaskOpacitySliderActivity"
     android:resizeMode="horizontal|vertical"
+    android:minResizeWidth="40dp"
+    android:minResizeHeight="40dp"
     android:widgetCategory="home_screen"
     android:label="DueNest Tasks" />
