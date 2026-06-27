@@ -164,7 +164,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     var limitText by remember { mutableStateOf(config.fetchLimit.toString()) }
     var savePw by remember { mutableStateOf(config.savePassword) }
 
-    var selectedTab by remember { mutableIntStateOf(0) }
+    var selectedTab by remember { mutableIntStateOf(1) }
     var showSettings by remember { mutableStateOf(false) }
     var showOutputSettings by remember { mutableStateOf(false) }
     var isWorking by remember { mutableStateOf(false) }
@@ -214,7 +214,11 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
 
     fun regenerateTasksFile() {
         if (!tasksEnabled || tasksOutputPath.isBlank()) return
-        val content = MarkdownGenerator.generateTasksList(fetchedEvents, taskCompletionMap)
+        val content = if (config.lastSyncTimestamp == 0L && fetchedEvents.isEmpty()) {
+            MarkdownGenerator.generateIntroMd(lang)
+        } else {
+            MarkdownGenerator.generateTasksList(fetchedEvents, taskCompletionMap)
+        }
         PathResolver.writeIcs(context, tasksOutputPath, content)
     }
 
@@ -245,8 +249,8 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                 obsidianPath = obsidianPath, onObsidianPathChange = { obsidianPath = it },
                 daysBackText = daysBackText, onDaysBackChange = { daysBackText = it },
                 limitText = limitText, onLimitChange = { limitText = it },
-                tasksEnabled = tasksEnabled, onTasksEnabledChange = { tasksEnabled = it; config.tasksEnabled = it },
-                tasksOutputPath = tasksOutputPath, onTasksPathChange = { tasksOutputPath = it; config.tasksOutputPath = it },
+                tasksEnabled = tasksEnabled, onTasksEnabledChange = { tasksEnabled = it; config.tasksEnabled = it; regenerateTasksFile() },
+                tasksOutputPath = tasksOutputPath, onTasksPathChange = { tasksOutputPath = it; config.tasksOutputPath = it; regenerateTasksFile() },
                 lang = lang,
                 onBack = { showOutputSettings = false },
                 onSettings = { showSettings = true },
@@ -317,7 +321,8 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                                 regenerateTasksFile()
                                 expandedTaskId = null
                             },
-                            lang = lang)
+                            lang = lang,
+                            showIntro = config.lastSyncTimestamp == 0L && fetchedEvents.isEmpty())
                     }
                 }
 
@@ -690,9 +695,51 @@ private fun TasksTabContent(
     events: List<Event>, completionMap: Map<String, Boolean>,
     expandedId: String?, onExpandedChange: (String?) -> Unit,
     onToggleCompletion: (String) -> Unit, onClearCompleted: () -> Unit, lang: String,
+    showIntro: Boolean = false,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     if (events.isEmpty()) {
+        if (showIntro) {
+            Column(
+                Modifier.fillMaxWidth().padding(24.dp),
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Text(Strings.get("intro_title", lang), style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(8.dp))
+                Text(Strings.get("intro_welcome", lang), style = MaterialTheme.typography.bodyLarge)
+                Spacer(Modifier.height(16.dp))
+                Text(Strings.get("intro_setup_outputs", lang), style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(20.dp))
+                Text(Strings.get("intro_getting_started", lang), style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(8.dp))
+                Text(Strings.get("intro_step1", lang), style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(4.dp))
+                Text(Strings.get("intro_step2", lang), style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(4.dp))
+                Text(Strings.get("intro_step3", lang), style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(20.dp))
+                Text(Strings.get("intro_outputs", lang), style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(8.dp))
+                Text(Strings.get("intro_ics", lang), style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(4.dp))
+                Text(Strings.get("intro_logseq", lang), style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(4.dp))
+                Text(Strings.get("intro_obsidian", lang), style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(4.dp))
+                Text(Strings.get("intro_tasks", lang), style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(8.dp))
+                Text(Strings.get("intro_configure", lang), style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(20.dp))
+                Text(Strings.get("intro_footer", lang), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            return
+        }
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(Strings.get("no_tasks", lang), style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)

@@ -32,6 +32,36 @@ object MarkdownGenerator {
         }
     }
 
+    fun generateIntroMd(lang: String): String {
+        val s = { key: String -> Strings.get(key, lang) }
+        return buildString {
+            appendLine("# ${s("intro_title")}")
+            appendLine()
+            appendLine(s("intro_welcome"))
+            appendLine()
+            appendLine(s("intro_setup_outputs"))
+            appendLine()
+            appendLine("## ${s("intro_getting_started")}")
+            appendLine()
+            appendLine(s("intro_step1"))
+            appendLine(s("intro_step2"))
+            appendLine(s("intro_step3"))
+            appendLine()
+            appendLine("## ${s("intro_outputs")}")
+            appendLine()
+            appendLine(s("intro_ics"))
+            appendLine(s("intro_logseq"))
+            appendLine(s("intro_obsidian"))
+            appendLine(s("intro_tasks"))
+            appendLine()
+            appendLine(s("intro_configure"))
+            appendLine()
+            appendLine("---")
+            appendLine()
+            appendLine(s("intro_footer"))
+        }
+    }
+
     fun generateLogseq(events: List<Event>): List<Pair<String, String>> {
         return events.map { ev ->
             val cal = Calendar.getInstance().apply { timeInMillis = ev.timestart * 1000 }

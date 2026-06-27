@@ -58,6 +58,20 @@ object Strings {
         "clear_completed" to "Clear completed",
         "tasks_path" to "Tasks file (.md)",
         "collapse" to "Collapse",
+        "intro_title" to "DueNest",
+        "intro_welcome" to "Welcome to DueNest \u2014 your Moodle deadline tracker.",
+        "intro_getting_started" to "Getting started",
+        "intro_setup_outputs" to "Before connecting, open Settings \u2192 Output Settings to choose which formats you want (ICS, Logseq, Obsidian, Tasks). You can configure them now and they\u2019ll be ready for your first sync.",
+        "intro_step1" to "1. Go to the Connection tab and enter your Moodle URL, username, and password",
+        "intro_step2" to "2. Tap Fetch & sync to download your upcoming assignments and events",
+        "intro_step3" to "3. Switch to the Tasks tab to view and check off your tasks",
+        "intro_outputs" to "Output formats",
+        "intro_ics" to "\u2013 ICS \u2014 Import into any calendar app (Fossify Calendar, Google Calendar, etc.)",
+        "intro_logseq" to "\u2013 Logseq \u2014 Markdown pages with DEADLINE: timestamps",
+        "intro_obsidian" to "\u2013 Obsidian \u2014 Daily notes with due: YAML frontmatter",
+        "intro_tasks" to "\u2013 Tasks \u2014 Grouped task list with checkboxes (this file)",
+        "intro_configure" to "Configure outputs in Settings \u2192 Output Settings.",
+        "intro_footer" to "This file will be replaced with your actual tasks after the first successful sync.",
     )
 
     private val es = mapOf(
@@ -116,6 +130,20 @@ object Strings {
         "clear_completed" to "Limpiar completadas",
         "tasks_path" to "Archivo de tareas (.md)",
         "collapse" to "Colapsar",
+        "intro_title" to "DueNest",
+        "intro_welcome" to "Bienvenido a DueNest \u2014 tu gestor de plazos de Moodle.",
+        "intro_getting_started" to "Primeros pasos",
+        "intro_setup_outputs" to "Antes de conectar, abre Ajustes \u2192 Configuraci\u00f3n de salida para elegir los formatos que quieras (ICS, Logseq, Obsidian, Tareas). Puedes configurarlos ahora y estar\u00e1n listos para tu primera sincronizaci\u00f3n.",
+        "intro_step1" to "1. Ve a la pesta\u00f1a Conexi\u00f3n e ingresa tu URL, usuario y contrase\u00f1a de Moodle",
+        "intro_step2" to "2. Toca Obtener y sincronizar para descargar tus tareas y eventos",
+        "intro_step3" to "3. Cambia a la pesta\u00f1a Tareas para ver y marcar tus tareas",
+        "intro_outputs" to "Formatos de salida",
+        "intro_ics" to "\u2013 ICS \u2014 Importa en cualquier app de calendario (Fossify Calendar, Google Calendar, etc.)",
+        "intro_logseq" to "\u2013 Logseq \u2014 P\u00e1ginas Markdown con marcas DEADLINE:",
+        "intro_obsidian" to "\u2013 Obsidian \u2014 Notas diarias con due: en YAML",
+        "intro_tasks" to "\u2013 Tareas \u2014 Lista de tareas agrupada con casillas (este archivo)",
+        "intro_configure" to "Configura las salidas en Ajustes \u2192 Configuraci\u00f3n de salida.",
+        "intro_footer" to "Este archivo ser\u00e1 reemplazado por tus tareas reales despu\u00e9s de la primera sincronizaci\u00f3n.",
     )
 
     fun get(key: String, lang: String = "en"): String {
