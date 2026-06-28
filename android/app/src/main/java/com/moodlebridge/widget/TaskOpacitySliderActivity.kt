@@ -15,6 +15,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -33,6 +36,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.moodlebridge.data.ConfigStore
+
+private val BrandIndigo = Color(0xFF818CF8)
+private val AccentTeal = Color(0xFF2DD4BF)
+private val WidgetBg = Color(0xFF1C1C1E)
+private val RowBg = Color(0xFF2C2C2E)
+private val PanelBg = Color(0xEE1C1C1E)
+private val TextWhite = Color.White
+private val TextMuted = Color.White.copy(alpha = 0.7f)
+private val TextDim = Color.White.copy(alpha = 0.5f)
 
 class TaskOpacitySliderActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,66 +69,97 @@ class TaskOpacitySliderActivity : ComponentActivity() {
                             .fillMaxWidth()
                             .padding(horizontal = 24.dp)
                             .clip(RoundedCornerShape(16.dp))
-                            .background(Color(0xFF1C1C1E).copy(alpha = opacity))
+                            .background(WidgetBg.copy(alpha = opacity))
                             .padding(16.dp),
-                        verticalArrangement = Arrangement.Center,
                     ) {
-                        Text(
-                            text = "Pending Tasks",
-                            color = Color.White.copy(alpha = opacity),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
-                            modifier = Modifier.padding(bottom = 4.dp),
-                        )
-                        Text(
-                            text = "3 pending",
-                            color = Color.White.copy(alpha = (opacity * 0.8f).coerceIn(0f, 1f)),
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(bottom = 8.dp),
-                        )
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(30.dp)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(Color(0xFF2C2C2E).copy(alpha = opacity)),
-                            contentAlignment = Alignment.CenterStart,
-                        ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .clip(CircleShape)
+                                    .background(BrandIndigo.copy(alpha = opacity)),
+                            )
+                            Spacer(Modifier.width(6.dp))
                             Text(
-                                text = "  \u2022 Homework 7         Today",
-                                color = Color.White.copy(alpha = opacity),
+                                text = "DueNest",
+                                color = TextWhite.copy(alpha = opacity.coerceIn(0.3f, 1f)),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = "3 pending",
+                                color = AccentTeal.copy(alpha = opacity),
+                                fontWeight = FontWeight.Medium,
                                 fontSize = 11.sp,
                             )
                         }
-                        Spacer(Modifier.height(4.dp))
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(30.dp)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(Color(0xFF2C2C2E).copy(alpha = opacity)),
-                            contentAlignment = Alignment.CenterStart,
-                        ) {
-                            Text(
-                                text = "  \u2022 Lab report        Tomorrow",
-                                color = Color.White.copy(alpha = opacity),
-                                fontSize = 11.sp,
-                            )
+                        Spacer(Modifier.height(8.dp))
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFFBBF24).copy(alpha = opacity)),
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    text = "Homework 7",
+                                    color = TextWhite.copy(alpha = opacity),
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Text(
+                                    text = "Today",
+                                    color = Color(0xFFFBBF24).copy(alpha = opacity),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(TextDim.copy(alpha = opacity)),
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    text = "Lab report",
+                                    color = TextWhite.copy(alpha = opacity),
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Text(
+                                    text = "Jun 30",
+                                    color = TextDim.copy(alpha = opacity),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                            }
                         }
                         Spacer(Modifier.height(8.dp))
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(36.dp)
+                                .height(34.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(Color(0xFF1976D2).copy(alpha = opacity)),
+                                .background(BrandIndigo.copy(alpha = opacity)),
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
                                 text = "Open app",
-                                color = Color.White.copy(alpha = opacity),
+                                color = TextWhite.copy(alpha = opacity),
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
+                                fontSize = 12.sp,
                             )
                         }
                     }
@@ -125,12 +168,12 @@ class TaskOpacitySliderActivity : ComponentActivity() {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color(0xEE111111))
+                            .background(PanelBg)
                             .padding(horizontal = 24.dp, vertical = 20.dp),
                     ) {
                         Text(
                             text = "Widget opacity",
-                            color = Color.White.copy(alpha = 0.7f),
+                            color = TextMuted,
                             fontSize = 12.sp,
                             modifier = Modifier.padding(bottom = 8.dp),
                         )
@@ -142,7 +185,7 @@ class TaskOpacitySliderActivity : ComponentActivity() {
                         ) {
                             Text(
                                 text = "0%",
-                                color = Color.White.copy(alpha = 0.6f),
+                                color = TextDim,
                                 fontSize = 12.sp,
                             )
                             Slider(
@@ -151,21 +194,21 @@ class TaskOpacitySliderActivity : ComponentActivity() {
                                 valueRange = 0f..1.0f,
                                 modifier = Modifier.weight(1f),
                                 colors = SliderDefaults.colors(
-                                    thumbColor = Color.White,
-                                    activeTrackColor = Color.White,
+                                    thumbColor = TextWhite,
+                                    activeTrackColor = BrandIndigo,
                                     inactiveTrackColor = Color(0x66FFFFFF),
                                 ),
                             )
                             Text(
                                 text = "100%",
-                                color = Color.White.copy(alpha = 0.6f),
+                                color = TextDim,
                                 fontSize = 12.sp,
                             )
                         }
 
                         Text(
                             text = "${(opacity * 100).toInt()}%",
-                            color = Color.White,
+                            color = TextWhite,
                             fontSize = 24.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.align(Alignment.CenterHorizontally),
@@ -184,12 +227,12 @@ class TaskOpacitySliderActivity : ComponentActivity() {
                                 finish()
                             },
                             modifier = Modifier.fillMaxWidth().height(50.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2)),
+                            colors = ButtonDefaults.buttonColors(containerColor = BrandIndigo),
                             shape = RoundedCornerShape(14.dp),
                         ) {
                             Text(
                                 text = "Confirm",
-                                color = Color.White,
+                                color = TextWhite,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp,
                             )

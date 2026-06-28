@@ -17,11 +17,15 @@ import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.layout.Alignment
+import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
+import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
+import androidx.glance.layout.size
+import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
@@ -34,6 +38,11 @@ import com.moodlebridge.worker.SyncWorker
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+private val BrandIndigo = Color(0xFF818CF8)
+private val WidgetBg = Color(0xFF1C1C1E)
+private val TextPrimary = Color(0xFFFFFFFF)
+private val TextSecondary = Color(0xFF9CA3AF)
 
 class SyncWidget : GlanceAppWidget() {
 
@@ -87,72 +96,108 @@ private fun SyncWidgetContent(context: Context, config: ConfigStore, widgetId: S
     Column(
         modifier = GlanceModifier
             .fillMaxWidth()
-            .background(ColorProvider(Color(0xFF1C1C1E).copy(alpha = opacity)))
+            .background(ColorProvider(WidgetBg.copy(alpha = opacity)))
+            .padding(12.dp),
     ) {
-        Column(
-            modifier = GlanceModifier.padding(12.dp),
+        Row(
+            modifier = GlanceModifier.fillMaxWidth().padding(bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            Box(
+                modifier = GlanceModifier
+                    .size(10.dp, 10.dp)
+                    .background(ColorProvider(BrandIndigo)),
+                content = {},
+            )
+            Spacer(GlanceModifier.width(6.dp))
             Text(
-                text = "Moodle Bridge",
+                text = "DueNest",
                 style = TextStyle(
-                    color = ColorProvider(Color(0xFFFFFFFF)),
+                    color = ColorProvider(TextPrimary),
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
                 ),
-                modifier = GlanceModifier.padding(bottom = 4.dp),
             )
+        }
 
+        Text(
+            text = timeText,
+            style = TextStyle(
+                color = ColorProvider(TextSecondary),
+                fontSize = 11.sp,
+            ),
+            modifier = GlanceModifier.padding(bottom = 2.dp),
+        )
+
+        if (message.isNotBlank()) {
             Text(
-                text = timeText,
+                text = message,
                 style = TextStyle(
-                    color = ColorProvider(Color(0xFFFFFFFF)),
+                    color = ColorProvider(TextSecondary),
                     fontSize = 11.sp,
                 ),
-                modifier = GlanceModifier.padding(bottom = 2.dp),
+                modifier = GlanceModifier.padding(bottom = 4.dp),
             )
+        }
 
-            if (message.isNotBlank()) {
-                Text(
-                    text = message,
-                    style = TextStyle(
-                        color = ColorProvider(Color(0xFFFFFFFF)),
-                        fontSize = 11.sp,
-                    ),
-                    modifier = GlanceModifier.padding(bottom = 6.dp),
-                )
-            }
-
-            if (count > 0) {
-                Text(
-                    text = "$count upcoming event(s)",
-                    style = TextStyle(
-                        color = ColorProvider(Color(0xFFFFFFFF)),
-                        fontSize = 11.sp,
-                    ),
-                    modifier = GlanceModifier.padding(bottom = 8.dp),
-                )
-            }
-
+        if (count > 0) {
             Row(
-                modifier = GlanceModifier
-                    .fillMaxWidth()
-                    .height(40.dp)
-                    .background(ColorProvider(Color(0xFF1976D2)))
-                    .clickable(actionRunCallback<FetchAndSyncAction>())
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = GlanceModifier.padding(bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "Fetch && sync",
+                    text = "$count",
                     style = TextStyle(
-                        color = ColorProvider(Color(0xFFFFFFFF)),
+                        color = ColorProvider(BrandIndigo),
                         fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
+                        fontSize = 16.sp,
+                    ),
+                )
+                Spacer(GlanceModifier.width(4.dp))
+                Text(
+                    text = "upcoming",
+                    style = TextStyle(
+                        color = ColorProvider(TextSecondary),
+                        fontSize = 11.sp,
+                    ),
+                )
+                Text(
+                    text = if (count == 1) " event" else " events",
+                    style = TextStyle(
+                        color = ColorProvider(TextSecondary),
+                        fontSize = 11.sp,
                     ),
                 )
             }
+        } else {
+            Text(
+                text = "No upcoming events",
+                style = TextStyle(
+                    color = ColorProvider(TextSecondary),
+                    fontSize = 11.sp,
+                ),
+                modifier = GlanceModifier.padding(bottom = 8.dp),
+            )
+        }
+
+        Row(
+            modifier = GlanceModifier
+                .fillMaxWidth()
+                .height(38.dp)
+                .background(ColorProvider(BrandIndigo))
+                .clickable(actionRunCallback<FetchAndSyncAction>())
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Fetch && sync",
+                style = TextStyle(
+                    color = ColorProvider(TextPrimary),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                ),
+            )
         }
     }
 }

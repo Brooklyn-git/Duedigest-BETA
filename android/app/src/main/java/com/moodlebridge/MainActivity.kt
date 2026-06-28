@@ -14,6 +14,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,6 +24,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -52,18 +55,20 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Surface
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -77,7 +82,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
@@ -97,6 +101,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.moodlebridge.data.ConfigStore
 import com.moodlebridge.data.Event
+import com.moodlebridge.ui.DueNestTheme
 import com.moodlebridge.data.IcsGenerator
 import com.moodlebridge.data.MarkdownGenerator
 import com.moodlebridge.data.MoodleApi
@@ -130,14 +135,6 @@ class MainActivity : ComponentActivity() {
         val reminderCh = NotificationChannel(NotificationWorker.CHANNEL_ID, "DueNest Reminders", NotificationManager.IMPORTANCE_DEFAULT)
         getSystemService(NotificationManager::class.java).createNotificationChannel(reminderCh)
     }
-}
-
-@Composable
-private fun MoodleBridgeTheme(themeMode: String, content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = if (when (themeMode) { "dark" -> true; "light" -> false; else -> androidx.compose.foundation.isSystemInDarkTheme() }) darkColorScheme() else lightColorScheme(),
-        content = { Surface(Modifier.fillMaxSize()) { content() } },
-    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -251,7 +248,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
         }
     }
 
-    MoodleBridgeTheme(themeMode = themeMode) {
+    DueNestTheme(themeMode = themeMode) {
         if (showOutputSettings) {
             OutputSettingsPage(
                 icsEnabled = icsEnabled, onIcsEnabledChange = { icsEnabled = it },
@@ -757,9 +754,17 @@ private fun TasksTabContent(
             }
             return
         }
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(Strings.get("no_tasks", lang), style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(
+                    imageVector = Icons.Default.DateRange,
+                    contentDescription = null,
+                    modifier = Modifier.size(48.dp).then(Modifier.padding(bottom = 16.dp)),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                )
+                Text(Strings.get("no_tasks", lang), style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
         return
     }
@@ -786,7 +791,10 @@ private fun TasksTabContent(
         }
         if (completionMap.any { it.value }) {
             Spacer(Modifier.height(12.dp))
-            TextButton(onClick = onClearCompleted, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+            OutlinedButton(
+                onClick = onClearCompleted,
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+            ) {
                 Text(Strings.get("clear_completed", lang), color = MaterialTheme.colorScheme.error)
             }
             Spacer(Modifier.height(8.dp))
@@ -816,30 +824,32 @@ private fun TaskCard(
             "$y-$m-$d $h:$min"
         }
     }
+
     val overdueColor = MaterialTheme.colorScheme.error
     val dateColor = if (diffDays < 0) overdueColor else MaterialTheme.colorScheme.onSurfaceVariant
-
-    val cardModifier = if (isDone && !isExpanded) {
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-            .drawBehind {
-                drawRect(
-                    color = Color(0xFF4CAF50).copy(alpha = 0.6f),
-                    topLeft = androidx.compose.ui.geometry.Offset.Zero,
-                    size = androidx.compose.ui.geometry.Size(4.dp.toPx(), size.height),
-                )
-            }
-            .alpha(0.6f)
-            .clickable { onExpand() }
-    } else {
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f))
-            .clickable { onExpand() }
+    val dateIcon: androidx.compose.ui.graphics.vector.ImageVector
+    val dateTint: Color
+    when {
+        diffDays < 0 -> { dateIcon = Icons.Default.Warning; dateTint = overdueColor }
+        diffDays <= 1 -> { dateIcon = Icons.Default.DateRange; dateTint = MaterialTheme.colorScheme.tertiary }
+        else -> { dateIcon = Icons.Default.DateRange; dateTint = MaterialTheme.colorScheme.onSurfaceVariant }
     }
 
-    Column(modifier = cardModifier) {
+    val cardBg by animateColorAsState(
+        targetValue = if (isDone) MaterialTheme.colorScheme.surfaceVariant
+                      else MaterialTheme.colorScheme.surface,
+        animationSpec = tween(300),
+    )
+    val cardAlpha = if (isDone && !isExpanded) 0.65f else 1f
+
+    Card(
+        modifier = Modifier.fillMaxWidth().alpha(cardAlpha).animateContentSize(tween(250)).clickable { onExpand() },
+        shape = RoundedCornerShape(10.dp),
+        colors = CardDefaults.cardColors(containerColor = cardBg),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isExpanded) 3.dp else 1.dp),
+    ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 4.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+            modifier = Modifier.fillMaxWidth().padding(start = 4.dp, end = 12.dp, top = 2.dp, bottom = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Checkbox(checked = isDone, onCheckedChange = { onToggle() },
@@ -854,54 +864,66 @@ private fun TaskCard(
                 Text(event.course.ifBlank { "?" }, style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSecondaryContainer)
             }
-            Spacer(Modifier.width(6.dp))
+            Spacer(Modifier.width(8.dp))
             Text(
                 text = event.name,
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f),
                 textDecoration = if (isDone) TextDecoration.LineThrough else TextDecoration.None,
-                color = if (isDone) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurface,
+                color = if (isDone) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurface,
                 maxLines = if (isDone && !isExpanded) 1 else Int.MAX_VALUE,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             )
-            Spacer(Modifier.width(4.dp))
-            Text(
-                text = relativeDate,
-                style = MaterialTheme.typography.bodySmall,
-                color = dateColor,
-            )
-            if (isDone && !isExpanded) {
-                Spacer(Modifier.width(4.dp))
-                Text("\u25B2", style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.width(6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = dateIcon,
+                    contentDescription = relativeDate,
+                    modifier = Modifier.size(14.dp),
+                    tint = dateTint,
+                )
+                Spacer(Modifier.width(3.dp))
+                Text(
+                    text = relativeDate,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = dateTint,
+                )
             }
+            Spacer(Modifier.width(4.dp))
+            Icon(
+                imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                contentDescription = if (isExpanded) Strings.get("collapse", lang) else "Expand",
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            )
         }
         AnimatedVisibility(visible = isExpanded) {
-            Column(modifier = Modifier.padding(start = 40.dp, end = 8.dp, bottom = 8.dp)) {
+            Column(modifier = Modifier.padding(start = 42.dp, end = 12.dp, bottom = 10.dp)) {
                 if (event.description.isNotBlank()) {
                     Text(event.description, style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(8.dp))
                 }
-                if (event.url.isNotBlank()) {
-                    TextButton(
-                        onClick = {
-                            val i = android.content.Intent(android.content.Intent.ACTION_VIEW,
-                                android.net.Uri.parse(event.url))
-                            context.startActivity(i.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
-                        },
-                        modifier = Modifier.height(28.dp),
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (event.url.isNotBlank()) {
+                        OutlinedButton(
+                            onClick = {
+                                val i = android.content.Intent(android.content.Intent.ACTION_VIEW,
+                                    android.net.Uri.parse(event.url))
+                                context.startActivity(i.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                            },
+                            modifier = Modifier.height(32.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                        ) {
+                            Text(Strings.get("open_in_browser", lang), style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    TextButton(onClick = onExpand,
+                        modifier = Modifier.height(32.dp),
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                     ) {
-                        Text(Strings.get("open_in_browser", lang), style = MaterialTheme.typography.bodySmall)
+                        Text(Strings.get("collapse", lang), style = MaterialTheme.typography.bodySmall)
                     }
-                }
-                Spacer(Modifier.height(4.dp))
-                TextButton(onClick = onExpand,
-                    modifier = Modifier.height(24.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                ) {
-                    Text(Strings.get("collapse", lang) + " \u25B2", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }

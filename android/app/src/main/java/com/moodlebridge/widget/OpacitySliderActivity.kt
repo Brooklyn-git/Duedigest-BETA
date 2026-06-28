@@ -15,6 +15,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -34,6 +37,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.moodlebridge.data.ConfigStore
 
+private val BrandIndigo = Color(0xFF818CF8)
+private val WidgetBg = Color(0xFF1C1C1E)
+private val PanelBg = Color(0xEE1C1C1E)
+private val TextWhite = Color.White
+private val TextMuted = Color.White.copy(alpha = 0.7f)
+private val TextDim = Color.White.copy(alpha = 0.5f)
+
 class OpacitySliderActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,126 +58,129 @@ class OpacitySliderActivity : ComponentActivity() {
             var opacity by remember { mutableFloatStateOf(config.getWidgetOpacity(appWidgetId.toString())) }
 
             Box(Modifier.fillMaxSize()) {
-                // Preview + slider stacked together at the bottom
                 Column(
                     modifier = Modifier.align(Alignment.BottomCenter),
                 ) {
-                    // Widget preview — purely visual, sits right above the slider
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 24.dp)
                             .clip(RoundedCornerShape(16.dp))
-                            .background(Color(0xFF1C1C1E).copy(alpha = opacity))
+                            .background(WidgetBg.copy(alpha = opacity))
                             .padding(16.dp),
-                        verticalArrangement = Arrangement.Center,
                     ) {
-                        Text(
-                            text = "Moodle Bridge",
-                            color = Color.White.copy(alpha = opacity),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
-                            modifier = Modifier.padding(bottom = 4.dp),
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .clip(CircleShape)
+                                    .background(BrandIndigo.copy(alpha = opacity)),
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = "DueNest",
+                                color = TextWhite.copy(alpha = opacity.coerceIn(0.3f, 1f)),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                            )
+                        }
+                        Spacer(Modifier.height(4.dp))
                         Text(
                             text = "Last sync: never",
-                            color = Color.White.copy(alpha = (opacity * 0.8f).coerceIn(0f, 1f)),
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(bottom = 8.dp),
+                            color = TextMuted.copy(alpha = (opacity * 0.8f).coerceIn(0f, 1f)),
+                            fontSize = 11.sp,
                         )
+                        Spacer(Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "0",
+                                color = BrandIndigo.copy(alpha = opacity),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = "upcoming events",
+                                color = TextDim.copy(alpha = (opacity * 0.8f).coerceIn(0f, 1f)),
+                                fontSize = 11.sp,
+                            )
+                        }
+                        Spacer(Modifier.height(8.dp))
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(40.dp)
+                                .height(38.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(Color(0xFF1976D2).copy(alpha = opacity)),
+                                .background(BrandIndigo.copy(alpha = opacity)),
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
                                 text = "Fetch && sync",
-                                color = Color.White.copy(alpha = opacity),
+                                color = TextWhite.copy(alpha = opacity),
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp,
                             )
                         }
                     }
 
-                    // Bottom slider bar with confirm button
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color(0xEE111111))
+                            .background(PanelBg)
                             .padding(horizontal = 24.dp, vertical = 20.dp),
                     ) {
-                    Text(
-                        text = "Widget opacity",
-                        color = Color.White.copy(alpha = 0.7f),
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(bottom = 8.dp),
-                    )
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
                         Text(
-                            text = "0%",
-                            color = Color.White.copy(alpha = 0.6f),
+                            text = "Widget opacity",
+                            color = TextMuted,
                             fontSize = 12.sp,
+                            modifier = Modifier.padding(bottom = 8.dp),
                         )
-                        Slider(
-                            value = opacity,
-                            onValueChange = { opacity = it },
-                            valueRange = 0f..1.0f,
-                            modifier = Modifier.weight(1f),
-                            colors = SliderDefaults.colors(
-                                thumbColor = Color.White,
-                                activeTrackColor = Color.White,
-                                inactiveTrackColor = Color(0x66FFFFFF),
-                            ),
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Text(text = "0%", color = TextDim, fontSize = 12.sp)
+                            Slider(
+                                value = opacity,
+                                onValueChange = { opacity = it },
+                                valueRange = 0f..1.0f,
+                                modifier = Modifier.weight(1f),
+                                colors = SliderDefaults.colors(
+                                    thumbColor = TextWhite,
+                                    activeTrackColor = BrandIndigo,
+                                    inactiveTrackColor = Color(0x66FFFFFF),
+                                ),
+                            )
+                            Text(text = "100%", color = TextDim, fontSize = 12.sp)
+                        }
                         Text(
-                            text = "100%",
-                            color = Color.White.copy(alpha = 0.6f),
-                            fontSize = 12.sp,
-                        )
-                    }
-
-                    Text(
-                        text = "${(opacity * 100).toInt()}%",
-                        color = Color.White,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.align(Alignment.CenterHorizontally),
-                    )
-
-                    Spacer(Modifier.height(16.dp))
-
-                    Button(
-                        onClick = {
-                            config.setWidgetOpacity(appWidgetId.toString(), opacity)
-                            config.lastConfiguredOpacity = opacity
-                            val resultIntent = Intent().apply {
-                                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-                            }
-                            setResult(RESULT_OK, resultIntent)
-                            finish()
-                        },
-                        modifier = Modifier.fillMaxWidth().height(50.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2)),
-                        shape = RoundedCornerShape(14.dp),
-                    ) {
-                        Text(
-                            text = "Confirm",
-                            color = Color.White,
+                            text = "${(opacity * 100).toInt()}%",
+                            color = TextWhite,
+                            fontSize = 24.sp,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
+                            modifier = Modifier.align(Alignment.CenterHorizontally),
                         )
+                        Spacer(Modifier.height(16.dp))
+                        Button(
+                            onClick = {
+                                config.setWidgetOpacity(appWidgetId.toString(), opacity)
+                                config.lastConfiguredOpacity = opacity
+                                val resultIntent = Intent().apply {
+                                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                                }
+                                setResult(RESULT_OK, resultIntent)
+                                finish()
+                            },
+                            modifier = Modifier.fillMaxWidth().height(50.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = BrandIndigo),
+                            shape = RoundedCornerShape(14.dp),
+                        ) {
+                            Text(text = "Confirm", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        }
                     }
                 }
             }
         }
     }
-}
 }

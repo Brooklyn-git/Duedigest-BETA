@@ -17,12 +17,16 @@ import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.layout.Alignment
+import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
+import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
+import androidx.glance.layout.size
+import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
@@ -36,6 +40,15 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+
+private val BrandIndigo = Color(0xFF818CF8)
+private val AccentTeal = Color(0xFF2DD4BF)
+private val RedOverdue = Color(0xFFF87171)
+private val AmberSoon = Color(0xFFFBBF24)
+private val WidgetBg = Color(0xFF1C1C1E)
+private val TextPrimary = Color(0xFFFFFFFF)
+private val TextSecondary = Color(0xFF9CA3AF)
+private val TextDim = Color(0xFF6B7280)
 
 class TaskWidget : GlanceAppWidget() {
 
@@ -84,41 +97,53 @@ private fun TaskWidgetContent(context: Context, config: ConfigStore, widgetId: S
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
-            .background(ColorProvider(Color(0xFF1C1C1E).copy(alpha = opacity))),
+            .background(ColorProvider(WidgetBg.copy(alpha = opacity))),
     ) {
         Column(
             modifier = GlanceModifier
                 .padding(12.dp)
                 .defaultWeight(),
         ) {
-            Text(
-                text = "Pending Tasks",
-                style = TextStyle(
-                    color = ColorProvider(Color(0xFFFFFFFF)),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                ),
-                modifier = GlanceModifier.padding(bottom = 6.dp),
-            )
+            Row(
+                modifier = GlanceModifier.fillMaxWidth().padding(bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = GlanceModifier
+                        .size(10.dp, 10.dp)
+                        .background(ColorProvider(BrandIndigo)),
+                    content = {},
+                )
+                Spacer(GlanceModifier.width(6.dp))
+                Text(
+                    text = "DueNest",
+                    style = TextStyle(
+                        color = ColorProvider(TextPrimary),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                    ),
+                )
+                Spacer(GlanceModifier.width(8.dp))
+                Text(
+                    text = "${unchecked.size} pending",
+                    style = TextStyle(
+                        color = ColorProvider(AccentTeal),
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 11.sp,
+                    ),
+                )
+            }
 
             if (unchecked.isEmpty()) {
                 Text(
                     text = if (events.isEmpty()) "No tasks yet.\nSync to load tasks."
                            else "All tasks completed!",
                     style = TextStyle(
-                        color = ColorProvider(Color(0xFF888888)),
+                        color = ColorProvider(TextSecondary),
                         fontSize = 11.sp,
                     ),
                 )
             } else {
-                Text(
-                    text = "${unchecked.size} pending",
-                    style = TextStyle(
-                        color = ColorProvider(Color(0xFF888888)),
-                        fontSize = 11.sp,
-                    ),
-                    modifier = GlanceModifier.padding(bottom = 6.dp),
-                )
                 val shown = unchecked.take(6)
                 val remaining = unchecked.size - shown.size
                 for (ev in shown) {
@@ -128,10 +153,11 @@ private fun TaskWidgetContent(context: Context, config: ConfigStore, widgetId: S
                     Text(
                         text = "+$remaining more",
                         style = TextStyle(
-                            color = ColorProvider(Color(0xFF888888)),
+                            color = ColorProvider(TextSecondary),
+                            fontWeight = FontWeight.Medium,
                             fontSize = 10.sp,
                         ),
-                        modifier = GlanceModifier.padding(top = 2.dp),
+                        modifier = GlanceModifier.padding(top = 4.dp),
                     )
                 }
             }
@@ -140,8 +166,8 @@ private fun TaskWidgetContent(context: Context, config: ConfigStore, widgetId: S
         Row(
             modifier = GlanceModifier
                 .fillMaxWidth()
-                .height(36.dp)
-                .background(ColorProvider(Color(0xFF1976D2)))
+                .height(34.dp)
+                .background(ColorProvider(BrandIndigo))
                 .clickable(actionRunCallback<OpenAppAction>())
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -150,7 +176,7 @@ private fun TaskWidgetContent(context: Context, config: ConfigStore, widgetId: S
             Text(
                 text = "Open app",
                 style = TextStyle(
-                    color = ColorProvider(Color(0xFFFFFFFF)),
+                    color = ColorProvider(TextPrimary),
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
                 ),
@@ -165,7 +191,7 @@ private fun TaskWidgetRow(event: Event) {
     val now = Calendar.getInstance()
     val diffDays = ((cal.timeInMillis - now.timeInMillis) / (1000 * 60 * 60 * 24)).toInt()
     val dateLabel = when {
-        diffDays < 0 -> "\u26A0 Overdue"
+        diffDays < 0 -> "Overdue"
         diffDays == 0 -> "Today"
         diffDays == 1 -> "Tomorrow"
         else -> {
@@ -173,35 +199,49 @@ private fun TaskWidgetRow(event: Event) {
             sdf.format(Date(event.timestart * 1000))
         }
     }
+    val dotColor = when {
+        diffDays < 0 -> RedOverdue
+        diffDays == 0 -> AmberSoon
+        diffDays == 1 -> AmberSoon
+        else -> TextDim
+    }
+    val dateColor = when {
+        diffDays < 0 -> RedOverdue
+        diffDays == 0 -> AmberSoon
+        diffDays == 1 -> AmberSoon
+        else -> TextSecondary
+    }
 
     Row(
         modifier = GlanceModifier
             .fillMaxWidth()
             .padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = "\u2022 ",
-            style = TextStyle(
-                color = ColorProvider(Color(0xFFFF5252)),
-                fontSize = 12.sp,
-            ),
+        Box(
+            modifier = GlanceModifier
+                .size(6.dp, 6.dp)
+                .background(ColorProvider(dotColor)),
+            content = {},
         )
+        Spacer(GlanceModifier.width(6.dp))
         Text(
             text = event.name,
             style = TextStyle(
-                color = ColorProvider(Color(0xFFFFFFFF)),
+                color = ColorProvider(TextPrimary),
                 fontSize = 11.sp,
             ),
             modifier = GlanceModifier.defaultWeight(),
             maxLines = 1,
         )
+        Spacer(GlanceModifier.width(4.dp))
         Text(
             text = dateLabel,
             style = TextStyle(
-                color = ColorProvider(Color(0xFF888888)),
+                color = ColorProvider(dateColor),
                 fontSize = 10.sp,
+                fontWeight = FontWeight.Medium,
             ),
-            modifier = GlanceModifier.padding(start = 4.dp),
         )
     }
 }
