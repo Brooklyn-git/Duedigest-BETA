@@ -108,6 +108,7 @@ import com.moodlebridge.data.MoodleApi
 import com.moodlebridge.data.PathResolver
 import com.moodlebridge.data.Strings
 import com.moodlebridge.worker.NotificationWorker
+import com.moodlebridge.worker.TaskReminderWorker
 import com.moodlebridge.worker.SyncWorker
 import androidx.work.WorkManager
 import java.io.File
@@ -135,6 +136,15 @@ class MainActivity : ComponentActivity() {
         val reminderCh = NotificationChannel(NotificationWorker.CHANNEL_ID, "DueNest Reminders", NotificationManager.IMPORTANCE_DEFAULT)
         getSystemService(NotificationManager::class.java).createNotificationChannel(reminderCh)
     }
+}
+
+private fun parseHour(s: String): Int {
+    val parts = s.split(":")
+    return parts[0].toIntOrNull() ?: 0
+}
+private fun parseMinute(s: String): Int {
+    val parts = s.split(":")
+    return if (parts.size > 1) parts[1].toIntOrNull() ?: 0 else 0
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -179,6 +189,10 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     }
     var notifCustomDaysList by remember { mutableStateOf(parseDayList(config.notificationCustomDays)) }
     var notifCustomHoursList by remember { mutableStateOf(parseHourList(config.notificationCustomHours)) }
+    var taskRemindEnabled by remember { mutableStateOf(config.taskRemindersEnabled) }
+    var taskRemindScheduleType by remember { mutableStateOf(config.taskReminderScheduleType) }
+    var taskRemindCustomDaysList by remember { mutableStateOf(parseDayList(config.taskReminderCustomDays)) }
+    var taskRemindCustomHoursList by remember { mutableStateOf(parseHourList(config.taskReminderCustomHours)) }
     var fetchedEvents by remember { mutableStateOf(listOf<Event>()) }
     var taskCompletionMap by remember { mutableStateOf(
         try { Json.decodeFromString<Map<String, Boolean>>(config.taskCompletionState) } catch (_: Exception) { emptyMap() }
@@ -187,23 +201,10 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     var tasksEnabled by remember { mutableStateOf(config.tasksEnabled) }
     var tasksOutputPath by remember { mutableStateOf(config.tasksOutputPath) }
 
-    fun parseHour(s: String): Int {
-        val parts = s.split(":")
-        return parts[0].toIntOrNull() ?: 0
-    }
-    fun parseMinute(s: String): Int {
-        val parts = s.split(":")
-        return if (parts.size > 1) parts[1].toIntOrNull() ?: 0 else 0
-    }
-    fun formatTime(s: String): String {
-        val h = parseHour(s); val m = parseMinute(s)
-        if (notif24hFormat) return String.format("%02d:%02d", h, m)
-        val ampm = if (h < 12) "AM" else "PM"
-        val h12 = when { h == 0 -> 12; h > 12 -> h - 12; else -> h }
-        return String.format("%d:%02d %s", h12, m, ampm)
-    }
+    fun formatTime(s: String): String { return if (notif24hFormat) formatTime24(s) else formatTime12(s) }
 
     fun addLog(msg: String) { logLines.add(msg) }
+    val formatTimeFn: (String) -> String = { formatTime(it) }
 
     fun saveCompletionMap() {
         config.taskCompletionState = Json.encodeToString(taskCompletionMap)
@@ -411,141 +412,108 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                         }
                         Spacer(Modifier.height(12.dp))
                         Text(Strings.get("notifications", lang), style = MaterialTheme.typography.labelMedium)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = notifEnabled, onCheckedChange = { enabled ->
-                                notifEnabled = enabled
-                                config.notificationsEnabled = enabled
-                                if (enabled) {
-                                    NotificationWorker.schedule(context)
-                                } else {
-                                    NotificationWorker.cancel(context)
-                                }
-                            })
-                            Spacer(Modifier.width(4.dp))
-                            Text(Strings.get("notif_enable", lang), style = MaterialTheme.typography.bodySmall)
-                        }
-                        AnimatedVisibility(visible = notifEnabled) {
-                            Column(modifier = Modifier.padding(start = 8.dp)) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    val types = listOf("daily" to "Daily", "weekly" to "Weekly", "custom" to "Custom")
-                                    types.forEach { (key, label) ->
-                                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier
-                                            .clickable {
-                                                notifScheduleType = key
-                                                config.notificationScheduleType = key
-                                                NotificationWorker.schedule(context)
-                                            }
-                                            .padding(end = 12.dp),
-                                        ) {
-                                            RadioButton(selected = notifScheduleType == key, onClick = {
-                                                notifScheduleType = key
-                                                config.notificationScheduleType = key
-                                                NotificationWorker.schedule(context)
-                                            })
-                                            Spacer(Modifier.width(2.dp))
-                                            Text(label, style = MaterialTheme.typography.bodyMedium)
+                                    Checkbox(checked = notifEnabled, onCheckedChange = { enabled ->
+                                        notifEnabled = enabled
+                                        config.notificationsEnabled = enabled
+                                        if (enabled) {
+                                            NotificationWorker.schedule(context)
+                                        } else {
+                                            NotificationWorker.cancel(context)
                                         }
-                                    }
+                                    })
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(Strings.get("notif_enable", lang), style = MaterialTheme.typography.bodySmall)
                                 }
-                                if (notifScheduleType == "custom") {
-                                    Spacer(Modifier.height(8.dp))
-                                    val dayNames = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
-                                    Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
-                                        dayNames.forEachIndexed { index, name ->
-                                            val isSelected = index in notifCustomDaysList
-                                            Box(contentAlignment = Alignment.Center,
-                                                modifier = Modifier
-                                                    .clip(CircleShape)
-                                                    .size(36.dp)
-                                                    .background(
-                                                        if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                                                        CircleShape,
-                                                    )
-                                                    .clickable {
-                                                        notifCustomDaysList = if (isSelected) notifCustomDaysList - index else notifCustomDaysList + index
-                                                        config.notificationCustomDays = notifCustomDaysList.sorted().joinToString(",")
-                                                        NotificationWorker.schedule(context)
-                                                    },
-                                            ) {
-                                                Text(name.first().toString(),
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
-                                            }
+                                AnimatedVisibility(visible = notifEnabled) {
+                                    ReminderScheduleSection(
+                                        scheduleType = notifScheduleType,
+                                        onScheduleTypeChange = { key ->
+                                            notifScheduleType = key
+                                            config.notificationScheduleType = key
+                                            NotificationWorker.schedule(context)
+                                        },
+                                        customDaysList = notifCustomDaysList,
+                                        onCustomDaysListChange = { list ->
+                                            notifCustomDaysList = list
+                                            config.notificationCustomDays = list.sorted().joinToString(",")
+                                            NotificationWorker.schedule(context)
+                                        },
+                                        customHoursList = notifCustomHoursList,
+                                        onCustomHoursListChange = { list ->
+                                            notifCustomHoursList = list
+                                            config.notificationCustomHours = list.joinToString(",")
+                                            NotificationWorker.schedule(context)
+                                        },
+                                        lang = lang,
+                                        context = context,
+                                        formatTime = formatTimeFn,
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Checkbox(checked = taskRemindEnabled, onCheckedChange = { enabled ->
+                                        taskRemindEnabled = enabled
+                                        config.taskRemindersEnabled = enabled
+                                        if (enabled) {
+                                            TaskReminderWorker.schedule(context)
+                                        } else {
+                                            TaskReminderWorker.cancel(context)
                                         }
-                                    }
-                                    Spacer(Modifier.height(8.dp))
-                                    FlowRow(
-                                        horizontalArrangement = Arrangement.spacedBy(0.dp),
-                                        verticalArrangement = Arrangement.spacedBy(2.dp),
-                                    ) {
-                                        notifCustomHoursList.forEachIndexed { i, timeStr ->
-                                            val h = parseHour(timeStr); val m = parseMinute(timeStr)
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                            ) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .clip(RoundedCornerShape(6.dp))
-                                                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp)),
-                                                ) {
-                                                    TextButton(
-                                                        onClick = {
-                                                            val ctx = context
-                                                            TimePickerDialog(ctx, { _, newH, newM ->
-                                                                val newStr = String.format("%d:%02d", newH, newM)
-                                                                notifCustomHoursList = notifCustomHoursList.toMutableList().also { it[i] = newStr }
-                                                                config.notificationCustomHours = notifCustomHoursList.joinToString(",")
-                                                                NotificationWorker.schedule(context)
-                                                            }, h, m, false).show()
-                                                        },
-                                                        modifier = Modifier.height(24.dp),
-                                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
-                                                    ) {
-                                                        Text(formatTime(timeStr), style = MaterialTheme.typography.bodySmall)
-                                                    }
-                                                }
-                                                if (notifCustomHoursList.size > 1) {
-                                                    TextButton(
-                                                        onClick = {
-                                                            notifCustomHoursList = notifCustomHoursList.toMutableList().also { it.removeAt(i) }
-                                                            config.notificationCustomHours = notifCustomHoursList.joinToString(",")
-                                                            NotificationWorker.schedule(context)
-                                                        },
-                                                        modifier = Modifier.height(24.dp),
-                                                        contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp),
-                                                    ) {
-                                                        Text("\u2212",
-                                                            style = MaterialTheme.typography.titleSmall,
-                                                            color = MaterialTheme.colorScheme.error,
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        TextButton(onClick = {
-                                            val ctx = context
-                                            TimePickerDialog(ctx, { _, h, m ->
-                                                val newStr = String.format("%d:%02d", h, m)
-                                                notifCustomHoursList = notifCustomHoursList + newStr
-                                                config.notificationCustomHours = notifCustomHoursList.joinToString(",")
-                                                NotificationWorker.schedule(context)
-                                            }, 9, 0, false).show()
-                                        }, modifier = Modifier.height(24.dp),
-                                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
-                                        ) {
-                                            Text("+ ${Strings.get("add_hour", lang)}", style = MaterialTheme.typography.bodySmall)
-                                        }
-                                    }
-                                    Spacer(Modifier.height(4.dp))
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        RadioButton(selected = !notif24hFormat, onClick = { notif24hFormat = false; config.notification24hFormat = false })
-                                        Spacer(Modifier.width(2.dp))
-                                        Text("12h", style = MaterialTheme.typography.bodySmall)
-                                        Spacer(Modifier.width(12.dp))
-                                        RadioButton(selected = notif24hFormat, onClick = { notif24hFormat = true; config.notification24hFormat = true })
-                                        Spacer(Modifier.width(2.dp))
-                                        Text("24h", style = MaterialTheme.typography.bodySmall)
-                                    }
+                                    })
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(Strings.get("notif_task_enable", lang), style = MaterialTheme.typography.bodySmall)
+                                }
+                                AnimatedVisibility(visible = taskRemindEnabled) {
+                                    ReminderScheduleSection(
+                                        scheduleType = taskRemindScheduleType,
+                                        onScheduleTypeChange = { key ->
+                                            taskRemindScheduleType = key
+                                            config.taskReminderScheduleType = key
+                                            TaskReminderWorker.schedule(context)
+                                        },
+                                        customDaysList = taskRemindCustomDaysList,
+                                        onCustomDaysListChange = { list ->
+                                            taskRemindCustomDaysList = list
+                                            config.taskReminderCustomDays = list.sorted().joinToString(",")
+                                            TaskReminderWorker.schedule(context)
+                                        },
+                                        customHoursList = taskRemindCustomHoursList,
+                                        onCustomHoursListChange = { list ->
+                                            taskRemindCustomHoursList = list
+                                            config.taskReminderCustomHours = list.joinToString(",")
+                                            TaskReminderWorker.schedule(context)
+                                        },
+                                        lang = lang,
+                                        context = context,
+                                        formatTime = formatTimeFn,
+                                    )
+                                }
+                            }
+                        }
+                        AnimatedVisibility(visible = notifEnabled || taskRemindEnabled) {
+                            Column {
+                                Spacer(Modifier.height(4.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    RadioButton(selected = !notif24hFormat, onClick = { notif24hFormat = false; config.notification24hFormat = false })
+                                    Spacer(Modifier.width(2.dp))
+                                    Text("12h", style = MaterialTheme.typography.bodySmall)
+                                    Spacer(Modifier.width(12.dp))
+                                    RadioButton(selected = notif24hFormat, onClick = { notif24hFormat = true; config.notification24hFormat = true })
+                                    Spacer(Modifier.width(2.dp))
+                                    Text("24h", style = MaterialTheme.typography.bodySmall)
                                 }
                             }
                         }
@@ -572,6 +540,133 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                     }
                 },
                 confirmButton = { TextButton(onClick = { showSettings = false }) { Text("OK") } })
+        }
+    }
+}
+
+private fun formatTime24(s: String): String {
+    val h = parseHour(s); val m = parseMinute(s)
+    return String.format("%02d:%02d", h, m)
+}
+private fun formatTime12(s: String): String {
+    val h = parseHour(s); val m = parseMinute(s)
+    val ampm = if (h < 12) "AM" else "PM"
+    val h12 = when { h == 0 -> 12; h > 12 -> h - 12; else -> h }
+    return String.format("%d:%02d %s", h12, m, ampm)
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ReminderScheduleSection(
+    scheduleType: String,
+    onScheduleTypeChange: (String) -> Unit,
+    customDaysList: List<Int>,
+    onCustomDaysListChange: (List<Int>) -> Unit,
+    customHoursList: List<String>,
+    onCustomHoursListChange: (List<String>) -> Unit,
+    lang: String,
+    context: android.content.Context,
+    formatTime: (String) -> String = { formatTime24(it) },
+) {
+    Column(modifier = Modifier.padding(start = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            val types = listOf("daily" to "Daily", "weekly" to "Weekly", "custom" to "Custom")
+            types.forEach { (key, label) ->
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier
+                    .clickable { onScheduleTypeChange(key) }
+                    .padding(end = 12.dp),
+                ) {
+                    RadioButton(selected = scheduleType == key, onClick = { onScheduleTypeChange(key) })
+                    Spacer(Modifier.width(2.dp))
+                    Text(label, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        }
+        if (scheduleType == "custom") {
+            Spacer(Modifier.height(8.dp))
+            val dayNames = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+            Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
+                dayNames.forEachIndexed { index, name ->
+                    val isSelected = index in customDaysList
+                    Box(contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .size(36.dp)
+                            .background(
+                                if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                CircleShape,
+                            )
+                            .clickable {
+                                onCustomDaysListChange(
+                                    if (isSelected) customDaysList - index else customDaysList + index
+                                )
+                            },
+                    ) {
+                        Text(name.first().toString(),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface)
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(0.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                customHoursList.forEachIndexed { i, timeStr ->
+                    val h = parseHour(timeStr); val m = parseMinute(timeStr)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(6.dp)),
+                        ) {
+                            TextButton(
+                                onClick = {
+                                    TimePickerDialog(context, { _, newH, newM ->
+                                        val newStr = String.format("%d:%02d", newH, newM)
+                                        onCustomHoursListChange(
+                                            customHoursList.toMutableList().also { it[i] = newStr }
+                                        )
+                                    }, h, m, false).show()
+                                },
+                                modifier = Modifier.height(24.dp),
+                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                            ) {
+                                Text(formatTime(timeStr), style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                        if (customHoursList.size > 1) {
+                            TextButton(
+                                onClick = {
+                                    onCustomHoursListChange(
+                                        customHoursList.toMutableList().also { it.removeAt(i) }
+                                    )
+                                },
+                                modifier = Modifier.height(24.dp),
+                                contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp),
+                            ) {
+                                Text("\u2212",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                        }
+                    }
+                }
+                TextButton(onClick = {
+                    TimePickerDialog(context, { _, h, m ->
+                        val newStr = String.format("%d:%02d", h, m)
+                        onCustomHoursListChange(customHoursList + newStr)
+                    }, 9, 0, false).show()
+                }, modifier = Modifier.height(24.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                ) {
+                    Text("+ ${Strings.get("add_hour", lang)}", style = MaterialTheme.typography.bodySmall)
+                }
+            }
         }
     }
 }

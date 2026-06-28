@@ -112,6 +112,22 @@ class ConfigStore(context: Context) {
         get() = prefs.getBoolean(KEY_NOTIF_24H, true)
         set(value) = prefs.edit().putBoolean(KEY_NOTIF_24H, value).apply()
 
+    var taskRemindersEnabled: Boolean
+        get() = prefs.getBoolean(KEY_TASK_REMINDER_ENABLED, false)
+        set(value) = prefs.edit().putBoolean(KEY_TASK_REMINDER_ENABLED, value).apply()
+
+    var taskReminderScheduleType: String
+        get() = prefs.getString(KEY_TASK_REMINDER_SCHEDULE, "daily") ?: "daily"
+        set(value) = prefs.edit().putString(KEY_TASK_REMINDER_SCHEDULE, value).apply()
+
+    var taskReminderCustomDays: String
+        get() = prefs.getString(KEY_TASK_REMINDER_CUSTOM_DAYS, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_TASK_REMINDER_CUSTOM_DAYS, value).apply()
+
+    var taskReminderCustomHours: String
+        get() = prefs.getString(KEY_TASK_REMINDER_CUSTOM_HOURS, "9:00") ?: "9:00"
+        set(value) = prefs.edit().putString(KEY_TASK_REMINDER_CUSTOM_HOURS, value).apply()
+
     var widgetOpacity: Float
         get() = prefs.getFloat(KEY_WIDGET_OPACITY, 1.0f)
         set(value) = prefs.edit().putFloat(KEY_WIDGET_OPACITY, value).apply()
@@ -177,6 +193,10 @@ class ConfigStore(context: Context) {
         const val KEY_NOTIF_CUSTOM_DAYS = "notif_custom_days"
         const val KEY_NOTIF_CUSTOM_HOURS = "notif_custom_hours"
         const val KEY_NOTIF_24H = "notif_24h_format"
+        const val KEY_TASK_REMINDER_ENABLED = "task_reminder_enabled"
+        const val KEY_TASK_REMINDER_SCHEDULE = "task_reminder_schedule_type"
+        const val KEY_TASK_REMINDER_CUSTOM_DAYS = "task_reminder_custom_days"
+        const val KEY_TASK_REMINDER_CUSTOM_HOURS = "task_reminder_custom_hours"
         const val KEY_TASKS_ENABLED = "tasks_enabled"
         const val KEY_TASKS_PATH = "tasks_path"
         const val KEY_TASK_COMPLETION = "task_completion"
