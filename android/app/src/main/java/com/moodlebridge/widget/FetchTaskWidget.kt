@@ -10,9 +10,9 @@ import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.action.ActionParameters
 import androidx.glance.action.clickable
+import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
-import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
@@ -51,27 +51,27 @@ private val TextPrimary = Color(0xFFFFFFFF)
 private val TextSecondary = Color(0xFF9CA3AF)
 private val TextDim = Color(0xFF6B7280)
 
-class TaskWidget : GlanceAppWidget() {
+class FetchTaskWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val config = ConfigStore(context)
         val widgetId = id.toString()
         val isAmoled = config.themeMode == "amoled_dark"
         provideContent {
-            TaskWidgetContent(context, config, widgetId, isAmoled)
+            FetchTaskWidgetContent(context, config, widgetId, isAmoled)
         }
     }
 
     companion object {
-        val receiver = TaskWidgetReceiver::class.qualifiedName!!
+        val receiver = FetchTaskWidgetReceiver::class.qualifiedName!!
     }
 }
 
-class TaskWidgetReceiver : GlanceAppWidgetReceiver() {
-    override val glanceAppWidget = TaskWidget()
+class FetchTaskWidgetReceiver : GlanceAppWidgetReceiver() {
+    override val glanceAppWidget = FetchTaskWidget()
 }
 
-class OpenAppAction : ActionCallback {
+class OpenAppFromFetchAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
         val intent = Intent(context, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -81,7 +81,7 @@ class OpenAppAction : ActionCallback {
 }
 
 @Composable
-private fun TaskWidgetContent(context: Context, config: ConfigStore, widgetId: String, isAmoled: Boolean = false) {
+private fun FetchTaskWidgetContent(context: Context, config: ConfigStore, widgetId: String, isAmoled: Boolean = false) {
     val eventsJson = config.taskEventCache
     val completionJson = config.taskCompletionState
     val events: List<Event> = try {
@@ -101,7 +101,7 @@ private fun TaskWidgetContent(context: Context, config: ConfigStore, widgetId: S
         modifier = GlanceModifier
             .fillMaxSize()
             .background(ColorProvider(bgColor.copy(alpha = opacity)))
-            .clickable(actionRunCallback<OpenAppAction>()),
+            .clickable(actionRunCallback<OpenAppFromFetchAction>()),
     ) {
         Column(
             modifier = GlanceModifier
@@ -151,7 +151,7 @@ private fun TaskWidgetContent(context: Context, config: ConfigStore, widgetId: S
                 val shown = unchecked.take(6)
                 val remaining = unchecked.size - shown.size
                 for (ev in shown) {
-                    TaskWidgetRow(ev)
+                    FetchTaskWidgetRow(ev)
                 }
                 if (remaining > 0) {
                     Text(
@@ -167,11 +167,30 @@ private fun TaskWidgetContent(context: Context, config: ConfigStore, widgetId: S
             }
         }
 
+        Row(
+            modifier = GlanceModifier
+                .fillMaxWidth()
+                .height(34.dp)
+                .background(ColorProvider(BrandIndigo))
+                .clickable(actionRunCallback<FetchAndSyncAction>())
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Fetch && sync",
+                style = TextStyle(
+                    color = ColorProvider(TextPrimary),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp,
+                ),
+            )
+        }
     }
 }
 
 @Composable
-private fun TaskWidgetRow(event: Event) {
+private fun FetchTaskWidgetRow(event: Event) {
     val cal = Calendar.getInstance().apply { timeInMillis = event.timestart * 1000 }
     val now = Calendar.getInstance()
     val diffDays = ((cal.timeInMillis - now.timeInMillis) / (1000 * 60 * 60 * 24)).toInt()
