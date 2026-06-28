@@ -49,6 +49,33 @@ private val LightColorScheme = lightColorScheme(
     onBackground = Color(0xFF0F172A),
 )
 
+private val AmoledDarkColorScheme = darkColorScheme(
+    primary = Color(0xFF818CF8),
+    onPrimary = Color(0xFF1E1B4B),
+    primaryContainer = Color(0xFF3730A3),
+    onPrimaryContainer = Color(0xFFC7D2FE),
+    secondary = Color(0xFF2DD4BF),
+    onSecondary = Color(0xFF134E4A),
+    secondaryContainer = Color(0xFF115E59),
+    onSecondaryContainer = Color(0xFF99F6E4),
+    tertiary = Color(0xFFFBBF24),
+    onTertiary = Color(0xFF78350F),
+    tertiaryContainer = Color(0xFF92400E),
+    onTertiaryContainer = Color(0xFFFDE68A),
+    error = Color(0xFFF87171),
+    onError = Color(0xFF450A0A),
+    errorContainer = Color(0xFF7F1D1D),
+    onErrorContainer = Color(0xFFFECACA),
+    surface = Color.Black,
+    onSurface = Color(0xFFE2E8F0),
+    surfaceVariant = Color(0xFF111111),
+    onSurfaceVariant = Color(0xFF94A3B8),
+    outline = Color(0xFF1E1E1E),
+    outlineVariant = Color(0xFF2A2A2A),
+    background = Color.Black,
+    onBackground = Color(0xFFF1F5F9),
+)
+
 private val DarkColorScheme = darkColorScheme(
     primary = Color(0xFF818CF8),
     onPrimary = Color(0xFF1E1B4B),
@@ -98,11 +125,17 @@ fun DueNestTheme(
     content: @Composable () -> Unit,
 ) {
     val isDark = when (themeMode) {
+        "amoled_dark" -> true
         "dark" -> true
         "light" -> false
         else -> isSystemInDarkTheme()
     }
-    val colorScheme = if (isDark) DarkColorScheme else LightColorScheme
+    val colorScheme = when (themeMode) {
+        "amoled_dark" -> AmoledDarkColorScheme
+        "dark" -> DarkColorScheme
+        "light" -> LightColorScheme
+        else -> if (isSystemInDarkTheme()) DarkColorScheme else LightColorScheme
+    }
 
     val view = LocalView.current
     if (!view.isInEditMode) {

@@ -392,7 +392,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                     Column {
                         Text(Strings.get("theme", lang), style = MaterialTheme.typography.labelMedium)
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            listOf("system" to Strings.get("theme_system", lang), "light" to Strings.get("theme_light", lang), "dark" to Strings.get("theme_dark", lang)).forEach { (v, lbl) ->
+                            listOf("system" to Strings.get("theme_system", lang), "light" to Strings.get("theme_light", lang), "dark" to Strings.get("theme_dark", lang), "amoled_dark" to Strings.get("theme_amoled", lang)).forEach { (v, lbl) ->
                                 Row(Modifier.clickable { themeMode = v; config.themeMode = v }.padding(end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                                     RadioButton(selected = themeMode == v, onClick = { themeMode = v; config.themeMode = v })
                                     Text(lbl, style = MaterialTheme.typography.bodySmall)

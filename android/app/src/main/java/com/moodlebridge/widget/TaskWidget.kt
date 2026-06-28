@@ -46,6 +46,7 @@ private val AccentTeal = Color(0xFF2DD4BF)
 private val RedOverdue = Color(0xFFF87171)
 private val AmberSoon = Color(0xFFFBBF24)
 private val WidgetBg = Color(0xFF1C1C1E)
+private val WidgetBgAmoled = Color.Black
 private val TextPrimary = Color(0xFFFFFFFF)
 private val TextSecondary = Color(0xFF9CA3AF)
 private val TextDim = Color(0xFF6B7280)
@@ -55,8 +56,9 @@ class TaskWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val config = ConfigStore(context)
         val widgetId = id.toString()
+        val isAmoled = config.themeMode == "amoled_dark"
         provideContent {
-            TaskWidgetContent(context, config, widgetId)
+            TaskWidgetContent(context, config, widgetId, isAmoled)
         }
     }
 
@@ -79,7 +81,7 @@ class OpenAppAction : ActionCallback {
 }
 
 @Composable
-private fun TaskWidgetContent(context: Context, config: ConfigStore, widgetId: String) {
+private fun TaskWidgetContent(context: Context, config: ConfigStore, widgetId: String, isAmoled: Boolean = false) {
     val eventsJson = config.taskEventCache
     val completionJson = config.taskCompletionState
     val events: List<Event> = try {
@@ -90,6 +92,7 @@ private fun TaskWidgetContent(context: Context, config: ConfigStore, widgetId: S
     } catch (_: Exception) { emptyMap() }
 
     val opacity = config.getWidgetOpacity(widgetId).coerceIn(0f, 1f)
+    val bgColor = if (isAmoled) WidgetBgAmoled else WidgetBg
 
     val unchecked = events.filter { completionMap[it.id] != true }
         .sortedBy { it.timestart }
@@ -97,7 +100,7 @@ private fun TaskWidgetContent(context: Context, config: ConfigStore, widgetId: S
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
-            .background(ColorProvider(WidgetBg.copy(alpha = opacity))),
+            .background(ColorProvider(bgColor.copy(alpha = opacity))),
     ) {
         Column(
             modifier = GlanceModifier

@@ -40,8 +40,10 @@ import com.moodlebridge.data.ConfigStore
 private val BrandIndigo = Color(0xFF818CF8)
 private val AccentTeal = Color(0xFF2DD4BF)
 private val WidgetBg = Color(0xFF1C1C1E)
+private val WidgetBgAmoled = Color.Black
 private val RowBg = Color(0xFF2C2C2E)
 private val PanelBg = Color(0xEE1C1C1E)
+private val PanelBgAmoled = Color(0xEE000000)
 private val TextWhite = Color.White
 private val TextMuted = Color.White.copy(alpha = 0.7f)
 private val TextDim = Color.White.copy(alpha = 0.5f)
@@ -57,6 +59,9 @@ class TaskOpacitySliderActivity : ComponentActivity() {
 
         setContent {
             val config = remember { ConfigStore(this@TaskOpacitySliderActivity) }
+            val isAmoled = config.themeMode == "amoled_dark"
+            val widgetBg = if (isAmoled) WidgetBgAmoled else WidgetBg
+            val panelBg = if (isAmoled) PanelBgAmoled else PanelBg
             var opacity by remember { mutableFloatStateOf(config.getWidgetOpacity(appWidgetId.toString())) }
 
             Box(Modifier.fillMaxSize()) {
@@ -69,7 +74,7 @@ class TaskOpacitySliderActivity : ComponentActivity() {
                             .fillMaxWidth()
                             .padding(horizontal = 24.dp)
                             .clip(RoundedCornerShape(16.dp))
-                            .background(WidgetBg.copy(alpha = opacity))
+                            .background(widgetBg.copy(alpha = opacity))
                             .padding(16.dp),
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -168,7 +173,7 @@ class TaskOpacitySliderActivity : ComponentActivity() {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(PanelBg)
+                            .background(panelBg)
                             .padding(horizontal = 24.dp, vertical = 20.dp),
                     ) {
                         Text(

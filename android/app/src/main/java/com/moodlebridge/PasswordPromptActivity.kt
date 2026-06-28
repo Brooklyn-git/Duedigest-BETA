@@ -46,7 +46,7 @@ class PasswordPromptActivity : ComponentActivity() {
         setContent {
             MaterialTheme(
                 colorScheme = when (config.themeMode) {
-                    "dark" -> darkColorScheme(); "light" -> lightColorScheme()
+                    "amoled_dark" -> darkColorScheme(); "dark" -> darkColorScheme(); "light" -> lightColorScheme()
                     else -> if (androidx.compose.foundation.isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()
                 },
             ) {

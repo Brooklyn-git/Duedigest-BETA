@@ -41,6 +41,7 @@ import java.util.Locale
 
 private val BrandIndigo = Color(0xFF818CF8)
 private val WidgetBg = Color(0xFF1C1C1E)
+private val WidgetBgAmoled = Color.Black
 private val TextPrimary = Color(0xFFFFFFFF)
 private val TextSecondary = Color(0xFF9CA3AF)
 
@@ -49,8 +50,9 @@ class SyncWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val config = ConfigStore(context)
         val widgetId = id.toString()
+        val isAmoled = config.themeMode == "amoled_dark"
         provideContent {
-            SyncWidgetContent(context, config, widgetId)
+            SyncWidgetContent(context, config, widgetId, isAmoled)
         }
     }
 
@@ -80,11 +82,12 @@ class FetchAndSyncAction : ActionCallback {
 }
 
 @Composable
-private fun SyncWidgetContent(context: Context, config: ConfigStore, widgetId: String) {
+private fun SyncWidgetContent(context: Context, config: ConfigStore, widgetId: String, isAmoled: Boolean = false) {
     val lastSync = config.lastSyncTimestamp
     val message = config.lastSyncMessage
     val count = config.eventCount
     val opacity = config.getWidgetOpacity(widgetId).coerceIn(0f, 1f)
+    val bgColor = if (isAmoled) WidgetBgAmoled else WidgetBg
 
     val timeText = if (lastSync > 0) {
         val sdf = SimpleDateFormat("MMM dd HH:mm", Locale.getDefault())
@@ -96,7 +99,7 @@ private fun SyncWidgetContent(context: Context, config: ConfigStore, widgetId: S
     Column(
         modifier = GlanceModifier
             .fillMaxWidth()
-            .background(ColorProvider(WidgetBg.copy(alpha = opacity)))
+            .background(ColorProvider(bgColor.copy(alpha = opacity)))
             .padding(12.dp),
     ) {
         Row(
