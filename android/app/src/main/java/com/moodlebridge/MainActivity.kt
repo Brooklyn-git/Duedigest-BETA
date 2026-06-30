@@ -252,14 +252,14 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     DueNestTheme(themeMode = themeMode) {
         if (showOutputSettings) {
             OutputSettingsPage(
-                icsEnabled = icsEnabled, onIcsEnabledChange = { icsEnabled = it },
-                logseqEnabled = logseqEnabled, onLogseqEnabledChange = { logseqEnabled = it },
-                obsidianEnabled = obsidianEnabled, onObsidianEnabledChange = { obsidianEnabled = it },
-                icsPath = icsPath, onIcsPathChange = { icsPath = it },
-                logseqPath = logseqPath, onLogseqPathChange = { logseqPath = it },
-                obsidianPath = obsidianPath, onObsidianPathChange = { obsidianPath = it },
-                daysBackText = daysBackText, onDaysBackChange = { daysBackText = it },
-                limitText = limitText, onLimitChange = { limitText = it },
+                icsEnabled = icsEnabled, onIcsEnabledChange = { icsEnabled = it; config.icsEnabled = it },
+                logseqEnabled = logseqEnabled, onLogseqEnabledChange = { logseqEnabled = it; config.logseqEnabled = it },
+                obsidianEnabled = obsidianEnabled, onObsidianEnabledChange = { obsidianEnabled = it; config.obsidianEnabled = it },
+                icsPath = icsPath, onIcsPathChange = { icsPath = it; config.icsPath = it },
+                logseqPath = logseqPath, onLogseqPathChange = { logseqPath = it; config.logseqPath = it },
+                obsidianPath = obsidianPath, onObsidianPathChange = { obsidianPath = it; config.obsidianPath = it },
+                daysBackText = daysBackText, onDaysBackChange = { daysBackText = it; config.fetchDaysBack = it.toIntOrNull() ?: 7 },
+                limitText = limitText, onLimitChange = { limitText = it; config.fetchLimit = it.toIntOrNull() ?: 100 },
                 tasksEnabled = tasksEnabled, onTasksEnabledChange = { tasksEnabled = it; config.tasksEnabled = it; regenerateTasksFile() },
                 tasksOutputPath = tasksOutputPath, onTasksPathChange = { tasksOutputPath = it; config.tasksOutputPath = it; regenerateTasksFile() },
                 lang = lang,
