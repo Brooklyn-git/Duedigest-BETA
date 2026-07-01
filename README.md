@@ -16,10 +16,15 @@ DueNest fetches deadlines and activities from Moodle and pushes them to your cal
 - **Delta ICS** — detects new/changed events via cache, generates `calendar_new.ics` for incremental import (desktop only)
 - **Auto-reauth** — re-logs in automatically when token expires on both platforms
 - **Configurable fetch window** — days back and event limit
-- **Android app** — login, fetch events, generate ICS, settings (theme, language), widget
-- **Android home screen widget** — per-instance opacity slider on first placement, one-tap "Fetch && sync" button, tap notification to open ICS in calendar app
+- **Android app** — login, fetch events, generate ICS, settings (theme, language, notifications)
+- **Android home screen widgets:**
+  - **DueNest Sync** — per-instance opacity slider, one-tap "Fetch && sync" button
+  - **DueNest Tasks** — tap anywhere to open the app; shows pending tasks grouped by course
+  - **DueNest fetch + tasks** — task list with a "Fetch && sync" button (password prompt if no password stored)
+- **Task reminder notifications** — independent from fetch reminders, lists actual unchecked assignments with course names and due dates (Overdue / Today / Tomorrow); configurable schedule (daily / weekly / custom days & times)
+- **Fetch reminder notifications** — generic "have you checked Moodle?" nudge with its own independent schedule
 - **i18n** — English and Spanish on both platforms
-- **Dark / Light / System theme**
+- **4 theme modes** — Light / Dark / AMOLED Dark (pure black surfaces for OLED screens) / System
 - **API contract** — `desktop/moodle_api.yaml` (OpenAPI 3.0) documents both endpoints + auth as single source of truth across platforms
 
 ## Requirements
@@ -65,9 +70,15 @@ cd android
 
 Install `android/app/build/outputs/apk/debug/app-debug.apk` on your phone.
 
-**First launch**: Open the app → enter Moodle URL, username, password → tap "Fetch". The app supports ICS generation, theme switching, and language selection.
+**First launch**: Open the app → enter Moodle URL, username, password → tap "Fetch". The app supports ICS generation, theme switching (Light / Dark / AMOLED Dark / System), language selection, and two independent notification types.
 
-**Widget** (extra): Long-press home screen → add "Moodle Bridge" widget → configure opacity with the slider → tap "Confirm". The widget shows the last sync state and a "Fetch && sync" button.
+**Widgets** (extra — add via long-press home screen):
+
+| Widget | What it does |
+|--------|-------------|
+| **DueNest Sync** | Shows last sync state + "Fetch && sync" button. Per-instance opacity slider on first placement. |
+| **DueNest Tasks** | Lists pending tasks grouped by course with due-date coloring (overdue, today, tomorrow, future). Tap anywhere to open the app. |
+| **DueNest fetch + tasks** | Combines the task list with a "Fetch && sync" button — syncs in background or shows a password prompt if none stored. |
 
 **Sync from widget**: Tap "Fetch && sync" → notification appears with the result → tap it to open the ICS in your calendar app.
 
@@ -98,6 +109,15 @@ Install `android/app/build/outputs/apk/debug/app-debug.apk` on your phone.
 
 The Android app stores credentials, preferences, and per-widget opacity in EncryptedSharedPreferences (AES-256 GCM). Configure via the app's settings screen.
 
+| Setting | Description |
+|---------|-------------|
+| Theme | Light / Dark / AMOLED Dark / System |
+| Language | English / Spanish |
+| Fetch reminders | Independent schedule (daily / weekly / custom days & times) |
+| Task reminders | Independent schedule — lists actual unchecked assignments with due dates |
+| Output formats | ICS, Logseq, Obsidian, Tasks (each with configurable path) |
+| Fetch options | Days back, max events |
+
 ## Project structure
 
 ```
@@ -121,12 +141,16 @@ moodle-calendar-bridge/
 │           ├── AndroidManifest.xml
 │           ├── res/
 │           │   ├── layout/
-│           │   │   └── sync_widget_initial.xml
+│           │   │   ├── sync_widget_initial.xml
+│           │   │   ├── task_widget_initial.xml
+│           │   │   └── fetch_task_widget_initial.xml
 │           │   ├── values/
 │           │   │   ├── strings.xml
 │           │   │   └── themes.xml
 │           │   └── xml/
 │           │       ├── sync_widget_info.xml
+│           │       ├── task_widget_info.xml
+│           │       ├── fetch_task_widget_info.xml
 │           │       └── file_paths.xml
 │           └── java/com/moodlebridge/
 │               ├── MainActivity.kt              # App UI + settings (Compose)
@@ -135,13 +159,22 @@ moodle-calendar-bridge/
 │               │   ├── ConfigStore.kt            # EncryptedSharedPreferences wrapper
 │               │   ├── Event.kt                  # Data classes for API + internal Event model
 │               │   ├── IcsGenerator.kt           # ICS rendering (RFC 5545 VEVENT)
+│               │   ├── MarkdownGenerator.kt      # Markdown output (Logseq, Obsidian, Tasks)
 │               │   ├── MoodleApi.kt              # REST client (OkHttp, login + 2 endpoints)
+│               │   ├── PathResolver.kt           # Content URI / file path handling
 │               │   └── Strings.kt                # i18n strings (en/es)
+│               ├── ui/
+│               │   └── Theme.kt                 # Material 3 color schemes (Light / Dark / AMOLED Dark)
 │               ├── worker/
-│               │   └── SyncWorker.kt             # Background sync (WorkManager)
+│               │   ├── SyncWorker.kt             # Background sync (WorkManager)
+│               │   ├── NotificationWorker.kt     # Fetch reminder notifications
+│               │   └── TaskReminderWorker.kt     # Task deadline notifications
 │               └── widget/
-│                   ├── SyncWidget.kt             # Glance widget (per-instance opacity)
-│                   └── OpacitySliderActivity.kt  # Widget configure activity (slider + confirm)
+│                   ├── SyncWidget.kt             # Sync-only widget (per-instance opacity slider)
+│                   ├── TaskWidget.kt             # Task list widget (tap to open app)
+│                   ├── FetchTaskWidget.kt        # Task list + fetch button widget
+│                   ├── OpacitySliderActivity.kt  # Sync widget configure activity
+│                   └── TaskOpacitySliderActivity.kt # Task widget configure activity
 ├── AGENTS.md                  # Dev notes (architecture, API, design decisions)
 ├── LICENSE
 └── README.md
