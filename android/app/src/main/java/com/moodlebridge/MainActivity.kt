@@ -43,6 +43,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
@@ -77,6 +79,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -216,6 +219,17 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     var dialogDuration by remember { mutableStateOf("60") }
     var dialogUrl by remember { mutableStateOf("") }
     var showDeleteConfirm by remember { mutableStateOf<String?>(null) }
+    var courseExpanded by remember { mutableStateOf(false) }
+    var showNewCourseDialog by remember { mutableStateOf(false) }
+    var newCourseName by remember { mutableStateOf("") }
+
+    val courseOptions by remember {
+        derivedStateOf {
+            val courses = (fetchedEvents + manualEvents).map { it.course }.filter { it.isNotBlank() && it != "General" }.toMutableSet()
+            courses.add("General")
+            courses.sorted()
+        }
+    }
 
     fun formatTime(s: String): String { return if (notif24hFormat) formatTime24(s) else formatTime12(s) }
 
@@ -520,8 +534,25 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                     OutlinedTextField(value = dialogDescription, onValueChange = { dialogDescription = it },
                         label = { Text(Strings.get("task_description", lang)) }, singleLine = false, modifier = Modifier.fillMaxWidth(), minLines = 2)
                     Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(value = dialogCourse, onValueChange = { dialogCourse = it },
-                        label = { Text(Strings.get("task_course", lang)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    ExposedDropdownMenuBox(expanded = courseExpanded, onExpandedChange = { courseExpanded = it }) {
+                        OutlinedTextField(value = dialogCourse, onValueChange = {}, readOnly = true,
+                            label = { Text(Strings.get("task_course", lang)) },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = courseExpanded) },
+                            singleLine = true, modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable))
+                        ExposedDropdownMenu(expanded = courseExpanded, onDismissRequest = { courseExpanded = false }) {
+                            courseOptions.forEach { c ->
+                                DropdownMenuItem(text = { Text(c) }, onClick = {
+                                    dialogCourse = c; courseExpanded = false
+                                })
+                            }
+                            if (courseOptions.isNotEmpty()) {
+                                HorizontalDivider()
+                            }
+                            DropdownMenuItem(text = { Text("+ ${Strings.get("add_task", lang)}", color = MaterialTheme.colorScheme.primary) }, onClick = {
+                                courseExpanded = false; newCourseName = ""; showNewCourseDialog = true
+                            })
+                        }
+                    }
                     Spacer(Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                         Box(Modifier.weight(1f)) {
@@ -563,6 +594,25 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
             },
             dismissButton = {
                 TextButton(onClick = { showTaskDialog = false; editingTask = null }) { Text(Strings.get("cancel", lang)) }
+            })
+    }
+
+    if (showNewCourseDialog) {
+        AlertDialog(
+            onDismissRequest = { showNewCourseDialog = false },
+            title = { Text(Strings.get("task_course", lang)) },
+            text = {
+                OutlinedTextField(value = newCourseName, onValueChange = { newCourseName = it },
+                    label = { Text(Strings.get("task_course", lang)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (newCourseName.isNotBlank()) dialogCourse = newCourseName
+                    showNewCourseDialog = false
+                }) { Text(Strings.get("save", lang)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNewCourseDialog = false }) { Text(Strings.get("cancel", lang)) }
             })
     }
 
