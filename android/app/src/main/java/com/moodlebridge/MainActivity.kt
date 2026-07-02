@@ -140,6 +140,8 @@ class MainActivity : ComponentActivity() {
         getSystemService(NotificationManager::class.java).createNotificationChannel(syncCh)
         val reminderCh = NotificationChannel(NotificationWorker.CHANNEL_ID, "DueNest Reminders", NotificationManager.IMPORTANCE_DEFAULT)
         getSystemService(NotificationManager::class.java).createNotificationChannel(reminderCh)
+        val taskCh = NotificationChannel(TaskReminderWorker.CHANNEL_ID, "DueNest Task Reminders", NotificationManager.IMPORTANCE_DEFAULT)
+        getSystemService(NotificationManager::class.java).createNotificationChannel(taskCh)
     }
 }
 
