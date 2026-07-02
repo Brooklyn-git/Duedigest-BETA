@@ -1150,17 +1150,13 @@ private fun TaskCard(
     val now = java.util.Calendar.getInstance()
     val diffDays = ((cal.timeInMillis - now.timeInMillis) / (1000 * 60 * 60 * 24)).toInt()
     val relativeDate = when {
-        diffDays < 0 -> "overdue"
-        diffDays == 0 -> "today"
-        diffDays == 1 -> "tomorrow"
-        diffDays <= 7 -> "in $diffDays days"
+        diffDays < 0 -> Strings.get("tasks_overdue", lang)
+        diffDays == 0 -> Strings.get("tasks_today", lang)
+        diffDays == 1 -> Strings.get("tasks_tomorrow", lang)
+        diffDays <= 7 -> Strings.get("tasks_in_days", lang).replace("{n}", diffDays.toString())
         else -> {
-            val y = cal.get(java.util.Calendar.YEAR)
-            val m = String.format("%02d", cal.get(java.util.Calendar.MONTH) + 1)
-            val d = String.format("%02d", cal.get(java.util.Calendar.DAY_OF_MONTH))
-            val h = String.format("%02d", cal.get(java.util.Calendar.HOUR_OF_DAY))
-            val min = String.format("%02d", cal.get(java.util.Calendar.MINUTE))
-            "$y-$m-$d $h:$min"
+            val sdf = java.text.SimpleDateFormat("MMMM dd", java.util.Locale.getDefault())
+            sdf.format(java.util.Date(event.timestart * 1000))
         }
     }
 
