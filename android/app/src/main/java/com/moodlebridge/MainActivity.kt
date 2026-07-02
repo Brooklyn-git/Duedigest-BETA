@@ -1150,7 +1150,13 @@ private fun TaskCard(
 ) {
     val cal = java.util.Calendar.getInstance().apply { timeInMillis = event.timestart * 1000 }
     val now = java.util.Calendar.getInstance()
-    val diffDays = ((cal.timeInMillis - now.timeInMillis) / (1000 * 60 * 60 * 24)).toInt()
+    val diffDays = {
+        val c = java.util.Calendar.getInstance().apply { timeInMillis = cal.timeInMillis }
+        val n = java.util.Calendar.getInstance()
+        c.set(java.util.Calendar.HOUR_OF_DAY, 0); c.set(java.util.Calendar.MINUTE, 0); c.set(java.util.Calendar.SECOND, 0); c.set(java.util.Calendar.MILLISECOND, 0)
+        n.set(java.util.Calendar.HOUR_OF_DAY, 0); n.set(java.util.Calendar.MINUTE, 0); n.set(java.util.Calendar.SECOND, 0); n.set(java.util.Calendar.MILLISECOND, 0)
+        ((c.timeInMillis - n.timeInMillis) / (1000 * 60 * 60 * 24)).toInt()
+    }()
     val relativeDate = when {
         diffDays < 0 -> Strings.get("tasks_overdue", lang)
         diffDays == 0 -> Strings.get("tasks_today", lang)

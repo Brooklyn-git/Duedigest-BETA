@@ -49,10 +49,13 @@ class TaskReminderWorker(
 
         val now = Calendar.getInstance()
         val nowSeconds = now.timeInMillis / 1000
+        val nowMidnight = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }.timeInMillis / 1000
 
         val lang = config.language.ifBlank { "en" }
         val count = incomplete.size
-        val overdueCount = incomplete.count { it.timestart < nowSeconds }
+        val overdueCount = incomplete.count { it.timestart < nowMidnight }
         val title = if (overdueCount > 0) {
             "$count ${Strings.get("pending", lang)} \u2014 $overdueCount ${Strings.get("tasks_overdue", lang)}"
         } else {
@@ -93,7 +96,13 @@ class TaskReminderWorker(
     }
 
     private fun relativeDateLabel(timestart: Long, nowSeconds: Long, lang: String): String {
-        val diffDays = ((timestart - nowSeconds) / (3600 * 24)).toInt()
+        val diffDays = {
+            val c = Calendar.getInstance().apply { timeInMillis = timestart * 1000 }
+            val n = Calendar.getInstance().apply { timeInMillis = nowSeconds * 1000 }
+            c.set(Calendar.HOUR_OF_DAY, 0); c.set(Calendar.MINUTE, 0); c.set(Calendar.SECOND, 0); c.set(Calendar.MILLISECOND, 0)
+            n.set(Calendar.HOUR_OF_DAY, 0); n.set(Calendar.MINUTE, 0); n.set(Calendar.SECOND, 0); n.set(Calendar.MILLISECOND, 0)
+            ((c.timeInMillis - n.timeInMillis) / (1000 * 60 * 60 * 24)).toInt()
+        }()
         return when {
             diffDays < 0 -> Strings.get("tasks_overdue", lang)
             diffDays == 0 -> Strings.get("tasks_today", lang)

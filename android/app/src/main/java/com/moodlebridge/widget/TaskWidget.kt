@@ -176,7 +176,13 @@ private fun TaskWidgetContent(context: Context, config: ConfigStore, widgetId: S
 private fun TaskWidgetRow(event: Event, lang: String = "en") {
     val cal = Calendar.getInstance().apply { timeInMillis = event.timestart * 1000 }
     val now = Calendar.getInstance()
-    val diffDays = ((cal.timeInMillis - now.timeInMillis) / (1000 * 60 * 60 * 24)).toInt()
+    val diffDays = {
+        val c = Calendar.getInstance().apply { timeInMillis = cal.timeInMillis }
+        val n = Calendar.getInstance()
+        c.set(Calendar.HOUR_OF_DAY, 0); c.set(Calendar.MINUTE, 0); c.set(Calendar.SECOND, 0); c.set(Calendar.MILLISECOND, 0)
+        n.set(Calendar.HOUR_OF_DAY, 0); n.set(Calendar.MINUTE, 0); n.set(Calendar.SECOND, 0); n.set(Calendar.MILLISECOND, 0)
+        ((c.timeInMillis - n.timeInMillis) / (1000 * 60 * 60 * 24)).toInt()
+    }()
     val dateLabel = when {
         diffDays < 0 -> Strings.get("tasks_overdue", lang)
         diffDays == 0 -> Strings.get("tasks_today", lang)
