@@ -79,6 +79,19 @@ object Strings {
         "intro_tasks" to "\u2013 Tasks \u2014 Grouped task list with checkboxes (this file)",
         "intro_configure" to "Configure outputs in Settings \u2192 Output Settings.",
         "intro_footer" to "This file will be replaced with your actual tasks after the first successful sync.",
+        "add_task" to "Add task",
+        "edit_task" to "Edit task",
+        "delete_task" to "Delete",
+        "delete_task_confirm" to "Delete this task?",
+        "task_name" to "Task name",
+        "task_description" to "Description",
+        "task_course" to "Course",
+        "task_date" to "Date",
+        "task_time" to "Time",
+        "task_duration" to "Duration (minutes)",
+        "task_url" to "URL",
+        "save" to "Save",
+        "manual" to "Manual",
     )
 
     private val es = mapOf(
@@ -158,6 +171,19 @@ object Strings {
         "intro_tasks" to "\u2013 Tareas \u2014 Lista de tareas agrupada con casillas (este archivo)",
         "intro_configure" to "Configura las salidas en Ajustes \u2192 Configuraci\u00f3n de salida.",
         "intro_footer" to "Este archivo ser\u00e1 reemplazado por tus tareas reales despu\u00e9s de la primera sincronizaci\u00f3n.",
+        "add_task" to "Agregar tarea",
+        "edit_task" to "Editar tarea",
+        "delete_task" to "Eliminar",
+        "delete_task_confirm" to "\u00bfEliminar esta tarea?",
+        "task_name" to "Nombre de la tarea",
+        "task_description" to "Descripci\u00f3n",
+        "task_course" to "Curso",
+        "task_date" to "Fecha",
+        "task_time" to "Hora",
+        "task_duration" to "Duraci\u00f3n (minutos)",
+        "task_url" to "URL",
+        "save" to "Guardar",
+        "manual" to "Manual",
     )
 
     fun get(key: String, lang: String = "en"): String {

@@ -53,4 +53,7 @@ data class Event(
     val url: String,
     val course: String,
     val modname: String,
-)
+    val source: String = "moodle",
+) {
+    val isManual: Boolean get() = source == "manual"
+}

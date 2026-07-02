@@ -91,6 +91,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -112,6 +113,7 @@ import com.moodlebridge.worker.TaskReminderWorker
 import com.moodlebridge.worker.SyncWorker
 import androidx.work.WorkManager
 import java.io.File
+import java.util.UUID
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
@@ -194,12 +196,26 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     var taskRemindCustomDaysList by remember { mutableStateOf(parseDayList(config.taskReminderCustomDays)) }
     var taskRemindCustomHoursList by remember { mutableStateOf(parseHourList(config.taskReminderCustomHours)) }
     var fetchedEvents by remember { mutableStateOf(listOf<Event>()) }
+    var manualEvents by remember { mutableStateOf(
+        try { Json.decodeFromString<List<Event>>(config.manualEventCache) } catch (_: Exception) { emptyList() }
+    ) }
     var taskCompletionMap by remember { mutableStateOf(
         try { Json.decodeFromString<Map<String, Boolean>>(config.taskCompletionState) } catch (_: Exception) { emptyMap() }
     ) }
     var expandedTaskId by remember { mutableStateOf<String?>(null) }
     var tasksEnabled by remember { mutableStateOf(config.tasksEnabled) }
     var tasksOutputPath by remember { mutableStateOf(config.tasksOutputPath) }
+
+    var showTaskDialog by remember { mutableStateOf(false) }
+    var editingTask by remember { mutableStateOf<Event?>(null) }
+    var dialogName by remember { mutableStateOf("") }
+    var dialogDescription by remember { mutableStateOf("") }
+    var dialogCourse by remember { mutableStateOf("") }
+    var dialogDate by remember { mutableStateOf("") }
+    var dialogTime by remember { mutableStateOf("") }
+    var dialogDuration by remember { mutableStateOf("60") }
+    var dialogUrl by remember { mutableStateOf("") }
+    var showDeleteConfirm by remember { mutableStateOf<String?>(null) }
 
     fun formatTime(s: String): String { return if (notif24hFormat) formatTime24(s) else formatTime12(s) }
 
@@ -221,30 +237,122 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
         }
     }
 
+    fun getMergedEvents(): List<Event> {
+        val merged = fetchedEvents.toMutableList()
+        merged.addAll(manualEvents)
+        return merged.sortedBy { it.timestart }
+    }
+
     fun regenerateTasksFile() {
         if (!tasksEnabled || tasksOutputPath.isBlank()) return
-        val isFirstLaunch = config.lastSyncTimestamp == 0L && fetchedEvents.isEmpty()
+        val merged = getMergedEvents()
+        val isFirstLaunch = config.lastSyncTimestamp == 0L && merged.isEmpty()
         if (isFirstLaunch && fileExists(tasksOutputPath)) return
         val content = if (isFirstLaunch) {
             MarkdownGenerator.generateIntroMd(lang)
         } else {
-            MarkdownGenerator.generateTasksList(fetchedEvents, taskCompletionMap)
+            MarkdownGenerator.generateTasksList(merged, taskCompletionMap)
         }
         PathResolver.writeIcs(context, tasksOutputPath, content)
+    }
+
+    fun persistMergedEvents() {
+        val merged = getMergedEvents()
+        config.taskEventCache = Json.encodeToString(merged)
+        regenerateTasksFile()
+    }
+
+    fun addOrUpdateManualEvent(event: Event) {
+        manualEvents = manualEvents.toMutableList().also { list ->
+            val idx = list.indexOfFirst { it.id == event.id }
+            if (idx >= 0) list[idx] = event else list.add(event)
+        }
+        config.manualEventCache = Json.encodeToString(manualEvents)
+        persistMergedEvents()
+    }
+
+    fun deleteManualEvent(id: String) {
+        manualEvents = manualEvents.filter { it.id != id }
+        config.manualEventCache = Json.encodeToString(manualEvents)
+        taskCompletionMap = taskCompletionMap.toMutableMap().also { it.remove(id) }
+        saveCompletionMap()
+        persistMergedEvents()
+    }
+
+    fun openTaskDialog(task: Event? = null) {
+        editingTask = task
+        if (task != null) {
+            dialogName = task.name
+            dialogDescription = task.description
+            dialogCourse = task.course
+            val cal = java.util.Calendar.getInstance().apply { timeInMillis = task.timestart * 1000 }
+            val y = cal.get(java.util.Calendar.YEAR)
+            val m = String.format("%02d", cal.get(java.util.Calendar.MONTH) + 1)
+            val d = String.format("%02d", cal.get(java.util.Calendar.DAY_OF_MONTH))
+            dialogDate = "$y-$m-$d"
+            val h = String.format("%02d", cal.get(java.util.Calendar.HOUR_OF_DAY))
+            val min = String.format("%02d", cal.get(java.util.Calendar.MINUTE))
+            dialogTime = "$h:$min"
+            dialogDuration = (task.timeduration / 60).toString()
+            dialogUrl = task.url
+        } else {
+            dialogName = ""; dialogDescription = ""; dialogCourse = ""
+            val now = java.util.Calendar.getInstance()
+            val y = now.get(java.util.Calendar.YEAR)
+            val m = String.format("%02d", now.get(java.util.Calendar.MONTH) + 1)
+            val d = String.format("%02d", now.get(java.util.Calendar.DAY_OF_MONTH))
+            dialogDate = "$y-$m-$d"
+            val h = String.format("%02d", now.get(java.util.Calendar.HOUR_OF_DAY))
+            val curMin = String.format("%02d", now.get(java.util.Calendar.MINUTE))
+            dialogTime = "$h:$curMin"
+            dialogDuration = "60"; dialogUrl = ""
+        }
+        showTaskDialog = true
+    }
+
+    fun saveTaskDialog() {
+        val parts = dialogDate.split("-")
+        val y = parts.getOrNull(0)?.toIntOrNull() ?: return
+        val m = parts.getOrNull(1)?.toIntOrNull() ?: return
+        val d = parts.getOrNull(2)?.toIntOrNull() ?: return
+        val timeParts = dialogTime.split(":")
+        val h = timeParts.getOrNull(0)?.toIntOrNull() ?: 0
+        val min = timeParts.getOrNull(1)?.toIntOrNull() ?: 0
+        val cal = java.util.Calendar.getInstance().apply {
+            set(y, m - 1, d, h, min, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }
+        val timestart = cal.timeInMillis / 1000
+        val durationSec = (dialogDuration.toLongOrNull() ?: 60) * 60
+        val id = editingTask?.id ?: "manual_${UUID.randomUUID()}"
+        addOrUpdateManualEvent(Event(
+            id = id,
+            name = dialogName.ifBlank { "Untitled" },
+            description = dialogDescription,
+            timestart = timestart,
+            timeduration = durationSec,
+            eventtype = "manual",
+            url = dialogUrl,
+            course = dialogCourse.ifBlank { "General" },
+            modname = "manual",
+            source = "manual",
+        ))
+        showTaskDialog = false
+        editingTask = null
     }
 
     fun doSync(pw: String) {
         isWorking = true; logLines.clear(); statusText = ""
         scope.launch {
+            val manual = manualEvents.toList()
             doFetch(context, config, url, username, pw, tz, savePw,
                 icsEnabled, logseqEnabled, obsidianEnabled, icsPath, logseqPath, obsidianPath,
-                daysBackText, limitText, lang, tasksEnabled, tasksOutputPath,
+                daysBackText, limitText, lang, tasksEnabled, tasksOutputPath, manual,
                 { addLog(it) }, { statusText = it }, { errorDialogMsg = it },
                 { isWorking = false },
                 { events ->
                     fetchedEvents = events; expandedTaskId = null
-                    config.taskEventCache = Json.encodeToString(events)
-                    regenerateTasksFile()
+                    persistMergedEvents()
                 })
         }
     }
@@ -319,19 +427,24 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                             tz = tz, onTzChange = { tz = it }, tzExpanded = tzExpanded,
                             onTzExpandedChange = { tzExpanded = it }, lang = lang)
                         else -> TasksTabContent(
-                            events = fetchedEvents, completionMap = taskCompletionMap,
+                            events = getMergedEvents(), completionMap = taskCompletionMap,
                             expandedId = expandedTaskId, onExpandedChange = { expandedTaskId = it },
                             onToggleCompletion = { id ->
                                 taskCompletionMap = taskCompletionMap.toMutableMap().also { it[id] = !(it[id] ?: false) }
                                 saveCompletionMap()
-                                regenerateTasksFile()
+                                persistMergedEvents()
                             },
                             onClearCompleted = {
+                                val completedManual = manualEvents.filter { taskCompletionMap[it.id] == true }
+                                for (ev in completedManual) deleteManualEvent(ev.id)
                                 taskCompletionMap = emptyMap()
                                 saveCompletionMap()
-                                regenerateTasksFile()
+                                persistMergedEvents()
                                 expandedTaskId = null
                             },
+                            onAddTask = { openTaskDialog() },
+                            onEditTask = { openTaskDialog(it) },
+                            onDeleteTask = { showDeleteConfirm = it },
                             lang = lang,
                             showIntro = config.lastSyncTimestamp == 0L && fetchedEvents.isEmpty())
                     }
@@ -378,9 +491,82 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
             }
         }
-        } // end else
+    } // end else
 
-        // ── Error dialog ────────────────────────────────────────
+    // ── Add Task dialog ─────────────────────────────────────
+    if (showDeleteConfirm != null) {
+        AlertDialog(onDismissRequest = { showDeleteConfirm = null },
+            title = { Text(Strings.get("delete_task", lang)) },
+            text = { Text(Strings.get("delete_task_confirm", lang)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    deleteManualEvent(showDeleteConfirm!!)
+                    showDeleteConfirm = null
+                }) { Text(Strings.get("delete_task", lang), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = null }) { Text(Strings.get("cancel", lang)) }
+            })
+    }
+    if (showTaskDialog) {
+        AlertDialog(
+            onDismissRequest = { showTaskDialog = false; editingTask = null },
+            title = { Text(if (editingTask != null) Strings.get("edit_task", lang) else Strings.get("add_task", lang)) },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    OutlinedTextField(value = dialogName, onValueChange = { dialogName = it },
+                        label = { Text(Strings.get("task_name", lang)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(value = dialogDescription, onValueChange = { dialogDescription = it },
+                        label = { Text(Strings.get("task_description", lang)) }, singleLine = false, modifier = Modifier.fillMaxWidth(), minLines = 2)
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(value = dialogCourse, onValueChange = { dialogCourse = it },
+                        label = { Text(Strings.get("task_course", lang)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        Box(Modifier.weight(1f)) {
+                            OutlinedTextField(value = dialogDate, onValueChange = {}, readOnly = true,
+                                label = { Text(Strings.get("task_date", lang)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                            Box(Modifier.matchParentSize().clickable {
+                                val parts = dialogDate.split("-")
+                                val y = parts.getOrNull(0)?.toIntOrNull() ?: java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+                                val m = (parts.getOrNull(1)?.toIntOrNull() ?: (java.util.Calendar.getInstance().get(java.util.Calendar.MONTH) + 1)) - 1
+                                val d = parts.getOrNull(2)?.toIntOrNull() ?: java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_MONTH)
+                                DatePickerDialog(context, { _, year, month, day ->
+                                    dialogDate = String.format("%04d-%02d-%02d", year, month + 1, day)
+                                }, y, m, d).show()
+                            })
+                        }
+                        Box(Modifier.weight(1f)) {
+                            OutlinedTextField(value = formatTime(dialogTime), onValueChange = {}, readOnly = true,
+                                label = { Text(Strings.get("task_time", lang)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                            Box(Modifier.matchParentSize().clickable {
+                                val timeParts = dialogTime.split(":")
+                                val h = timeParts.getOrNull(0)?.toIntOrNull() ?: java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+                                val min = timeParts.getOrNull(1)?.toIntOrNull() ?: java.util.Calendar.getInstance().get(java.util.Calendar.MINUTE)
+                                TimePickerDialog(context, { _, hour, minute ->
+                                    dialogTime = String.format("%02d:%02d", hour, minute)
+                                }, h, min, notif24hFormat).show()
+                            })
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(value = dialogDuration, onValueChange = { dialogDuration = it.filter { c -> c.isDigit() } },
+                        label = { Text(Strings.get("task_duration", lang)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(value = dialogUrl, onValueChange = { dialogUrl = it },
+                        label = { Text(Strings.get("task_url", lang)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { saveTaskDialog() }) { Text(Strings.get("save", lang)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTaskDialog = false; editingTask = null }) { Text(Strings.get("cancel", lang)) }
+            })
+    }
+
+    // ── Error dialog ────────────────────────────────────────
         if (errorDialogMsg != null) {
             AlertDialog(onDismissRequest = { errorDialogMsg = null }, title = { Text(Strings.get("error", lang)) },
                 text = { Text(errorDialogMsg ?: "") },
@@ -503,18 +689,16 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                                 }
                             }
                         }
-                        AnimatedVisibility(visible = notifEnabled || taskRemindEnabled) {
-                            Column {
-                                Spacer(Modifier.height(4.dp))
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    RadioButton(selected = !notif24hFormat, onClick = { notif24hFormat = false; config.notification24hFormat = false })
-                                    Spacer(Modifier.width(2.dp))
-                                    Text("12h", style = MaterialTheme.typography.bodySmall)
-                                    Spacer(Modifier.width(12.dp))
-                                    RadioButton(selected = notif24hFormat, onClick = { notif24hFormat = true; config.notification24hFormat = true })
-                                    Spacer(Modifier.width(2.dp))
-                                    Text("24h", style = MaterialTheme.typography.bodySmall)
-                                }
+                        Column {
+                            Spacer(Modifier.height(4.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                RadioButton(selected = !notif24hFormat, onClick = { notif24hFormat = false; config.notification24hFormat = false })
+                                Spacer(Modifier.width(2.dp))
+                                Text("12h", style = MaterialTheme.typography.bodySmall)
+                                Spacer(Modifier.width(12.dp))
+                                RadioButton(selected = notif24hFormat, onClick = { notif24hFormat = true; config.notification24hFormat = true })
+                                Spacer(Modifier.width(2.dp))
+                                Text("24h", style = MaterialTheme.typography.bodySmall)
                             }
                         }
                         Spacer(Modifier.height(12.dp))
@@ -731,6 +915,7 @@ private suspend fun doFetch(
     icsPath: String, logseqPath: String, obsidianPath: String,
     daysBackText: String, limitText: String, lang: String,
     tasksEnabled: Boolean, tasksOutputPath: String,
+    manualEvents: List<Event> = emptyList(),
     onLog: (String) -> Unit, onStatus: (String) -> Unit, onError: (String) -> Unit, onDone: () -> Unit,
     onEventsFetched: (List<Event>) -> Unit = {},
 ) {
@@ -751,10 +936,11 @@ private suspend fun doFetch(
         }
 
         onLog(Strings.get("fetching_events", lang))
-        val events = withContext(Dispatchers.IO) { MoodleApi(config.moodleUrl, token).fetchEvents(config.fetchDaysBack, config.fetchLimit) }
-        onLog("${Strings.get("found_events", lang)} ${events.size}")
+        val apiEvents = withContext(Dispatchers.IO) { MoodleApi(config.moodleUrl, token).fetchEvents(config.fetchDaysBack, config.fetchLimit) }
+        onLog("${Strings.get("found_events", lang)} ${apiEvents.size}")
+        val events = (apiEvents + manualEvents).sortedBy { it.timestart }
 
-        if (config.icsEnabled) {
+        if (icsEnabled) {
             val icsContent = IcsGenerator.generate(events)
             withContext(Dispatchers.IO) {
                 File(context.cacheDir, "ics/calendar.ics").also { it.parentFile?.mkdirs(); it.writeText(icsContent) }
@@ -803,16 +989,24 @@ private fun shareIcs(context: Context, config: ConfigStore) {
 private fun TasksTabContent(
     events: List<Event>, completionMap: Map<String, Boolean>,
     expandedId: String?, onExpandedChange: (String?) -> Unit,
-    onToggleCompletion: (String) -> Unit, onClearCompleted: () -> Unit, lang: String,
+    onToggleCompletion: (String) -> Unit, onClearCompleted: () -> Unit,
+    onAddTask: () -> Unit, onEditTask: (Event) -> Unit, onDeleteTask: (String) -> Unit,
+    lang: String,
     showIntro: Boolean = false,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    if (events.isEmpty()) {
-        if (showIntro) {
-            Column(
-                Modifier.fillMaxWidth().padding(24.dp),
-                verticalArrangement = Arrangement.Center,
-            ) {
+
+    Column(Modifier.fillMaxWidth().padding(16.dp)) {
+        Button(
+            onClick = onAddTask,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("+ ${Strings.get("add_task", lang)}")
+        }
+        Spacer(Modifier.height(8.dp))
+
+        if (events.isEmpty()) {
+            if (showIntro) {
                 Text(Strings.get("intro_title", lang), style = MaterialTheme.typography.headlineMedium,
                     color = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.height(8.dp))
@@ -846,29 +1040,24 @@ private fun TasksTabContent(
                 Spacer(Modifier.height(20.dp))
                 Text(Strings.get("intro_footer", lang), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Spacer(Modifier.height(48.dp))
+                    Icon(
+                        imageVector = Icons.Default.DateRange,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp).then(Modifier.padding(bottom = 16.dp)),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                    )
+                    Text(Strings.get("no_tasks", lang), style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
-            return
-        }
-        Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(
-                    imageVector = Icons.Default.DateRange,
-                    contentDescription = null,
-                    modifier = Modifier.size(48.dp).then(Modifier.padding(bottom = 16.dp)),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                )
-                Text(Strings.get("no_tasks", lang), style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        return
-    }
+        } else {
+            val sorted = events.sortedBy { it.timestart }
+            val grouped = sorted.groupBy { it.course.ifBlank { "General" } }.toSortedMap()
 
-    val sorted = events.sortedBy { it.timestart }
-    val grouped = sorted.groupBy { it.course.ifBlank { "General" } }.toSortedMap()
-
-    Column(Modifier.fillMaxWidth().padding(16.dp)) {
-        grouped.forEach { (course, courseEvents) ->
+            grouped.forEach { (course, courseEvents) ->
             Text(course, style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
@@ -879,6 +1068,8 @@ private fun TasksTabContent(
                     event = ev, isDone = isDone, isExpanded = isExpanded,
                     onToggle = { onToggleCompletion(ev.id) },
                     onExpand = { onExpandedChange(if (isExpanded) null else ev.id) },
+                    onEdit = if (ev.isManual) {{ onEditTask(ev) }} else null,
+                    onDelete = if (ev.isManual) {{ onDeleteTask(ev.id) }} else null,
                     lang = lang, context = context,
                 )
                 Spacer(Modifier.height(4.dp))
@@ -895,12 +1086,15 @@ private fun TasksTabContent(
             Spacer(Modifier.height(8.dp))
         }
     }
+    }
 }
 
 @Composable
 private fun TaskCard(
     event: Event, isDone: Boolean, isExpanded: Boolean,
-    onToggle: () -> Unit, onExpand: () -> Unit, lang: String, context: android.content.Context,
+    onToggle: () -> Unit, onExpand: () -> Unit,
+    onEdit: (() -> Unit)? = null, onDelete: (() -> Unit)? = null,
+    lang: String, context: android.content.Context,
 ) {
     val cal = java.util.Calendar.getInstance().apply { timeInMillis = event.timestart * 1000 }
     val now = java.util.Calendar.getInstance()
@@ -994,12 +1188,38 @@ private fun TaskCard(
         }
         AnimatedVisibility(visible = isExpanded) {
             Column(modifier = Modifier.padding(start = 42.dp, end = 12.dp, bottom = 10.dp)) {
+                if (event.isManual) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(Strings.get("manual", lang), style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.tertiary)
+                    }
+                    Spacer(Modifier.height(4.dp))
+                }
                 if (event.description.isNotBlank()) {
                     Text(event.description, style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(8.dp))
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (event.isManual && onEdit != null) {
+                        OutlinedButton(
+                            onClick = onEdit,
+                            modifier = Modifier.height(32.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                        ) {
+                            Text(Strings.get("edit_task", lang), style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    if (event.isManual && onDelete != null) {
+                        OutlinedButton(
+                            onClick = onDelete,
+                            modifier = Modifier.height(32.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                        ) {
+                            Text(Strings.get("delete_task", lang), style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error)
+                        }
+                    }
                     if (event.url.isNotBlank()) {
                         OutlinedButton(
                             onClick = {
