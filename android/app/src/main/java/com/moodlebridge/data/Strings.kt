@@ -93,6 +93,7 @@ object Strings {
         "task_url" to "URL",
         "save" to "Save",
         "manual" to "Manual",
+        "add_course" to "Add course",
     )
 
     private val es = mapOf(
@@ -186,6 +187,7 @@ object Strings {
         "task_url" to "URL",
         "save" to "Guardar",
         "manual" to "Manual",
+        "add_course" to "Agregar curso",
     )
 
     fun get(key: String, lang: String = "en"): String {

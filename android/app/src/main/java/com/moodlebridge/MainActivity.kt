@@ -548,7 +548,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                             if (courseOptions.isNotEmpty()) {
                                 HorizontalDivider()
                             }
-                            DropdownMenuItem(text = { Text("+ ${Strings.get("add_task", lang)}", color = MaterialTheme.colorScheme.primary) }, onClick = {
+                            DropdownMenuItem(text = { Text("+ ${Strings.get("add_course", lang)}", color = MaterialTheme.colorScheme.primary) }, onClick = {
                                 courseExpanded = false; newCourseName = ""; showNewCourseDialog = true
                             })
                         }
@@ -1155,7 +1155,8 @@ private fun TaskCard(
         diffDays == 1 -> Strings.get("tasks_tomorrow", lang)
         diffDays <= 7 -> Strings.get("tasks_in_days", lang).replace("{n}", diffDays.toString())
         else -> {
-            val sdf = java.text.SimpleDateFormat("MMMM dd", java.util.Locale.getDefault())
+            val locale = if (lang == "es") java.util.Locale("es") else java.util.Locale.ENGLISH
+            val sdf = java.text.SimpleDateFormat("MMMM dd", locale)
             sdf.format(java.util.Date(event.timestart * 1000))
         }
     }
