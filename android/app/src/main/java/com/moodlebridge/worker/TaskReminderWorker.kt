@@ -97,6 +97,7 @@ class TaskReminderWorker(
                 .setStyle(inboxStyle)
                 .setContentIntent(contentPendingIntent)
                 .setAutoCancel(true)
+                .setOnlyAlertOnce(true)
                 .build()
 
             NotificationManagerCompat.from(context).notify(101, notification)

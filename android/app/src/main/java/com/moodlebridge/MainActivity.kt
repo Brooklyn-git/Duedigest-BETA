@@ -137,6 +137,7 @@ class MainActivity : ComponentActivity() {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
                 registerForActivityResult(ActivityResultContracts.RequestPermission()) { }.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
+        TaskReminderWorker.schedule(this)
         setContent { MainContent(config = config, autoSync = intent?.getStringExtra("sync") == "true") }
     }
     private fun createNotificationChannel() {
