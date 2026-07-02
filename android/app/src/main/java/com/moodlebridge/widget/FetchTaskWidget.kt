@@ -46,6 +46,7 @@ private val BrandIndigo = Color(0xFF818CF8)
 private val AccentTeal = Color(0xFF2DD4BF)
 private val RedOverdue = Color(0xFFF87171)
 private val AmberSoon = Color(0xFFFBBF24)
+private val GreenFuture = Color(0xFF22C55E)
 private val WidgetBg = Color(0xFF1C1C1E)
 private val WidgetBgAmoled = Color.Black
 private val TextPrimary = Color(0xFFFFFFFF)
@@ -233,15 +234,13 @@ private fun FetchTaskWidgetRow(event: Event, lang: String = "en") {
     }
     val dotColor = when {
         diffDays < 0 -> RedOverdue
-        diffDays == 0 -> AmberSoon
-        diffDays == 1 -> AmberSoon
-        else -> TextDim
+        diffDays <= 2 -> AmberSoon
+        else -> GreenFuture
     }
     val dateColor = when {
         diffDays < 0 -> RedOverdue
-        diffDays == 0 -> AmberSoon
-        diffDays == 1 -> AmberSoon
-        else -> TextSecondary
+        diffDays <= 2 -> AmberSoon
+        else -> GreenFuture
     }
 
     Row(

@@ -1180,13 +1180,17 @@ private fun TaskCard(
     }
 
     val overdueColor = MaterialTheme.colorScheme.error
-    val dateColor = if (diffDays < 0) overdueColor else MaterialTheme.colorScheme.onSurfaceVariant
+    val dateColor = when {
+        diffDays < 0 -> overdueColor
+        diffDays <= 2 -> MaterialTheme.colorScheme.tertiary
+        else -> Color(0xFF22C55E)
+    }
     val dateIcon: androidx.compose.ui.graphics.vector.ImageVector
     val dateTint: Color
     when {
         diffDays < 0 -> { dateIcon = Icons.Default.Warning; dateTint = overdueColor }
-        diffDays <= 1 -> { dateIcon = Icons.Default.DateRange; dateTint = MaterialTheme.colorScheme.tertiary }
-        else -> { dateIcon = Icons.Default.DateRange; dateTint = MaterialTheme.colorScheme.onSurfaceVariant }
+        diffDays <= 2 -> { dateIcon = Icons.Default.DateRange; dateTint = MaterialTheme.colorScheme.tertiary }
+        else -> { dateIcon = Icons.Default.DateRange; dateTint = Color(0xFF22C55E) }
     }
 
     val cardBg by animateColorAsState(
