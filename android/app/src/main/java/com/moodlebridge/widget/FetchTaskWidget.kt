@@ -34,6 +34,7 @@ import androidx.glance.unit.ColorProvider
 import com.moodlebridge.MainActivity
 import com.moodlebridge.data.ConfigStore
 import com.moodlebridge.data.Event
+import com.moodlebridge.data.Strings
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.decodeFromString
 import java.text.SimpleDateFormat
@@ -93,6 +94,7 @@ private fun FetchTaskWidgetContent(context: Context, config: ConfigStore, widget
 
     val opacity = config.getWidgetOpacity(widgetId).coerceIn(0f, 1f)
     val bgColor = if (isAmoled) WidgetBgAmoled else WidgetBg
+    val lang = config.language.ifBlank { "en" }
 
     val unchecked = events.filter { completionMap[it.id] != true }
         .sortedBy { it.timestart }
@@ -151,7 +153,7 @@ private fun FetchTaskWidgetContent(context: Context, config: ConfigStore, widget
                 val shown = unchecked.take(5)
                 val remaining = unchecked.size - shown.size
                 for (ev in shown) {
-                    FetchTaskWidgetRow(ev)
+                    FetchTaskWidgetRow(ev, lang)
                 }
                 if (remaining > 0) {
                     Text(
@@ -190,16 +192,18 @@ private fun FetchTaskWidgetContent(context: Context, config: ConfigStore, widget
 }
 
 @Composable
-private fun FetchTaskWidgetRow(event: Event) {
+private fun FetchTaskWidgetRow(event: Event, lang: String = "en") {
     val cal = Calendar.getInstance().apply { timeInMillis = event.timestart * 1000 }
     val now = Calendar.getInstance()
     val diffDays = ((cal.timeInMillis - now.timeInMillis) / (1000 * 60 * 60 * 24)).toInt()
     val dateLabel = when {
-        diffDays < 0 -> "Overdue"
-        diffDays == 0 -> "Today"
-        diffDays == 1 -> "Tomorrow"
+        diffDays < 0 -> Strings.get("tasks_overdue", lang)
+        diffDays == 0 -> Strings.get("tasks_today", lang)
+        diffDays == 1 -> Strings.get("tasks_tomorrow", lang)
+        diffDays <= 7 -> Strings.get("tasks_in_days", lang).replace("{n}", diffDays.toString())
         else -> {
-            val sdf = SimpleDateFormat("MMM d", Locale.getDefault())
+            val locale = Locale(lang)
+            val sdf = SimpleDateFormat("MMMM dd", locale)
             sdf.format(Date(event.timestart * 1000))
         }
     }

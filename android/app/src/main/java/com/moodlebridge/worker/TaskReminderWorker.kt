@@ -16,7 +16,10 @@ import com.moodlebridge.data.Event
 import com.moodlebridge.data.Strings
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.decodeFromString
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 class TaskReminderWorker(
@@ -71,7 +74,7 @@ class TaskReminderWorker(
             inboxStyle.addLine("${ev.course.ifBlank { "?" }}: ${ev.name} ($label)")
         }
         if (count > 7) {
-            inboxStyle.setSummaryText("+${count - 7} more")
+            inboxStyle.setSummaryText(Strings.get("notif_more", lang).replace("{n}", (count - 7).toString()))
         }
 
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
@@ -96,11 +99,9 @@ class TaskReminderWorker(
             diffDays == 0 -> Strings.get("tasks_today", lang)
             diffDays == 1 -> Strings.get("tasks_tomorrow", lang)
             else -> {
-                val cal = Calendar.getInstance().apply { timeInMillis = timestart * 1000 }
-                val y = cal.get(Calendar.YEAR)
-                val m = String.format("%02d", cal.get(Calendar.MONTH) + 1)
-                val d = String.format("%02d", cal.get(Calendar.DAY_OF_MONTH))
-                "$y-$m-$d"
+                val locale = Locale(lang)
+                val sdf = SimpleDateFormat("MMMM dd", locale)
+                sdf.format(Date(timestart * 1000))
             }
         }
     }

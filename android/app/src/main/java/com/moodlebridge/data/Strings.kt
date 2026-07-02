@@ -94,6 +94,7 @@ object Strings {
         "save" to "Save",
         "manual" to "Manual",
         "add_course" to "Add course",
+        "notif_more" to "+{n} more",
     )
 
     private val es = mapOf(
@@ -188,6 +189,7 @@ object Strings {
         "save" to "Guardar",
         "manual" to "Manual",
         "add_course" to "Agregar curso",
+        "notif_more" to "+{n} m\u00e1s",
     )
 
     fun get(key: String, lang: String = "en"): String {
