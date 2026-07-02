@@ -124,16 +124,16 @@ private fun TaskWidgetContent(context: Context, config: ConfigStore, widgetId: S
                     style = TextStyle(
                         color = ColorProvider(TextPrimary),
                         fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                    ),
-                )
-                Spacer(GlanceModifier.width(8.dp))
-                Text(
-                    text = "${unchecked.size} pending",
-                    style = TextStyle(
-                        color = ColorProvider(AccentTeal),
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 11.sp,
+                    fontSize = 16.sp,
+                ),
+            )
+            Spacer(GlanceModifier.width(8.dp))
+            Text(
+                text = "${unchecked.size} pending",
+                style = TextStyle(
+                    color = ColorProvider(AccentTeal),
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 13.sp,
                     ),
                 )
             }
@@ -144,11 +144,11 @@ private fun TaskWidgetContent(context: Context, config: ConfigStore, widgetId: S
                            else "All tasks completed!",
                     style = TextStyle(
                         color = ColorProvider(TextSecondary),
-                        fontSize = 11.sp,
+                        fontSize = 13.sp,
                     ),
                 )
             } else {
-                val shown = unchecked.take(6)
+                val shown = unchecked.take(5)
                 val remaining = unchecked.size - shown.size
                 for (ev in shown) {
                     TaskWidgetRow(ev)
@@ -159,7 +159,7 @@ private fun TaskWidgetContent(context: Context, config: ConfigStore, widgetId: S
                         style = TextStyle(
                             color = ColorProvider(TextSecondary),
                             fontWeight = FontWeight.Medium,
-                            fontSize = 10.sp,
+                            fontSize = 12.sp,
                         ),
                         modifier = GlanceModifier.padding(top = 4.dp),
                     )
@@ -200,31 +200,31 @@ private fun TaskWidgetRow(event: Event) {
     Row(
         modifier = GlanceModifier
             .fillMaxWidth()
-            .padding(vertical = 2.dp),
+            .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             modifier = GlanceModifier
-                .size(6.dp, 6.dp)
+                .size(8.dp, 8.dp)
                 .background(ColorProvider(dotColor)),
             content = {},
         )
-        Spacer(GlanceModifier.width(6.dp))
+        Spacer(GlanceModifier.width(8.dp))
         Text(
             text = event.name,
             style = TextStyle(
                 color = ColorProvider(TextPrimary),
-                fontSize = 11.sp,
+                fontSize = 13.sp,
             ),
             modifier = GlanceModifier.defaultWeight(),
             maxLines = 1,
         )
-        Spacer(GlanceModifier.width(4.dp))
+        Spacer(GlanceModifier.width(6.dp))
         Text(
             text = dateLabel,
             style = TextStyle(
                 color = ColorProvider(dateColor),
-                fontSize = 10.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
             ),
         )

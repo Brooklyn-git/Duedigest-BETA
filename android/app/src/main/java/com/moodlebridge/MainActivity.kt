@@ -1011,7 +1011,7 @@ private suspend fun doFetch(
             onLog("Obsidian -> ${config.obsidianPath.ifBlank { "${context.cacheDir}/obsidian/" }}")
         }
 
-        onEventsFetched(events)
+        onEventsFetched(apiEvents)
 
         config.lastSyncTimestamp = System.currentTimeMillis()
         config.lastSyncMessage = "${Strings.get("done", lang)} \u2014 ${events.size} events"
