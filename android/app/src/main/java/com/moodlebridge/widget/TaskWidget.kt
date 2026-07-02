@@ -14,6 +14,7 @@ import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
+import com.moodlebridge.MainActivity
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.layout.Alignment
@@ -31,7 +32,6 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
-import com.moodlebridge.MainActivity
 import com.moodlebridge.data.ConfigStore
 import com.moodlebridge.data.Event
 import com.moodlebridge.data.Strings
@@ -75,6 +75,15 @@ class TaskWidgetReceiver : GlanceAppWidgetReceiver() {
 class OpenAppAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
         val intent = Intent(context, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+    }
+}
+
+class RefreshTaskWidgetAction : ActionCallback {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        val intent = Intent(context, WidgetRefreshActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         context.startActivity(intent)
@@ -137,6 +146,15 @@ private fun TaskWidgetContent(context: Context, config: ConfigStore, widgetId: S
                         fontWeight = FontWeight.Medium,
                         fontSize = 13.sp,
                     ),
+                )
+                Spacer(GlanceModifier.defaultWeight())
+                Text(
+                    text = "\u21bb",
+                    style = TextStyle(
+                        color = ColorProvider(TextSecondary),
+                        fontSize = 22.sp,
+                    ),
+                    modifier = GlanceModifier.clickable(actionRunCallback<RefreshTaskWidgetAction>()),
                 )
             }
 

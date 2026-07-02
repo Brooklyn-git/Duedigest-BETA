@@ -81,6 +81,15 @@ class OpenAppFromFetchAction : ActionCallback {
     }
 }
 
+class RefreshFetchTaskWidgetAction : ActionCallback {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        val intent = Intent(context, WidgetRefreshActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+    }
+}
+
 @Composable
 private fun FetchTaskWidgetContent(context: Context, config: ConfigStore, widgetId: String, isAmoled: Boolean = false) {
     val eventsJson = config.taskEventCache
@@ -138,6 +147,15 @@ private fun FetchTaskWidgetContent(context: Context, config: ConfigStore, widget
                     fontSize = 13.sp,
                     ),
                 )
+            Spacer(GlanceModifier.defaultWeight())
+            Text(
+                text = "\u21bb",
+                style = TextStyle(
+                    color = ColorProvider(TextSecondary),
+                    fontSize = 22.sp,
+                ),
+                modifier = GlanceModifier.clickable(actionRunCallback<RefreshFetchTaskWidgetAction>()),
+            )
             }
 
             if (unchecked.isEmpty()) {

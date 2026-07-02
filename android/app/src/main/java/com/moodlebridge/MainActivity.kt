@@ -124,6 +124,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+import androidx.glance.appwidget.updateAll
+import com.moodlebridge.widget.TaskWidget
+import com.moodlebridge.widget.FetchTaskWidget
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -276,6 +280,11 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
         val merged = getMergedEvents()
         config.taskEventCache = Json.encodeToString(merged)
         regenerateTasksFile()
+        TaskReminderWorker.showNotification(context)
+        scope.launch {
+            TaskWidget().updateAll(context)
+            FetchTaskWidget().updateAll(context)
+        }
     }
 
     fun addOrUpdateManualEvent(event: Event) {
