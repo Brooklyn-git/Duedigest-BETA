@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -28,7 +29,10 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
@@ -54,8 +58,6 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -118,9 +120,6 @@ fun DesktopApp(config: DesktopConfigStore) {
     var limitText by remember { mutableStateOf(config.fetchLimit.toString()) }
     var savePw by remember { mutableStateOf(config.savePassword) }
 
-    var currentTab by remember { mutableStateOf(0) }
-    var showSettings by remember { mutableStateOf(false) }
-    var showOutputSettings by remember { mutableStateOf(false) }
     var use24h by remember { mutableStateOf(config.use24h) }
     var isWorking by remember { mutableStateOf(false) }
     var errorDialogMsg by remember { mutableStateOf<String?>(null) }
@@ -334,101 +333,199 @@ fun DesktopApp(config: DesktopConfigStore) {
     }
 
     DueNestTheme(themeMode = themeMode) {
-        val cs = MaterialTheme.colorScheme
-        if (showOutputSettings) {
-            OutputSettingsPage(
-                logseqEnabled = logseqEnabled, onLogseqEnabledChange = { logseqEnabled = it; config.logseqEnabled = it },
-                obsidianEnabled = obsidianEnabled, onObsidianEnabledChange = { obsidianEnabled = it; config.obsidianEnabled = it },
-                tasksEnabled = tasksEnabled, onTasksEnabledChange = { tasksEnabled = it; config.tasksEnabled = it },
-                logseqPath = logseqPath, onLogseqPathChange = { logseqPath = it; config.logseqPath = it },
-                obsidianPath = obsidianPath, onObsidianPathChange = { obsidianPath = it; config.obsidianPath = it },
-                tasksOutputPath = tasksOutputPath, onTasksPathChange = { tasksOutputPath = it; config.tasksOutputPath = it },
-                daysBackText = daysBackText,
-                onDaysBackChange = { daysBackText = it; config.fetchDaysBack = it.toIntOrNull() ?: 7 },
-                limitText = limitText,
-                onLimitChange = { limitText = it; config.fetchLimit = it.toIntOrNull() ?: 100 },
-                lang = lang,
-                onBack = { showOutputSettings = false },
-            )
-        } else {
-            Scaffold(
-                topBar = {
-                    TopAppBar(
-                        title = {
-                            Column {
-                                Text(Strings.get("app_title", lang), style = MaterialTheme.typography.titleLarge)
-                                Text(Strings.get("subtitle", lang), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        },
-                        actions = {
-                            IconButton(onClick = { showSettings = !showSettings }) {
-                                Icon(Icons.Default.Settings, contentDescription = "Settings")
-                            }
-                        },
-                        colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
-                    )
+    val cs = MaterialTheme.colorScheme
+    var sidebarExpanded by remember { mutableStateOf(true) }
+    var selectedSection by remember { mutableStateOf(0) }
+
+    Row(Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .width(if (sidebarExpanded) 180.dp else 48.dp)
+                .fillMaxHeight()
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                NavItem(
+                    if (sidebarExpanded) Icons.AutoMirrored.Filled.KeyboardArrowLeft else Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    "Collapse", false, sidebarExpanded,
+                ) { sidebarExpanded = !sidebarExpanded }
+                HorizontalDivider()
+                NavItem(Icons.Default.Build, Strings.get("connection", lang), selectedSection == 0, sidebarExpanded) { selectedSection = 0 }
+                HorizontalDivider()
+                NavItem(Icons.Default.CheckCircle, Strings.get("tasks", lang), selectedSection == 1, sidebarExpanded) { selectedSection = 1 }
+                HorizontalDivider()
+                NavItem(Icons.Default.Settings, Strings.get("settings", lang), selectedSection == 2, sidebarExpanded) { selectedSection = 2 }
+                HorizontalDivider()
+                NavItem(Icons.Default.Settings, "Output", selectedSection == 3, sidebarExpanded) { selectedSection = 3 }
+                HorizontalDivider()
+            }
+        }
+
+        Column(Modifier.weight(1f).fillMaxHeight()) {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text(Strings.get("app_title", lang), style = MaterialTheme.typography.titleLarge)
+                        Text(Strings.get("subtitle", lang), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 },
-            ) { padding ->
-                Column(Modifier.padding(padding).fillMaxSize()) {
-                    TabRow(selectedTabIndex = currentTab) {
-                        listOf(
-                            Strings.get("tasks", lang),
-                            Strings.get("connection", lang),
-                        ).forEachIndexed { i, t ->
-                            Tab(selected = currentTab == i, onClick = { currentTab = i },
-                                text = { Text(t, style = MaterialTheme.typography.titleMedium) },
-                                modifier = Modifier.height(56.dp))
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+            )
+            when (selectedSection) {
+                0 -> ConnectionTabContent(
+                    url = url, onUrlChange = { url = it },
+                    username = username, onUsernameChange = { username = it },
+                    password = password, onPasswordChange = { password = it },
+                    passwordVisible = passwordVisible, onPasswordVisibleChange = { passwordVisible = it },
+                    tz = tz, onTzChange = { tz = it },
+                    tzExpanded = tzExpanded, onTzExpandedChange = { tzExpanded = it },
+                    savePw = savePw, onSavePwChange = { savePw = it },
+                    isWorking = isWorking, statusText = statusText,
+                    logLines = logLines.toList(),
+                    lang = lang,
+                    onFetch = { doSync(password) },
+                )
+                1 -> Box(Modifier.fillMaxSize()) {
+                    val hasCompleted by remember {
+                        derivedStateOf { taskCompletionMap.entries.any { it.value } }
+                    }
+                    TaskTabContent(
+                        events = getMergedEvents(), completionMap = taskCompletionMap,
+                        expandedId = expandedTaskId, onExpandedChange = { expandedTaskId = it },
+                        onToggleCompletion = { id ->
+                            val m: Map<String, Boolean> = taskCompletionMap
+                            val cur = m.getOrElse(id) { false }
+                            taskCompletionMap = HashMap(m).also { it[id] = !cur }
+                            saveCompletionMap()
+                            persistMergedEvents()
+                        },
+                        onClearCompleted = { showClearCompletedConfirm = true },
+                        onEditTask = { openTaskDialog(it) },
+                        onDeleteTask = { showDeleteConfirm = it },
+                        isWorking = isWorking, lang = lang, use24h = use24h,
+                        showClearCompleted = hasCompleted,
+                    )
+                    FloatingActionButton(
+                        onClick = { openTaskDialog() },
+                        modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = Strings.get("add_task", lang))
+                    }
+                }
+                2 -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(32.dp)) {
+                    Text(Strings.get("settings", lang), style = MaterialTheme.typography.titleLarge)
+                    Spacer(Modifier.height(16.dp))
+                    Text(Strings.get("theme", lang), style = MaterialTheme.typography.labelMedium)
+                    listOf(
+                        "system" to Strings.get("theme_system", lang),
+                        "light" to Strings.get("theme_light", lang),
+                        "dark" to Strings.get("theme_dark", lang),
+                        "amoled_dark" to Strings.get("theme_amoled", lang),
+                    ).forEach { (v, lbl) ->
+                        Row(Modifier.clickable { themeMode = v; config.themeMode = v }.padding(end = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(selected = themeMode == v, onClick = { themeMode = v; config.themeMode = v })
+                            Text(lbl, style = MaterialTheme.typography.bodySmall)
                         }
                     }
-
-                    when (currentTab) {
-                                0 -> Box(Modifier.fillMaxSize()) {
-                            val hasCompleted by remember {
-                                derivedStateOf { taskCompletionMap.entries.any { it.value } }
-                            }
-                            TaskTabContent(
-                                events = getMergedEvents(), completionMap = taskCompletionMap,
-                                expandedId = expandedTaskId, onExpandedChange = { expandedTaskId = it },
-                                onToggleCompletion = { id ->
-                                    val m: Map<String, Boolean> = taskCompletionMap
-                                    val cur = m.getOrElse(id) { false }
-                                    taskCompletionMap = HashMap(m).also { it[id] = !cur }
-                                    saveCompletionMap()
-                                    persistMergedEvents()
-                                },
-                                onClearCompleted = { showClearCompletedConfirm = true },
-                                onEditTask = { openTaskDialog(it) },
-                                onDeleteTask = { showDeleteConfirm = it },
-                                isWorking = isWorking, statusText = statusText,
-                                lang = lang, use24h = use24h,
-                                showClearCompleted = hasCompleted,
-                            )
-                            FloatingActionButton(
-                                onClick = { openTaskDialog() },
-                                modifier = Modifier.align(Alignment.BottomStart).padding(16.dp),
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary,
-                            ) {
-                                Icon(Icons.Default.Add, contentDescription = Strings.get("add_task", lang))
+                    Spacer(Modifier.height(12.dp))
+                    Text(Strings.get("language", lang), style = MaterialTheme.typography.labelMedium)
+                    listOf("en" to "English", "es" to "Español").forEach { (v, lbl) ->
+                        Row(Modifier.clickable { selectedLang = v; config.language = v }.padding(end = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(selected = selectedLang == v, onClick = { selectedLang = v; config.language = v })
+                            Text(lbl, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Text(Strings.get("time_format", lang), style = MaterialTheme.typography.labelMedium)
+                    Row(Modifier.padding(end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(selected = !use24h, onClick = { use24h = false; config.use24h = false })
+                        Text(Strings.get("time_12h", lang), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(end = 16.dp))
+                        RadioButton(selected = use24h, onClick = { use24h = true; config.use24h = true })
+                        Text(Strings.get("time_24h", lang), style = MaterialTheme.typography.bodySmall)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    TextButton(onClick = { showClearCredsConfirm = true }) {
+                        Text(Strings.get("clear_creds", lang), color = MaterialTheme.colorScheme.error)
+                    }
+                }
+                3 -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(32.dp)) {
+                    Text("Output Settings", style = MaterialTheme.typography.titleLarge)
+                    Spacer(Modifier.height(16.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Switch(checked = logseqEnabled, onCheckedChange = { logseqEnabled = it; config.logseqEnabled = it })
+                        Spacer(Modifier.width(8.dp))
+                        Text(Strings.get("logseq_label", lang), style = MaterialTheme.typography.bodyMedium)
+                    }
+                    if (logseqEnabled) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(Strings.get("logseq_dir", lang), style = MaterialTheme.typography.labelMedium)
+                        Spacer(Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                            OutlinedTextField(value = logseqPath, onValueChange = { logseqPath = it; config.logseqPath = it },
+                                singleLine = true, modifier = Modifier.weight(1f))
+                            Spacer(Modifier.width(8.dp))
+                            Button(onClick = { browseDirectory(logseqPath)?.let { logseqPath = it; config.logseqPath = it } }) {
+                                Text(Strings.get("browse", lang))
                             }
                         }
-                        1 -> ConnectionTabContent(
-                            url = url, onUrlChange = { url = it },
-                            username = username, onUsernameChange = { username = it },
-                            password = password, onPasswordChange = { password = it },
-                            passwordVisible = passwordVisible, onPasswordVisibleChange = { passwordVisible = it },
-                            tz = tz, onTzChange = { tz = it },
-                            tzExpanded = tzExpanded, onTzExpandedChange = { tzExpanded = it },
-                            savePw = savePw, onSavePwChange = { savePw = it },
-                            isWorking = isWorking, statusText = statusText,
-                            logLines = logLines.toList(),
-                            lang = lang,
-                            onFetch = { doSync(password) },
-                        )
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Switch(checked = obsidianEnabled, onCheckedChange = { obsidianEnabled = it; config.obsidianEnabled = it })
+                        Spacer(Modifier.width(8.dp))
+                        Text(Strings.get("obsidian_label", lang), style = MaterialTheme.typography.bodyMedium)
+                    }
+                    if (obsidianEnabled) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(Strings.get("obsidian_dir", lang), style = MaterialTheme.typography.labelMedium)
+                        Spacer(Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                            OutlinedTextField(value = obsidianPath, onValueChange = { obsidianPath = it; config.obsidianPath = it },
+                                singleLine = true, modifier = Modifier.weight(1f))
+                            Spacer(Modifier.width(8.dp))
+                            Button(onClick = { browseDirectory(obsidianPath)?.let { obsidianPath = it; config.obsidianPath = it } }) {
+                                Text(Strings.get("browse", lang))
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Switch(checked = tasksEnabled, onCheckedChange = { tasksEnabled = it; config.tasksEnabled = it })
+                        Spacer(Modifier.width(8.dp))
+                        Text(Strings.get("tasks_path", lang), style = MaterialTheme.typography.bodyMedium)
+                    }
+                    if (tasksEnabled) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(Strings.get("tasks_path", lang), style = MaterialTheme.typography.labelMedium)
+                        Spacer(Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                            OutlinedTextField(value = tasksOutputPath, onValueChange = { tasksOutputPath = it; config.tasksOutputPath = it },
+                                singleLine = true, modifier = Modifier.weight(1f))
+                            Spacer(Modifier.width(8.dp))
+                            Button(onClick = { browseFile(tasksOutputPath)?.let { tasksOutputPath = it; config.tasksOutputPath = it } }) {
+                                Text(Strings.get("browse", lang))
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    Text(Strings.get("fetch_params", lang), style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(value = daysBackText, onValueChange = { daysBackText = it; config.fetchDaysBack = it.toIntOrNull() ?: 7 },
+                            label = { Text(Strings.get("fetch_days", lang)) }, singleLine = true, modifier = Modifier.weight(1f))
+                        OutlinedTextField(value = limitText, onValueChange = { limitText = it; config.fetchLimit = it.toIntOrNull() ?: 100 },
+                            label = { Text(Strings.get("fetch_limit", lang)) }, singleLine = true, modifier = Modifier.weight(1f))
                     }
                 }
             }
         }
+    }
 
         // Dialogs
         if (showDeleteConfirm != null) {
@@ -539,7 +636,7 @@ fun DesktopApp(config: DesktopConfigStore) {
                     TextButton(onClick = {
                         config.clear()
                         url = ""; username = ""; password = ""
-                        showSettings = false; showClearCredsConfirm = false
+                        showClearCredsConfirm = false
                     }) { Text(Strings.get("clear_creds", lang), color = MaterialTheme.colorScheme.error) }
                 },
                 dismissButton = { TextButton(onClick = { showClearCredsConfirm = false }) { Text(Strings.get("cancel", lang)) } })
@@ -553,53 +650,35 @@ fun DesktopApp(config: DesktopConfigStore) {
                 confirmButton = { TextButton(onClick = { errorDialogMsg = null }) { Text("OK") } })
         }
 
-        if (showSettings) {
-            AlertDialog(onDismissRequest = { showSettings = false },
-                containerColor = cs.surface, titleContentColor = cs.onSurface, textContentColor = cs.onSurface,
-                title = { Text(Strings.get("settings", lang)) },
-                text = {
-                    Column(Modifier.verticalScroll(rememberScrollState())) {
-                        Text(Strings.get("theme", lang), style = MaterialTheme.typography.labelMedium)
-                        listOf(
-                            "system" to Strings.get("theme_system", lang),
-                            "light" to Strings.get("theme_light", lang),
-                            "dark" to Strings.get("theme_dark", lang),
-                            "amoled_dark" to Strings.get("theme_amoled", lang),
-                        ).forEach { (v, lbl) ->
-                            Row(Modifier.clickable { themeMode = v; config.themeMode = v }.padding(end = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically) {
-                                RadioButton(selected = themeMode == v, onClick = { themeMode = v; config.themeMode = v })
-                                Text(lbl, style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
-                        Spacer(Modifier.height(12.dp))
-                        Text(Strings.get("language", lang), style = MaterialTheme.typography.labelMedium)
-                        listOf("en" to "English", "es" to "Español").forEach { (v, lbl) ->
-                            Row(Modifier.clickable { selectedLang = v; config.language = v }.padding(end = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically) {
-                                RadioButton(selected = selectedLang == v, onClick = { selectedLang = v; config.language = v })
-                                Text(lbl, style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
-                        Spacer(Modifier.height(12.dp))
-                        Text(Strings.get("time_format", lang), style = MaterialTheme.typography.labelMedium)
-                        Row(Modifier.padding(end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(selected = !use24h, onClick = { use24h = false; config.use24h = false })
-                            Text(Strings.get("time_12h", lang), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(end = 16.dp))
-                            RadioButton(selected = use24h, onClick = { use24h = true; config.use24h = true })
-                            Text(Strings.get("time_24h", lang), style = MaterialTheme.typography.bodySmall)
-                        }
-                        Spacer(Modifier.height(12.dp))
-                        Button(onClick = { showSettings = false; showOutputSettings = true }, modifier = Modifier.fillMaxWidth()) {
-                            Text("Output Settings")
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        TextButton(onClick = { showClearCredsConfirm = true }) {
-                            Text(Strings.get("clear_creds", lang), color = MaterialTheme.colorScheme.error)
-                        }
-                    }
-                },
-                confirmButton = { TextButton(onClick = { showSettings = false }) { Text("OK") } })
+
+    }
+}
+
+@Composable
+private fun NavItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    selected: Boolean,
+    expanded: Boolean,
+    onClick: () -> Unit,
+) {
+    val bg = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+             else androidx.compose.ui.graphics.Color.Transparent
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp)
+            .background(bg)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, contentDescription = label, modifier = Modifier.size(22.dp),
+            tint = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
+        if (expanded) {
+            Spacer(Modifier.width(12.dp))
+            Text(label, style = MaterialTheme.typography.bodyMedium,
+                color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface)
         }
     }
 }
@@ -612,8 +691,7 @@ private fun TaskTabContent(
     onClearCompleted: () -> Unit,
     onEditTask: (Event) -> Unit,
     onDeleteTask: (String) -> Unit,
-    isWorking: Boolean, statusText: String,
-    lang: String, use24h: Boolean,
+    isWorking: Boolean, lang: String, use24h: Boolean,
     showClearCompleted: Boolean = false,
 ) {
     Column(Modifier.fillMaxSize().padding(horizontal = 32.dp)) {
@@ -662,13 +740,6 @@ private fun TaskTabContent(
                     modifier = Modifier.align(Alignment.CenterHorizontally))
             }
         }
-        if (isWorking) {
-            LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 32.dp))
-        }
-        Text(statusText.ifBlank { Strings.get("ready", lang) },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 32.dp, vertical = 4.dp))
     }
 }
 
@@ -874,102 +945,38 @@ private fun ConnectionTabContent(
     }
 }
 
-@Composable
-private fun OutputSettingsPage(
-    logseqEnabled: Boolean, onLogseqEnabledChange: (Boolean) -> Unit,
-    obsidianEnabled: Boolean, onObsidianEnabledChange: (Boolean) -> Unit,
-    tasksEnabled: Boolean, onTasksEnabledChange: (Boolean) -> Unit,
-    logseqPath: String, onLogseqPathChange: (String) -> Unit,
-    obsidianPath: String, onObsidianPathChange: (String) -> Unit,
-    tasksOutputPath: String, onTasksPathChange: (String) -> Unit,
-    daysBackText: String, onDaysBackChange: (String) -> Unit,
-    limitText: String, onLimitChange: (String) -> Unit,
-    lang: String,
-    onBack: () -> Unit,
-) {
-    Column(Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 16.dp).verticalScroll(rememberScrollState())) {
-        Text(Strings.get("formats", lang), style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.height(8.dp))
-        listOf(
-            Triple(Strings.get("logseq_label", lang), logseqEnabled, onLogseqEnabledChange),
-            Triple(Strings.get("obsidian_label", lang), obsidianEnabled, onObsidianEnabledChange),
-            Triple(Strings.get("tasks_path", lang), tasksEnabled, onTasksEnabledChange),
-        ).forEach { (label, checked, onChange) ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Switch(checked = checked, onCheckedChange = onChange)
-                Spacer(Modifier.width(8.dp))
-                Text(label, style = MaterialTheme.typography.bodyMedium)
-            }
-        }
-        Spacer(Modifier.height(16.dp))
-        if (logseqEnabled) {
-            Text(Strings.get("logseq_dir", lang), style = MaterialTheme.typography.labelMedium)
-            OutlinedTextField(value = logseqPath, onValueChange = onLogseqPathChange,
-                singleLine = true, modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height(8.dp))
-        }
-        if (obsidianEnabled) {
-            Text(Strings.get("obsidian_dir", lang), style = MaterialTheme.typography.labelMedium)
-            OutlinedTextField(value = obsidianPath, onValueChange = onObsidianPathChange,
-                singleLine = true, modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height(8.dp))
-        }
-        if (tasksEnabled) {
-            Text(Strings.get("tasks_path", lang), style = MaterialTheme.typography.labelMedium)
-            OutlinedTextField(value = tasksOutputPath, onValueChange = onTasksPathChange,
-                singleLine = true, modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height(8.dp))
-        }
-
-        Spacer(Modifier.height(16.dp))
-        Text(Strings.get("fetch_params", lang), style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            OutlinedTextField(value = daysBackText, onValueChange = onDaysBackChange,
-                label = { Text(Strings.get("fetch_days", lang)) }, singleLine = true, modifier = Modifier.weight(1f))
-            OutlinedTextField(value = limitText, onValueChange = onLimitChange,
-                label = { Text(Strings.get("fetch_limit", lang)) }, singleLine = true, modifier = Modifier.weight(1f))
-        }
-        Spacer(Modifier.height(16.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            Button(onClick = onBack, modifier = Modifier.weight(1f)) {
-                Text(Strings.get("accept", lang))
-            }
-            if (logseqEnabled) {
-                Button(onClick = {
-                    browseDirectory(logseqPath)?.let { onLogseqPathChange(it) }
-                }, modifier = Modifier.weight(1f)) {
-                    Text("Browse...")
-                }
-            }
-        }
-        if (obsidianEnabled) {
-            Spacer(Modifier.height(8.dp))
-            Button(onClick = {
-                browseDirectory(obsidianPath)?.let { onObsidianPathChange(it) }
-            }, modifier = Modifier.fillMaxWidth()) {
-                Text("Browse Obsidian...")
-            }
-        }
-        if (tasksEnabled) {
-            Spacer(Modifier.height(8.dp))
-            Button(onClick = {
-                browseDirectory(tasksOutputPath)?.let { onTasksPathChange(it) }
-            }, modifier = Modifier.fillMaxWidth()) {
-                Text("Browse Tasks...")
-            }
-        }
-    }
-}
-
 private fun browseDirectory(current: String): String? {
     val chooser = JFileChooser(current.ifBlank { "." }).apply {
         fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
         dialogTitle = "Select Directory"
         isAcceptAllFileFilterUsed = false
     }
-    return if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION)
-        chooser.selectedFile.absolutePath else null
+    return if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
+        val path = chooser.selectedFile.absolutePath
+        File(path).mkdirs()
+        path
+    } else null
+}
+
+private fun browseFile(current: String): String? {
+    val defaultFile = if (current.isNotBlank()) File(current)
+                      else File(System.getProperty("user.home"), "tasks.md")
+    defaultFile.parentFile?.mkdirs()
+    val created = !defaultFile.exists() && defaultFile.writeText("").let { true }
+    val chooser = JFileChooser(defaultFile.parentFile).apply {
+        dialogTitle = "Select Tasks Output File"
+        selectedFile = defaultFile
+    }
+    val result = chooser.showSaveDialog(null)
+    return if (result == JFileChooser.APPROVE_OPTION) {
+        val path = chooser.selectedFile.absolutePath
+        File(path).parentFile?.mkdirs()
+        if (!File(path).exists()) File(path).writeText("")
+        path
+    } else {
+        if (created) defaultFile.delete()
+        null
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
