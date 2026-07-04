@@ -655,9 +655,12 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
             AlertDialog(onDismissRequest = { showSettings = false },
                 title = { Text(Strings.get("settings", lang)) },
                 text = {
-                    Column {
+                    Column(Modifier.verticalScroll(rememberScrollState())) {
                         Text(Strings.get("theme", lang), style = MaterialTheme.typography.labelMedium)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(0.dp),
+                            verticalArrangement = Arrangement.spacedBy(0.dp),
+                        ) {
                             listOf("system" to Strings.get("theme_system", lang), "light" to Strings.get("theme_light", lang), "dark" to Strings.get("theme_dark", lang), "amoled_dark" to Strings.get("theme_amoled", lang)).forEach { (v, lbl) ->
                                 Row(Modifier.clickable { themeMode = v; config.themeMode = v }.padding(end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                                     RadioButton(selected = themeMode == v, onClick = { themeMode = v; config.themeMode = v })
@@ -848,7 +851,10 @@ private fun ReminderScheduleSection(
         if (scheduleType == "custom") {
             Spacer(Modifier.height(8.dp))
             val dayNames = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
-            Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
+            FlowRow(
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
                 dayNames.forEachIndexed { index, name ->
                     val isSelected = index in customDaysList
                     Box(contentAlignment = Alignment.Center,
