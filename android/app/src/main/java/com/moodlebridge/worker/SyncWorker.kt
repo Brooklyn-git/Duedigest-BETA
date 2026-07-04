@@ -82,7 +82,8 @@ class SyncWorker(
             config.lastSyncMessage = "Synced ${events.size} events"
             config.eventCount = events.size
 
-            notifyResult(events.size)
+            val fromApp = inputData.keyValueMap.containsKey("override_password")
+            notifyResult(events.size, config.icsEnabled, fromApp)
             Result.success()
         } catch (e: Exception) {
             config.lastSyncMessage = "Error: ${e.message ?: "Unknown"}"
@@ -143,18 +144,29 @@ class SyncWorker(
         NotificationManagerCompat.from(applicationContext).notify(3, notification)
     }
 
-    private fun notifyResult(eventCount: Int) {
-        val openIntent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(
-                FileProvider.getUriForFile(
-                    applicationContext,
-                    "${applicationContext.packageName}.fileprovider",
-                    File(applicationContext.cacheDir, "ics/calendar.ics"),
-                ),
-                "text/calendar",
-            )
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    private fun notifyResult(eventCount: Int, icsEnabled: Boolean, fromApp: Boolean) {
+        val showIcsNotification = icsEnabled && fromApp
+        val openIntent: Intent
+        val bodyText: String
+        if (showIcsNotification) {
+            openIntent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(
+                    FileProvider.getUriForFile(
+                        applicationContext,
+                        "${applicationContext.packageName}.fileprovider",
+                        File(applicationContext.cacheDir, "ics/calendar.ics"),
+                    ),
+                    "text/calendar",
+                )
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            bodyText = "$eventCount events — tap to open in calendar"
+        } else {
+            openIntent = Intent(applicationContext, com.moodlebridge.MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
+            bodyText = "$eventCount events synced"
         }
 
         val pendingIntent = android.app.PendingIntent.getActivity(
@@ -167,7 +179,7 @@ class SyncWorker(
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_my_calendar)
             .setContentTitle("Moodle Sync Complete")
-            .setContentText("$eventCount events — tap to open in calendar")
+            .setContentText(bodyText)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .build()

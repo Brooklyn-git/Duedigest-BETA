@@ -382,6 +382,35 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                 { events ->
                     fetchedEvents = events; expandedTaskId = null
                     persistMergedEvents()
+                    val icsFile = File(context.cacheDir, "ics/calendar.ics")
+                    val openIntent: Intent
+                    val bodyText: String
+                    if (icsEnabled && icsFile.exists()) {
+                        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", icsFile)
+                        openIntent = Intent(Intent.ACTION_VIEW).apply {
+                            setDataAndType(uri, "text/calendar")
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        bodyText = "${events.size} events — tap to open in calendar"
+                    } else {
+                        openIntent = Intent(context, com.moodlebridge.MainActivity::class.java).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                        }
+                        bodyText = "${events.size} events synced"
+                    }
+                    val pi = android.app.PendingIntent.getActivity(
+                        context, 0, openIntent,
+                        android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE,
+                    )
+                    val notification = androidx.core.app.NotificationCompat.Builder(context, com.moodlebridge.worker.SyncWorker.CHANNEL_ID)
+                        .setSmallIcon(android.R.drawable.ic_menu_my_calendar)
+                        .setContentTitle("Moodle Sync Complete")
+                        .setContentText(bodyText)
+                        .setContentIntent(pi)
+                        .setAutoCancel(true)
+                        .build()
+                    androidx.core.app.NotificationManagerCompat.from(context).notify(1, notification)
                 })
         }
     }
