@@ -908,8 +908,8 @@ private fun ReminderScheduleSection(
                                         customHoursList.toMutableList().also { it.removeAt(i) }
                                     )
                                 },
-                                modifier = Modifier.height(24.dp),
-                                contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp),
+                                modifier = Modifier.height(24.dp).width(20.dp),
+                                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp),
                             ) {
                                 Text("\u2212",
                                     style = MaterialTheme.typography.titleSmall,
