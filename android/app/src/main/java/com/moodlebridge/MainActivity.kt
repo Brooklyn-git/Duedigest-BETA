@@ -660,25 +660,25 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                         }
                         Spacer(Modifier.height(12.dp))
                         Text(Strings.get("notifications", lang), style = MaterialTheme.typography.labelMedium)
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Checkbox(checked = notifEnabled, onCheckedChange = { enabled ->
-                                        notifEnabled = enabled
-                                        config.notificationsEnabled = enabled
-                                        if (enabled) {
-                                            NotificationWorker.schedule(context)
-                                        } else {
-                                            NotificationWorker.cancel(context)
-                                        }
-                                    })
-                                    Spacer(Modifier.width(4.dp))
-                                    Text(Strings.get("notif_enable", lang), style = MaterialTheme.typography.bodySmall)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = notifEnabled, onCheckedChange = { enabled ->
+                                notifEnabled = enabled
+                                config.notificationsEnabled = enabled
+                                if (enabled) {
+                                    NotificationWorker.schedule(context)
+                                } else {
+                                    NotificationWorker.cancel(context)
                                 }
-                                AnimatedVisibility(visible = notifEnabled) {
+                            })
+                            Spacer(Modifier.width(4.dp))
+                            Text(Strings.get("notif_enable", lang), style = MaterialTheme.typography.bodySmall)
+                        }
+                        AnimatedVisibility(visible = notifEnabled) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
                                     ReminderScheduleSection(
                                         scheduleType = notifScheduleType,
                                         onScheduleTypeChange = { key ->
@@ -706,25 +706,25 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                             }
                         }
                         Spacer(Modifier.height(8.dp))
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Checkbox(checked = taskRemindEnabled, onCheckedChange = { enabled ->
-                                        taskRemindEnabled = enabled
-                                        config.taskRemindersEnabled = enabled
-                                        if (enabled) {
-                                            TaskReminderWorker.schedule(context)
-                                        } else {
-                                            TaskReminderWorker.cancel(context)
-                                        }
-                                    })
-                                    Spacer(Modifier.width(4.dp))
-                                    Text(Strings.get("notif_task_enable", lang), style = MaterialTheme.typography.bodySmall)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = taskRemindEnabled, onCheckedChange = { enabled ->
+                                taskRemindEnabled = enabled
+                                config.taskRemindersEnabled = enabled
+                                if (enabled) {
+                                    TaskReminderWorker.schedule(context)
+                                } else {
+                                    TaskReminderWorker.cancel(context)
                                 }
-                                AnimatedVisibility(visible = taskRemindEnabled) {
+                            })
+                            Spacer(Modifier.width(4.dp))
+                            Text(Strings.get("notif_task_enable", lang), style = MaterialTheme.typography.bodySmall)
+                        }
+                        AnimatedVisibility(visible = taskRemindEnabled) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
                                     ReminderScheduleSection(
                                         scheduleType = taskRemindScheduleType,
                                         onScheduleTypeChange = { key ->
