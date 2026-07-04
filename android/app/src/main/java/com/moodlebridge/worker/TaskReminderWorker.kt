@@ -83,7 +83,7 @@ class TaskReminderWorker(
             val inboxStyle = NotificationCompat.InboxStyle()
                 .setBigContentTitle(title)
             incomplete.take(7).forEach { ev ->
-                val label = relativeDateLabel(ev.timestart, nowSeconds, lang)
+                val label = relativeDateLabel(ev.timestart, nowSeconds, lang, config.notification24hFormat)
                 inboxStyle.addLine("${ev.course.ifBlank { "?" }}: ${ev.name} ($label)")
             }
             if (count > 7) {
@@ -103,7 +103,8 @@ class TaskReminderWorker(
             NotificationManagerCompat.from(context).notify(101, notification)
         }
 
-        private fun relativeDateLabel(timestart: Long, nowSeconds: Long, lang: String): String {
+        private fun relativeDateLabel(timestart: Long, nowSeconds: Long, lang: String, format24h: Boolean): String {
+            val isOverdue = timestart <= nowSeconds
             val diffDays = {
                 val c = Calendar.getInstance().apply { timeInMillis = timestart * 1000 }
                 val n = Calendar.getInstance().apply { timeInMillis = nowSeconds * 1000 }
@@ -112,9 +113,9 @@ class TaskReminderWorker(
                 ((c.timeInMillis - n.timeInMillis) / (1000 * 60 * 60 * 24)).toInt()
             }()
             return when {
-                diffDays < 0 -> Strings.get("tasks_overdue", lang)
-                diffDays == 0 -> Strings.get("tasks_today", lang)
-                diffDays == 1 -> Strings.get("tasks_tomorrow", lang)
+                isOverdue -> Strings.get("tasks_overdue", lang)
+                diffDays == 0 -> "${Strings.get("tasks_today", lang)} ${Strings.formatTimestamp(timestart, format24h)}"
+                diffDays == 1 -> "${Strings.get("tasks_tomorrow", lang)} ${Strings.formatTimestamp(timestart, format24h)}"
                 else -> {
                     val locale = Locale(lang)
                     val sdf = SimpleDateFormat("MMMM dd", locale)

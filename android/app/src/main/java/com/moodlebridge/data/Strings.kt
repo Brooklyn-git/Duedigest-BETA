@@ -197,6 +197,19 @@ object Strings {
         return dict[key] ?: en[key] ?: key
     }
 
+    fun formatTimestamp(timestamp: Long, format24h: Boolean): String {
+        val cal = java.util.Calendar.getInstance().apply { timeInMillis = timestamp * 1000 }
+        val h = cal.get(java.util.Calendar.HOUR_OF_DAY)
+        val m = cal.get(java.util.Calendar.MINUTE)
+        return if (format24h) {
+            String.format("%02d:%02d", h, m)
+        } else {
+            val ampm = if (h < 12) "AM" else "PM"
+            val h12 = when { h == 0 -> 12; h > 12 -> h - 12; else -> h }
+            String.format("%d:%02d %s", h12, m, ampm)
+        }
+    }
+
     fun langLabel(lang: String): String = when (lang) {
         "en" -> "English"
         "es" -> "Espa\u00f1ol"

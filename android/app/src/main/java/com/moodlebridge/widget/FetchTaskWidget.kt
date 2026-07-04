@@ -172,7 +172,7 @@ private fun FetchTaskWidgetContent(context: Context, config: ConfigStore, widget
                 val shown = unchecked.take(5)
                 val remaining = unchecked.size - shown.size
                 for (ev in shown) {
-                    FetchTaskWidgetRow(ev, lang)
+                    FetchTaskWidgetRow(ev, lang, config.notification24hFormat)
                 }
                 if (remaining > 0) {
                     Text(
@@ -211,9 +211,10 @@ private fun FetchTaskWidgetContent(context: Context, config: ConfigStore, widget
 }
 
 @Composable
-private fun FetchTaskWidgetRow(event: Event, lang: String = "en") {
+private fun FetchTaskWidgetRow(event: Event, lang: String = "en", format24h: Boolean = true) {
     val cal = Calendar.getInstance().apply { timeInMillis = event.timestart * 1000 }
-    val now = Calendar.getInstance()
+    val nowSeconds = System.currentTimeMillis() / 1000
+    val isOverdue = event.timestart <= nowSeconds
     val diffDays = {
         val c = Calendar.getInstance().apply { timeInMillis = cal.timeInMillis }
         val n = Calendar.getInstance()
@@ -222,9 +223,9 @@ private fun FetchTaskWidgetRow(event: Event, lang: String = "en") {
         ((c.timeInMillis - n.timeInMillis) / (1000 * 60 * 60 * 24)).toInt()
     }()
     val dateLabel = when {
-        diffDays < 0 -> Strings.get("tasks_overdue", lang)
-        diffDays == 0 -> Strings.get("tasks_today", lang)
-        diffDays == 1 -> Strings.get("tasks_tomorrow", lang)
+        isOverdue -> Strings.get("tasks_overdue", lang)
+        diffDays == 0 -> "${Strings.get("tasks_today", lang)} ${Strings.formatTimestamp(event.timestart, format24h)}"
+        diffDays == 1 -> "${Strings.get("tasks_tomorrow", lang)} ${Strings.formatTimestamp(event.timestart, format24h)}"
         diffDays <= 7 -> Strings.get("tasks_in_days", lang).replace("{n}", diffDays.toString())
         else -> {
             val locale = Locale(lang)
@@ -233,12 +234,12 @@ private fun FetchTaskWidgetRow(event: Event, lang: String = "en") {
         }
     }
     val dotColor = when {
-        diffDays < 0 -> RedOverdue
+        isOverdue -> RedOverdue
         diffDays <= 2 -> AmberSoon
         else -> GreenFuture
     }
     val dateColor = when {
-        diffDays < 0 -> RedOverdue
+        isOverdue -> RedOverdue
         diffDays <= 2 -> AmberSoon
         else -> GreenFuture
     }

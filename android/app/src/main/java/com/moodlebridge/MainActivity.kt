@@ -452,27 +452,27 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                             passwordVisible = passwordVisible, onPasswordVisibleChange = { passwordVisible = it },
                             tz = tz, onTzChange = { tz = it }, tzExpanded = tzExpanded,
                             onTzExpandedChange = { tzExpanded = it }, lang = lang)
-                        else -> TasksTabContent(
-                            events = getMergedEvents(), completionMap = taskCompletionMap,
-                            expandedId = expandedTaskId, onExpandedChange = { expandedTaskId = it },
-                            onToggleCompletion = { id ->
-                                taskCompletionMap = taskCompletionMap.toMutableMap().also { it[id] = !(it[id] ?: false) }
-                                saveCompletionMap()
-                                persistMergedEvents()
-                            },
-                            onClearCompleted = {
-                                val completedManual = manualEvents.filter { taskCompletionMap[it.id] == true }
-                                for (ev in completedManual) deleteManualEvent(ev.id)
-                                taskCompletionMap = emptyMap()
-                                saveCompletionMap()
-                                persistMergedEvents()
-                                expandedTaskId = null
-                            },
-                            onAddTask = { openTaskDialog() },
-                            onEditTask = { openTaskDialog(it) },
-                            onDeleteTask = { showDeleteConfirm = it },
-                            lang = lang,
-                            showIntro = config.lastSyncTimestamp == 0L && fetchedEvents.isEmpty())
+        else -> TasksTabContent(
+            events = getMergedEvents(), completionMap = taskCompletionMap,
+            expandedId = expandedTaskId, onExpandedChange = { expandedTaskId = it },
+            onToggleCompletion = { id ->
+                taskCompletionMap = taskCompletionMap.toMutableMap().also { it[id] = !(it[id] ?: false) }
+                saveCompletionMap()
+                persistMergedEvents()
+            },
+            onClearCompleted = {
+                val completedManual = manualEvents.filter { taskCompletionMap[it.id] == true }
+                for (ev in completedManual) deleteManualEvent(ev.id)
+                taskCompletionMap = emptyMap()
+                saveCompletionMap()
+                persistMergedEvents()
+                expandedTaskId = null
+            },
+            onAddTask = { openTaskDialog() },
+            onEditTask = { openTaskDialog(it) },
+            onDeleteTask = { showDeleteConfirm = it },
+            lang = lang, use24h = notif24hFormat,
+            showIntro = config.lastSyncTimestamp == 0L && fetchedEvents.isEmpty())
                     }
                 }
 
@@ -589,7 +589,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                                 val min = timeParts.getOrNull(1)?.toIntOrNull() ?: java.util.Calendar.getInstance().get(java.util.Calendar.MINUTE)
                                 TimePickerDialog(context, { _, hour, minute ->
                                     dialogTime = String.format("%02d:%02d", hour, minute)
-                                }, h, min, notif24hFormat).show()
+                                }, h, min, false).show()
                             })
                         }
                     }
@@ -1055,6 +1055,7 @@ private fun TasksTabContent(
     onAddTask: () -> Unit, onEditTask: (Event) -> Unit, onDeleteTask: (String) -> Unit,
     lang: String,
     showIntro: Boolean = false,
+    use24h: Boolean = true,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
 
@@ -1132,7 +1133,7 @@ private fun TasksTabContent(
                     onExpand = { onExpandedChange(if (isExpanded) null else ev.id) },
                     onEdit = if (ev.isManual) {{ onEditTask(ev) }} else null,
                     onDelete = if (ev.isManual) {{ onDeleteTask(ev.id) }} else null,
-                    lang = lang, context = context,
+                    lang = lang, context = context, use24h = use24h,
                 )
                 Spacer(Modifier.height(4.dp))
             }
@@ -1157,9 +1158,11 @@ private fun TaskCard(
     onToggle: () -> Unit, onExpand: () -> Unit,
     onEdit: (() -> Unit)? = null, onDelete: (() -> Unit)? = null,
     lang: String, context: android.content.Context,
+    use24h: Boolean = true,
 ) {
+    val nowSeconds = System.currentTimeMillis() / 1000
     val cal = java.util.Calendar.getInstance().apply { timeInMillis = event.timestart * 1000 }
-    val now = java.util.Calendar.getInstance()
+    val isOverdue = event.timestart <= nowSeconds
     val diffDays = {
         val c = java.util.Calendar.getInstance().apply { timeInMillis = cal.timeInMillis }
         val n = java.util.Calendar.getInstance()
@@ -1167,10 +1170,11 @@ private fun TaskCard(
         n.set(java.util.Calendar.HOUR_OF_DAY, 0); n.set(java.util.Calendar.MINUTE, 0); n.set(java.util.Calendar.SECOND, 0); n.set(java.util.Calendar.MILLISECOND, 0)
         ((c.timeInMillis - n.timeInMillis) / (1000 * 60 * 60 * 24)).toInt()
     }()
+    val timeStr = com.moodlebridge.data.Strings.formatTimestamp(event.timestart, use24h)
     val relativeDate = when {
-        diffDays < 0 -> Strings.get("tasks_overdue", lang)
-        diffDays == 0 -> Strings.get("tasks_today", lang)
-        diffDays == 1 -> Strings.get("tasks_tomorrow", lang)
+        isOverdue -> Strings.get("tasks_overdue", lang)
+        diffDays == 0 -> "${Strings.get("tasks_today", lang)} $timeStr"
+        diffDays == 1 -> "${Strings.get("tasks_tomorrow", lang)} $timeStr"
         diffDays <= 7 -> Strings.get("tasks_in_days", lang).replace("{n}", diffDays.toString())
         else -> {
             val locale = if (lang == "es") java.util.Locale("es") else java.util.Locale.ENGLISH
@@ -1181,14 +1185,14 @@ private fun TaskCard(
 
     val overdueColor = MaterialTheme.colorScheme.error
     val dateColor = when {
-        diffDays < 0 -> overdueColor
+        isOverdue -> overdueColor
         diffDays <= 2 -> MaterialTheme.colorScheme.tertiary
         else -> Color(0xFF22C55E)
     }
     val dateIcon: androidx.compose.ui.graphics.vector.ImageVector
     val dateTint: Color
     when {
-        diffDays < 0 -> { dateIcon = Icons.Default.Warning; dateTint = overdueColor }
+        isOverdue -> { dateIcon = Icons.Default.Warning; dateTint = overdueColor }
         diffDays <= 2 -> { dateIcon = Icons.Default.DateRange; dateTint = MaterialTheme.colorScheme.tertiary }
         else -> { dateIcon = Icons.Default.DateRange; dateTint = Color(0xFF22C55E) }
     }
