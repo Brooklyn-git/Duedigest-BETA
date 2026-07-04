@@ -1,113 +1,60 @@
 # DueNest
 
-DueNest fetches deadlines and activities from Moodle and pushes them to your calendar app. Desktop (Python) and Android (Kotlin) are fully featured — both can log in, fetch, and generate ICS/Markdown. The Android app also includes a home screen widget for one-tap sync.
+DueNest fetches deadlines and activities from Moodle and pushes them to your calendar app. Android and Desktop share a single Kotlin codebase via Compose Multiplatform.
 
-| Platform | Interface | Stack |
-|----------|-----------|-------|
-| **Desktop** (Linux/Mac/Windows) | CLI + GUI | Python (stdlib + Flet) |
-| **Android** | App + home screen widget | Kotlin (Compose, Jetpack Glance, WorkManager, OkHttp) |
+| Platform | Stack |
+|----------|-------|
+| **Android** | Kotlin (Compose, Jetpack Glance, WorkManager, OkHttp) |
+| **Desktop** (Linux / Mac / Windows) | Compose Desktop (JVM, OkHttp) |
 
 ## Features
 
 - Fetches upcoming deadlines via Moodle REST API (`core_calendar_get_action_events_by_timesort` + `mod_assign_get_assignments`)
-- **ICS** — RFC 5545, importable into any calendar app (primary output)
+- **ICS** — RFC 5545, importable into any calendar app
 - **Logseq** — Markdown pages with `DEADLINE:` property
 - **Obsidian** — Markdown daily notes with `due:` in YAML frontmatter
-- **Delta ICS** — detects new/changed events via cache, generates `calendar_new.ics` for incremental import (desktop only)
-- **Auto-reauth** — re-logs in automatically when token expires on both platforms
-- **Configurable fetch window** — days back and event limit
-- **Android app** — login, fetch events, generate ICS, settings (theme, language, notifications)
-- **Android home screen widgets:**
-  - **DueNest Sync** — per-instance opacity slider, one-tap "Fetch && sync" button
-  - **DueNest Tasks** — tap anywhere to open the app; shows pending tasks grouped by course
-  - **DueNest fetch + tasks** — task list with a "Fetch && sync" button (password prompt if no password stored)
-- **Task reminder notifications** — independent from fetch reminders, lists actual unchecked assignments with course names and due dates (Overdue / Today / Tomorrow); configurable schedule (daily / weekly / custom days & times)
-- **Fetch reminder notifications** — generic "have you checked Moodle?" nudge with its own independent schedule
-- **i18n** — English and Spanish on both platforms
-- **4 theme modes** — Light / Dark / AMOLED Dark (pure black surfaces for OLED screens) / System
-- **API contract** — `desktop/moodle_api.yaml` (OpenAPI 3.0) documents both endpoints + auth as single source of truth across platforms
+- **Tasks** — Grouped task list with checkboxes (intro file on first launch)
+- **Manual events** — Add, edit, delete your own events alongside Moodle data
+- **Auto-reauth** — re-logs in automatically when token expires
+- **Android widgets** — Sync widget, task widget, combined fetch+tasks widget
+- **Fetch / task reminders** — independent notifications with configurable schedules
+- **i18n** — English and Spanish
+- **4 theme modes** — Light / Dark / AMOLED Dark / System
 
 ## Requirements
-
-### Desktop (Python)
-
-- Python 3.9+ (stdlib-only core — runs in Termux without pip)
-- `flet` for the GUI (`pip install flet`)
-- `keyring` for saving credentials in the OS keychain (optional — `pip install keyring`; falls back to config.json if absent)
 
 ### Android
 
 - [Android Studio](https://developer.android.com/studio) or JDK 17+ + Android SDK
 - Device running Android 8.0+ (API 26)
-- Dependencies resolved automatically by Gradle (OkHttp, Compose, Glance, WorkManager, kotlinx-serialization, security-crypto)
+- Dependencies resolved automatically by Gradle
 
-## Usage
+### Desktop
 
-### Desktop GUI
+- JDK 17+
+- Dependencies resolved automatically by Gradle
 
-```bash
-python3 desktop/moodle_cal_flet.py
-```
+## Build & run
 
-### Desktop CLI
-
-```bash
-# First-time auth
-python3 desktop/moodle_cal.py --login
-
-# Fetch and generate outputs
-python3 desktop/moodle_cal.py
-```
-
-### Android app + widget
-
-Build the APK:
+### Android
 
 ```bash
-cd android
-./gradlew assembleDebug
+./gradlew :androidApp:assembleDebug
 ```
 
 Install `android/app/build/outputs/apk/debug/app-debug.apk` on your phone.
 
-**First launch**: Open the app → enter Moodle URL, username, password → tap "Fetch". The app supports ICS generation, theme switching (Light / Dark / AMOLED Dark / System), language selection, and two independent notification types.
+### Desktop
 
-**Widgets** (extra — add via long-press home screen):
-
-| Widget | What it does |
-|--------|-------------|
-| **DueNest Sync** | Shows last sync state + "Fetch && sync" button. Per-instance opacity slider on first placement. |
-| **DueNest Tasks** | Lists pending tasks grouped by course with due-date coloring (overdue, today, tomorrow, future). Tap anywhere to open the app. |
-| **DueNest fetch + tasks** | Combines the task list with a "Fetch && sync" button — syncs in background or shows a password prompt if none stored. |
-
-**Sync from widget**: Tap "Fetch && sync" → notification appears with the result → tap it to open the ICS in your calendar app.
-
+```bash
+./gradlew :desktopApp:run
+```
 
 ## Configuration
 
-### Desktop (`config.json`)
-
-| Key | Default | Description |
-|---|---|---|
-| `moodle_url` | — | Your Moodle instance URL |
-| `token` | `""` | Web service token (set via `--login` or GUI login) |
-| `username` | `""` | Moodle username |
-| `save_password` | `false` | Persist password (not recommended) |
-| `timezone` | auto-detect | IANA timezone, e.g. `America/Hermosillo` |
-| `language` | `en` | `en` or `es` |
-| `theme_mode` | `system` | `system`, `light`, or `dark` |
-| `output.ics` | `true` | Generate ICS file |
-| `output.logseq` | `true` | Generate Logseq Markdown |
-| `output.obsidian` | `true` | Generate Obsidian Markdown |
-| `paths.ics` | `output/calendar.ics` | ICS output path |
-| `paths.logseq` | `output/logseq/` | Logseq output directory |
-| `paths.obsidian` | `output/obsidian/` | Obsidian output directory |
-| `fetch_days_back` | `7` | Days back to look for events |
-| `fetch_limit` | `100` | Max events per request |
-
 ### Android (in-app settings)
 
-The Android app stores credentials, preferences, and per-widget opacity in EncryptedSharedPreferences (AES-256 GCM). Configure via the app's settings screen.
+Credentials and preferences are stored in EncryptedSharedPreferences (AES-256 GCM). Configure via the app's settings screen.
 
 | Setting | Description |
 |---------|-------------|
@@ -122,74 +69,57 @@ The Android app stores credentials, preferences, and per-widget opacity in Encry
 
 ```
 moodle-calendar-bridge/
-├── desktop/
-│   ├── moodle_cal.py              # Core logic — fetch, parse, generate outputs (stdlib-only)
-│   ├── moodle_cal_flet.py         # Desktop GUI (Flet)
-│   ├── moodle_api.yaml            # OpenAPI 3.0 contract for all Moodle endpoints
-│   ├── config.json                # Desktop configuration (gitignored)
-│   ├── langs.json                 # Translations (en/es)
-│   └── test_pipeline.py           # Test / validation (incl. contract conformance)
+├── common/
+│   ├── build.gradle.kts            # KMP — androidTarget + jvm("desktop")
+│   └── src/commonMain/kotlin/com/moodlebridge/
+│       ├── data/
+│       │   ├── Event.kt            # Data classes for API + internal Event model
+│       │   ├── IcsGenerator.kt     # ICS rendering (RFC 5545 VEVENT)
+│       │   ├── MarkdownGenerator.kt# Markdown output (Logseq, Obsidian, Tasks)
+│       │   ├── MoodleApi.kt        # REST client (OkHttp, login + 2 endpoints)
+│       │   └── Strings.kt          # i18n strings (en/es)
+│       └── ui/
+│           └── Theme.kt            # Material 3 color schemes (Light / Dark / AMOLED Dark)
 ├── android/
-│   ├── build.gradle.kts           # Root build — AGP 8.12.2, Kotlin 2.1.10
-│   ├── settings.gradle.kts
-│   ├── local.properties           # SDK path (machine-local)
-│   ├── gradlew / gradlew.bat     # Gradle wrapper
-│   ├── gradle/wrapper/
 │   └── app/
-│       ├── build.gradle.kts       # App deps: Compose, Glance, WorkManager, OkHttp, security-crypto
+│       ├── build.gradle.kts        # App deps: :common, Compose, Glance, WorkManager
 │       └── src/main/
 │           ├── AndroidManifest.xml
 │           ├── res/
 │           │   ├── layout/
-│           │   │   ├── sync_widget_initial.xml
-│           │   │   ├── task_widget_initial.xml
-│           │   │   └── fetch_task_widget_initial.xml
 │           │   ├── values/
-│           │   │   ├── strings.xml
-│           │   │   └── themes.xml
 │           │   └── xml/
-│           │       ├── sync_widget_info.xml
-│           │       ├── task_widget_info.xml
-│           │       ├── fetch_task_widget_info.xml
-│           │       └── file_paths.xml
 │           └── java/com/moodlebridge/
 │               ├── MainActivity.kt              # App UI + settings (Compose)
-│               ├── PasswordPromptActivity.kt     # Quick password prompt (dialog-themed)
+│               ├── PasswordPromptActivity.kt     # Quick password prompt
 │               ├── data/
 │               │   ├── ConfigStore.kt            # EncryptedSharedPreferences wrapper
-│               │   ├── Event.kt                  # Data classes for API + internal Event model
-│               │   ├── IcsGenerator.kt           # ICS rendering (RFC 5545 VEVENT)
-│               │   ├── MarkdownGenerator.kt      # Markdown output (Logseq, Obsidian, Tasks)
-│               │   ├── MoodleApi.kt              # REST client (OkHttp, login + 2 endpoints)
-│               │   ├── PathResolver.kt           # Content URI / file path handling
-│               │   └── Strings.kt                # i18n strings (en/es)
-│               ├── ui/
-│               │   └── Theme.kt                 # Material 3 color schemes (Light / Dark / AMOLED Dark)
+│               │   └── PathResolver.kt           # Content URI / file path handling
 │               ├── worker/
 │               │   ├── SyncWorker.kt             # Background sync (WorkManager)
 │               │   ├── NotificationWorker.kt     # Fetch reminder notifications
 │               │   └── TaskReminderWorker.kt     # Task deadline notifications
 │               └── widget/
-│                   ├── SyncWidget.kt             # Sync-only widget (per-instance opacity slider)
-│                   ├── TaskWidget.kt             # Task list widget (tap to open app)
-│                   ├── FetchTaskWidget.kt        # Task list + fetch button widget
-│                   ├── OpacitySliderActivity.kt  # Sync widget configure activity
-│                   └── TaskOpacitySliderActivity.kt # Task widget configure activity
-├── AGENTS.md                  # Dev notes (architecture, API, design decisions)
+│                   ├── SyncWidget.kt
+│                   ├── TaskWidget.kt
+│                   ├── FetchTaskWidget.kt
+│                   ├── OpacitySliderActivity.kt
+│                   └── TaskOpacitySliderActivity.kt
+├── desktopApp/
+│   ├── build.gradle.kts            # Compose Desktop entry point
+│   └── src/main/kotlin/com/moodlebridge/
+│       └── Main.kt                 # Desktop app entry point (WIP)
+├── build.gradle.kts                # Root — plugin declarations
+├── settings.gradle.kts             # Module includes
+├── gradlew / gradlew.bat           # Gradle wrapper
+├── gradle/
+│   └── wrapper/
+├── AGENTS.md                       # Dev notes (architecture, API, design decisions)
 ├── LICENSE
 └── README.md
 ```
 
 ## Security
-
-### Desktop
-
-- **Password never persisted by default** — discarded after login; only the token stays on disk
-- **OS keychain** — password can be stored securely via `keyring` (optional, `pip install keyring`)
-- **Token stored in `config.json`** — file permissions set to `600` (owner-only)
-- **URL validation** — only HTTPS URLs accepted
-- **Clear credentials** button in settings wipes token + keychain entry
-- **Auto-reauth** — if token expires, re-authenticates using stored password (no manual re-entry)
 
 ### Android
 
@@ -198,3 +128,9 @@ moodle-calendar-bridge/
 - **FileProvider** — ICS files shared via `content://` URI with `androidx.core.content.FileProvider` (no `file://` leaks)
 - **Clear credentials** button in settings wipes all SharedPreferences
 - **Password prompt** — when no password is stored, the widget launches `PasswordPromptActivity` (dialog-themed, no recents entry) to request one without exposing existing data
+
+### Desktop
+
+- Password never persisted by default — only the token stays on disk
+- Token stored in local config (platform-specific preferences)
+- Clear credentials button wipes all stored data

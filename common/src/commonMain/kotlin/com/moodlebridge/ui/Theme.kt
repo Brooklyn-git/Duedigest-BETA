@@ -1,19 +1,16 @@
 package com.moodlebridge.ui
 
-import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import androidx.core.view.WindowCompat
 
 val BrandPrimary = Color(0xFF4F46E5)
 val BrandPrimaryLight = Color(0xFF6366F1)
@@ -137,17 +134,9 @@ fun DueNestTheme(
         else -> if (isSystemInDarkTheme()) DarkColorScheme else LightColorScheme
     }
 
-    val view = LocalView.current
-    if (!view.isInEditMode) {
-        SideEffect {
-            val window = (view.context as Activity).window
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !isDark
-        }
-    }
-
     MaterialTheme(
         colorScheme = colorScheme,
         typography = AppTypography,
-        content = { androidx.compose.material3.Surface { content() } },
+        content = { Surface { content() } },
     )
 }

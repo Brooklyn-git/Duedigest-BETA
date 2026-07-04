@@ -1,6 +1,5 @@
 package com.moodlebridge.data
 
-import android.net.Uri
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.FormBody
@@ -109,7 +108,7 @@ class MoodleApi(
         }
 
         private fun Map<String, String>.toQueryString(): String =
-            entries.joinToString("&") { "${it.key}=${Uri.encode(it.value)}" }
+            entries.joinToString("&") { "${it.key}=${java.net.URLEncoder.encode(it.value, "UTF-8")}" }
 
         fun stripHtml(text: String): String =
             text
