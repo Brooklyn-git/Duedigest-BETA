@@ -435,8 +435,8 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                 // ── Tabs ────────────────────────────────────────
                 TabRow(selectedTabIndex = pagerState.currentPage) {
                     listOf(
-                        Strings.get("connection", lang),
                         Strings.get("tasks", lang),
+                        Strings.get("connection", lang),
                     ).forEachIndexed { i, t ->
                         Tab(selected = pagerState.currentPage == i,
                             onClick = { scope.launch { pagerState.animateScrollToPage(i) } },
@@ -451,51 +451,6 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                 ) { page ->
                     if (page == 0) {
-                        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                            ConnectionTabContent(url = url, onUrlChange = { url = it },
-                                username = username, onUsernameChange = { username = it },
-                                password = password, onPasswordChange = { password = it },
-                                passwordVisible = passwordVisible, onPasswordVisibleChange = { passwordVisible = it },
-                                tz = tz, onTzChange = { tz = it }, tzExpanded = tzExpanded,
-                                onTzExpandedChange = { tzExpanded = it }, lang = lang)
-
-                            // ── Save password ─────────────────────
-                            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Checkbox(checked = savePw, onCheckedChange = { savePw = it })
-                                Spacer(Modifier.width(4.dp))
-                                Text(Strings.get("store_pw", lang), style = MaterialTheme.typography.bodySmall)
-                            }
-
-                            // ── Buttons ──────────────────────────
-                            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Button(onClick = { doSync(password) },
-                                    enabled = url.isNotBlank() && username.isNotBlank() && password.isNotBlank() && !isWorking,
-                                    modifier = Modifier.weight(1f)) {
-                                    Text(if (isWorking) Strings.get("working", lang) else Strings.get("fetch", lang))
-                                }
-                                if (icsEnabled) {
-                                    OutlinedButton(onClick = { shareIcs(context, config) }, modifier = Modifier.weight(1f)) { Text(Strings.get("share_ics", lang)) }
-                                }
-                            }
-
-                            // ── Progress ─────────────────────────
-                            if (isWorking) { LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 16.dp)); Spacer(Modifier.height(4.dp)) }
-
-                            // ── Log ──────────────────────────────
-                            Text(Strings.get("log", lang), style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp))
-                            Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp)
-                                .clip(RoundedCornerShape(8.dp)).border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                                Column(Modifier.fillMaxWidth().padding(8.dp)) {
-                                    logLines.toList().forEach { line -> Text(line, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace) }
-                                }
-                            }
-
-                            // ── Status ───────────────────────────
-                            Text(statusText.ifBlank { Strings.get("ready", lang) }, style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
-                        }
-                    } else {
                         Box(Modifier.fillMaxSize()) {
                             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 72.dp)) {
                                 TasksTabContent(
@@ -535,12 +490,51 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                                 Icon(Icons.Default.Add, contentDescription = Strings.get("add_task", lang))
                             }
                         }
-                    }
+                    } else {
+                        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                            ConnectionTabContent(url = url, onUrlChange = { url = it },
+                                username = username, onUsernameChange = { username = it },
+                                password = password, onPasswordChange = { password = it },
+                                passwordVisible = passwordVisible, onPasswordVisibleChange = { passwordVisible = it },
+                                tz = tz, onTzChange = { tz = it }, tzExpanded = tzExpanded,
+                                onTzExpandedChange = { tzExpanded = it }, lang = lang)
+
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(checked = savePw, onCheckedChange = { savePw = it })
+                                Spacer(Modifier.width(4.dp))
+                                Text(Strings.get("store_pw", lang), style = MaterialTheme.typography.bodySmall)
+                            }
+
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Button(onClick = { doSync(password) },
+                                    enabled = url.isNotBlank() && username.isNotBlank() && password.isNotBlank() && !isWorking,
+                                    modifier = Modifier.weight(1f)) {
+                                    Text(if (isWorking) Strings.get("working", lang) else Strings.get("fetch", lang))
+                                }
+                                if (icsEnabled) {
+                                    OutlinedButton(onClick = { shareIcs(context, config) }, modifier = Modifier.weight(1f)) { Text(Strings.get("share_ics", lang)) }
+                                }
+                            }
+
+                            if (isWorking) { LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 16.dp)); Spacer(Modifier.height(4.dp)) }
+
+                            Text(Strings.get("log", lang), style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp))
+                            Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                                .clip(RoundedCornerShape(8.dp)).border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                                Column(Modifier.fillMaxWidth().padding(8.dp)) {
+                                    logLines.toList().forEach { line -> Text(line, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace) }
+                                }
+                            }
+
+                            Text(statusText.ifBlank { Strings.get("ready", lang) }, style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                        }
                     }
                 }
             }
         }
-    // end else
+    }
 
     // ── Add Task dialog ─────────────────────────────────────
     if (showDeleteConfirm != null) {
