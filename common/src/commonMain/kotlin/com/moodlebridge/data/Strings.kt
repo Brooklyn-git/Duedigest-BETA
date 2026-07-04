@@ -97,6 +97,9 @@ object Strings {
         "manual" to "Manual",
         "add_course" to "Add course",
         "notif_more" to "+{n} more",
+        "time_format" to "Time format",
+        "time_24h" to "24h",
+        "time_12h" to "12h",
     )
 
     private val es = mapOf(
@@ -194,6 +197,9 @@ object Strings {
         "manual" to "Manual",
         "add_course" to "Agregar curso",
         "notif_more" to "+{n} m\u00e1s",
+        "time_format" to "Formato de hora",
+        "time_24h" to "24h",
+        "time_12h" to "12h",
     )
 
     fun get(key: String, lang: String = "en"): String {
