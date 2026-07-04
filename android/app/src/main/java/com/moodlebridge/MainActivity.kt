@@ -43,6 +43,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -66,6 +67,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -494,41 +496,51 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
                         }
                     } else {
-                        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                            TasksTabContent(
-                                events = getMergedEvents(), completionMap = taskCompletionMap,
-                                expandedId = expandedTaskId, onExpandedChange = { expandedTaskId = it },
-                                onToggleCompletion = { id ->
-                                    taskCompletionMap = taskCompletionMap.toMutableMap().also { it[id] = !(it[id] ?: false) }
-                                    saveCompletionMap()
-                                    persistMergedEvents()
-                                },
-                                onClearCompleted = {
-                                    val completedManual = manualEvents.filter { taskCompletionMap[it.id] == true }
-                                    for (ev in completedManual) deleteManualEvent(ev.id)
-                                    taskCompletionMap = emptyMap()
-                                    saveCompletionMap()
-                                    persistMergedEvents()
-                                    expandedTaskId = null
-                                },
-                                onAddTask = { openTaskDialog() },
-                                onEditTask = { openTaskDialog(it) },
-                                onDeleteTask = { showDeleteConfirm = it },
-                                lang = lang, use24h = notif24hFormat,
-                                showIntro = config.lastSyncTimestamp == 0L && fetchedEvents.isEmpty())
+                        Box(Modifier.fillMaxSize()) {
+                            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 72.dp)) {
+                                TasksTabContent(
+                                    events = getMergedEvents(), completionMap = taskCompletionMap,
+                                    expandedId = expandedTaskId, onExpandedChange = { expandedTaskId = it },
+                                    onToggleCompletion = { id ->
+                                        taskCompletionMap = taskCompletionMap.toMutableMap().also { it[id] = !(it[id] ?: false) }
+                                        saveCompletionMap()
+                                        persistMergedEvents()
+                                    },
+                                    onClearCompleted = {
+                                        val completedManual = manualEvents.filter { taskCompletionMap[it.id] == true }
+                                        for (ev in completedManual) deleteManualEvent(ev.id)
+                                        taskCompletionMap = emptyMap()
+                                        saveCompletionMap()
+                                        persistMergedEvents()
+                                        expandedTaskId = null
+                                    },
+                                    onEditTask = { openTaskDialog(it) },
+                                    onDeleteTask = { showDeleteConfirm = it },
+                                    lang = lang, use24h = notif24hFormat,
+                                    showIntro = config.lastSyncTimestamp == 0L && fetchedEvents.isEmpty())
 
-                            // ── Progress ─────────────────────────
-                            if (isWorking) { LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 16.dp)); Spacer(Modifier.height(4.dp)) }
+                                // ── Progress ─────────────────────────
+                                if (isWorking) { LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 16.dp)); Spacer(Modifier.height(4.dp)) }
 
-                            // ── Status ───────────────────────────
-                            Text(statusText.ifBlank { Strings.get("ready", lang) }, style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                                // ── Status ───────────────────────────
+                                Text(statusText.ifBlank { Strings.get("ready", lang) }, style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                            }
+                            FloatingActionButton(
+                                onClick = { openTaskDialog() },
+                                modifier = Modifier.align(Alignment.BottomStart).padding(16.dp),
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary,
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = Strings.get("add_task", lang))
+                            }
                         }
+                    }
                     }
                 }
             }
         }
-    } // end else
+    // end else
 
     // ── Add Task dialog ─────────────────────────────────────
     if (showDeleteConfirm != null) {
@@ -1063,7 +1075,7 @@ private fun TasksTabContent(
     events: List<Event>, completionMap: Map<String, Boolean>,
     expandedId: String?, onExpandedChange: (String?) -> Unit,
     onToggleCompletion: (String) -> Unit, onClearCompleted: () -> Unit,
-    onAddTask: () -> Unit, onEditTask: (Event) -> Unit, onDeleteTask: (String) -> Unit,
+    onEditTask: (Event) -> Unit, onDeleteTask: (String) -> Unit,
     lang: String,
     showIntro: Boolean = false,
     use24h: Boolean = true,
@@ -1071,14 +1083,6 @@ private fun TasksTabContent(
     val context = androidx.compose.ui.platform.LocalContext.current
 
     Column(Modifier.fillMaxWidth().padding(16.dp)) {
-        Button(
-            onClick = onAddTask,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("+ ${Strings.get("add_task", lang)}")
-        }
-        Spacer(Modifier.height(8.dp))
-
         if (events.isEmpty()) {
             if (showIntro) {
                 Text(Strings.get("intro_title", lang), style = MaterialTheme.typography.headlineMedium,
@@ -1158,9 +1162,12 @@ private fun TasksTabContent(
                 Text(Strings.get("clear_completed", lang), color = MaterialTheme.colorScheme.error)
             }
             Spacer(Modifier.height(8.dp))
-        }
     }
+
     }
+
+}
+
 }
 
 @Composable
