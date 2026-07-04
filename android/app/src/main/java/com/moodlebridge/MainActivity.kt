@@ -30,8 +30,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -75,7 +75,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -183,7 +182,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     var limitText by remember { mutableStateOf(config.fetchLimit.toString()) }
     var savePw by remember { mutableStateOf(config.savePassword) }
 
-    var selectedTab by remember { mutableIntStateOf(1) }
+    val pagerState = rememberPagerState(pageCount = { 2 })
     var showSettings by remember { mutableStateOf(false) }
     var showOutputSettings by remember { mutableStateOf(false) }
     var isWorking by remember { mutableStateOf(false) }
@@ -432,89 +431,101 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
             }
             Column(Modifier.padding(padding).fillMaxSize()) {
                 // ── Tabs ────────────────────────────────────────
-                TabRow(selectedTabIndex = selectedTab) {
+                TabRow(selectedTabIndex = pagerState.currentPage) {
                     listOf(
                         Strings.get("connection", lang),
                         Strings.get("tasks", lang),
                     ).forEachIndexed { i, t ->
-                        Tab(selected = selectedTab == i, onClick = { selectedTab = i },
+                        Tab(selected = pagerState.currentPage == i,
+                            onClick = { scope.launch { pagerState.animateScrollToPage(i) } },
                             text = { Text(t, style = MaterialTheme.typography.titleMedium) },
                             modifier = Modifier.height(56.dp))
                     }
                 }
 
-                // ── Tab content ─────────────────────────────────
-                Column(Modifier.weight(3f).fillMaxWidth().verticalScroll(rememberScrollState())) {
-                    when (selectedTab) {
-                        0 -> ConnectionTabContent(url = url, onUrlChange = { url = it },
-                            username = username, onUsernameChange = { username = it },
-                            password = password, onPasswordChange = { password = it },
-                            passwordVisible = passwordVisible, onPasswordVisibleChange = { passwordVisible = it },
-                            tz = tz, onTzChange = { tz = it }, tzExpanded = tzExpanded,
-                            onTzExpandedChange = { tzExpanded = it }, lang = lang)
-        else -> TasksTabContent(
-            events = getMergedEvents(), completionMap = taskCompletionMap,
-            expandedId = expandedTaskId, onExpandedChange = { expandedTaskId = it },
-            onToggleCompletion = { id ->
-                taskCompletionMap = taskCompletionMap.toMutableMap().also { it[id] = !(it[id] ?: false) }
-                saveCompletionMap()
-                persistMergedEvents()
-            },
-            onClearCompleted = {
-                val completedManual = manualEvents.filter { taskCompletionMap[it.id] == true }
-                for (ev in completedManual) deleteManualEvent(ev.id)
-                taskCompletionMap = emptyMap()
-                saveCompletionMap()
-                persistMergedEvents()
-                expandedTaskId = null
-            },
-            onAddTask = { openTaskDialog() },
-            onEditTask = { openTaskDialog(it) },
-            onDeleteTask = { showDeleteConfirm = it },
-            lang = lang, use24h = notif24hFormat,
-            showIntro = config.lastSyncTimestamp == 0L && fetchedEvents.isEmpty())
+                // ── Swipeable tab content ───────────────────────
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                ) { page ->
+                    if (page == 0) {
+                        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                            ConnectionTabContent(url = url, onUrlChange = { url = it },
+                                username = username, onUsernameChange = { username = it },
+                                password = password, onPasswordChange = { password = it },
+                                passwordVisible = passwordVisible, onPasswordVisibleChange = { passwordVisible = it },
+                                tz = tz, onTzChange = { tz = it }, tzExpanded = tzExpanded,
+                                onTzExpandedChange = { tzExpanded = it }, lang = lang)
+
+                            // ── Save password ─────────────────────
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(checked = savePw, onCheckedChange = { savePw = it })
+                                Spacer(Modifier.width(4.dp))
+                                Text(Strings.get("store_pw", lang), style = MaterialTheme.typography.bodySmall)
+                            }
+
+                            // ── Buttons ──────────────────────────
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Button(onClick = { doSync(password) },
+                                    enabled = url.isNotBlank() && username.isNotBlank() && password.isNotBlank() && !isWorking,
+                                    modifier = Modifier.weight(1f)) {
+                                    Text(if (isWorking) Strings.get("working", lang) else Strings.get("fetch", lang))
+                                }
+                                if (icsEnabled) {
+                                    OutlinedButton(onClick = { shareIcs(context, config) }, modifier = Modifier.weight(1f)) { Text(Strings.get("share_ics", lang)) }
+                                }
+                            }
+
+                            // ── Progress ─────────────────────────
+                            if (isWorking) { LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 16.dp)); Spacer(Modifier.height(4.dp)) }
+
+                            // ── Log ──────────────────────────────
+                            Text(Strings.get("log", lang), style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp))
+                            Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                                .clip(RoundedCornerShape(8.dp)).border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                                Column(Modifier.fillMaxWidth().padding(8.dp)) {
+                                    logLines.toList().forEach { line -> Text(line, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace) }
+                                }
+                            }
+
+                            // ── Status ───────────────────────────
+                            Text(statusText.ifBlank { Strings.get("ready", lang) }, style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                        }
+                    } else {
+                        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                            TasksTabContent(
+                                events = getMergedEvents(), completionMap = taskCompletionMap,
+                                expandedId = expandedTaskId, onExpandedChange = { expandedTaskId = it },
+                                onToggleCompletion = { id ->
+                                    taskCompletionMap = taskCompletionMap.toMutableMap().also { it[id] = !(it[id] ?: false) }
+                                    saveCompletionMap()
+                                    persistMergedEvents()
+                                },
+                                onClearCompleted = {
+                                    val completedManual = manualEvents.filter { taskCompletionMap[it.id] == true }
+                                    for (ev in completedManual) deleteManualEvent(ev.id)
+                                    taskCompletionMap = emptyMap()
+                                    saveCompletionMap()
+                                    persistMergedEvents()
+                                    expandedTaskId = null
+                                },
+                                onAddTask = { openTaskDialog() },
+                                onEditTask = { openTaskDialog(it) },
+                                onDeleteTask = { showDeleteConfirm = it },
+                                lang = lang, use24h = notif24hFormat,
+                                showIntro = config.lastSyncTimestamp == 0L && fetchedEvents.isEmpty())
+
+                            // ── Progress ─────────────────────────
+                            if (isWorking) { LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 16.dp)); Spacer(Modifier.height(4.dp)) }
+
+                            // ── Status ───────────────────────────
+                            Text(statusText.ifBlank { Strings.get("ready", lang) }, style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                        }
                     }
                 }
-
-                if (selectedTab == 0) {
-                    // ── Save password ─────────────────────────────
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(checked = savePw, onCheckedChange = { savePw = it })
-                        Spacer(Modifier.width(4.dp))
-                        Text(Strings.get("store_pw", lang), style = MaterialTheme.typography.bodySmall)
-                    }
-
-                    // ── Buttons ─────────────────────────────────
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Button(onClick = { doSync(password) },
-                            enabled = url.isNotBlank() && username.isNotBlank() && password.isNotBlank() && !isWorking,
-                            modifier = Modifier.weight(1f)) {
-                            Text(if (isWorking) Strings.get("working", lang) else Strings.get("fetch", lang))
-                        }
-                        if (icsEnabled) {
-                            OutlinedButton(onClick = { shareIcs(context, config) }, modifier = Modifier.weight(1f)) { Text(Strings.get("share_ics", lang)) }
-                        }
-                    }
-                }
-
-                // ── Progress ────────────────────────────────────
-                if (isWorking) { LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 16.dp)); Spacer(Modifier.height(4.dp)) }
-
-                // ── Log ─────────────────────────────────────────
-                if (selectedTab != 1) {
-                    Text(Strings.get("log", lang), style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp))
-                    Card(Modifier.fillMaxWidth().weight(2f).padding(horizontal = 16.dp)
-                        .clip(RoundedCornerShape(8.dp)).border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                        LazyColumn(Modifier.fillMaxSize().padding(8.dp)) {
-                            items(logLines.toList()) { line -> Text(line, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace) }
-                        }
-                    }
-                }
-
-                // ── Status ──────────────────────────────────────
-                Text(statusText.ifBlank { Strings.get("ready", lang) }, style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
             }
         }
     } // end else
