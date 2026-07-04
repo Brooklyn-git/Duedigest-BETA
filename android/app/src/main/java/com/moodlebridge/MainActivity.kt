@@ -227,6 +227,8 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     var dialogDuration by remember { mutableStateOf("60") }
     var dialogUrl by remember { mutableStateOf("") }
     var showDeleteConfirm by remember { mutableStateOf<String?>(null) }
+    var showClearCompletedConfirm by remember { mutableStateOf(false) }
+    var showClearCredsConfirm by remember { mutableStateOf(false) }
     var courseExpanded by remember { mutableStateOf(false) }
     var showNewCourseDialog by remember { mutableStateOf(false) }
     var newCourseName by remember { mutableStateOf("") }
@@ -461,14 +463,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                                         saveCompletionMap()
                                         persistMergedEvents()
                                     },
-                                    onClearCompleted = {
-                                        val completedManual = manualEvents.filter { taskCompletionMap[it.id] == true }
-                                        for (ev in completedManual) deleteManualEvent(ev.id)
-                                        taskCompletionMap = emptyMap()
-                                        saveCompletionMap()
-                                        persistMergedEvents()
-                                        expandedTaskId = null
-                                    },
+                                    onClearCompleted = { showClearCompletedConfirm = true },
                                     onEditTask = { openTaskDialog(it) },
                                     onDeleteTask = { showDeleteConfirm = it },
                                     lang = lang, use24h = notif24hFormat,
@@ -537,8 +532,10 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     }
 
     // ── Add Task dialog ─────────────────────────────────────
+    val cs = MaterialTheme.colorScheme
     if (showDeleteConfirm != null) {
         AlertDialog(onDismissRequest = { showDeleteConfirm = null },
+            containerColor = cs.surface, titleContentColor = cs.onSurface, textContentColor = cs.onSurface,
             title = { Text(Strings.get("delete_task", lang)) },
             text = { Text(Strings.get("delete_task_confirm", lang)) },
             confirmButton = {
@@ -554,6 +551,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     if (showTaskDialog) {
         AlertDialog(
             onDismissRequest = { showTaskDialog = false; editingTask = null },
+            containerColor = cs.surface, titleContentColor = cs.onSurface, textContentColor = cs.onSurface,
             title = { Text(if (editingTask != null) Strings.get("edit_task", lang) else Strings.get("add_task", lang)) },
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
@@ -629,6 +627,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     if (showNewCourseDialog) {
         AlertDialog(
             onDismissRequest = { showNewCourseDialog = false },
+            containerColor = cs.surface, titleContentColor = cs.onSurface, textContentColor = cs.onSurface,
             title = { Text(Strings.get("task_course", lang)) },
             text = {
                 OutlinedTextField(value = newCourseName, onValueChange = { newCourseName = it },
@@ -647,12 +646,15 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
 
     // ── Error dialog ────────────────────────────────────────
         if (errorDialogMsg != null) {
-            AlertDialog(onDismissRequest = { errorDialogMsg = null }, title = { Text(Strings.get("error", lang)) },
+            AlertDialog(onDismissRequest = { errorDialogMsg = null },
+                containerColor = cs.surface, titleContentColor = cs.onSurface, textContentColor = cs.onSurface,
+                title = { Text(Strings.get("error", lang)) },
                 text = { Text(errorDialogMsg ?: "") },
                 confirmButton = { TextButton(onClick = { errorDialogMsg = null }) { Text("OK") } })
         }
         if (showSettings) {
             AlertDialog(onDismissRequest = { showSettings = false },
+                containerColor = cs.surface, titleContentColor = cs.onSurface, textContentColor = cs.onSurface,
                 title = { Text(Strings.get("settings", lang)) },
                 text = {
                     Column(Modifier.verticalScroll(rememberScrollState())) {
@@ -791,22 +793,59 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                             Text("Output Settings")
                         }
                         Spacer(Modifier.height(8.dp))
-                        TextButton(onClick = {
-                            config.token = ""
-                            config.password = ""
-                            config.moodleUrl = ""
-                            config.username = ""
-                            password = ""
-                            url = ""
-                            username = ""
-                            showSettings = false
-                        }) {
+                        TextButton(onClick = { showClearCredsConfirm = true }) {
                             Text(Strings.get("clear_creds", lang), color = MaterialTheme.colorScheme.error)
                         }
                     }
                 },
                 confirmButton = { TextButton(onClick = { showSettings = false }) { Text("OK") } })
         }
+
+    // ── Clear completed confirmation ────────────────────────
+    if (showClearCompletedConfirm) {
+        AlertDialog(onDismissRequest = { showClearCompletedConfirm = false },
+            containerColor = cs.surface, titleContentColor = cs.onSurface, textContentColor = cs.onSurface,
+            title = { Text(Strings.get("clear_completed", lang)) },
+            text = { Text(Strings.get("clear_completed_confirm", lang)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    val completedManual = manualEvents.filter { taskCompletionMap[it.id] == true }
+                    for (ev in completedManual) deleteManualEvent(ev.id)
+                    taskCompletionMap = emptyMap()
+                    saveCompletionMap()
+                    persistMergedEvents()
+                    expandedTaskId = null
+                    showClearCompletedConfirm = false
+                }) { Text(Strings.get("clear_completed", lang)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearCompletedConfirm = false }) { Text(Strings.get("cancel", lang)) }
+            })
+    }
+
+    // ── Clear credentials confirmation ──────────────────────
+    if (showClearCredsConfirm) {
+        AlertDialog(onDismissRequest = { showClearCredsConfirm = false },
+            containerColor = cs.surface, titleContentColor = cs.onSurface, textContentColor = cs.onSurface,
+            title = { Text(Strings.get("clear_creds", lang)) },
+            text = { Text(Strings.get("clear_creds_confirm", lang)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    config.token = ""
+                    config.password = ""
+                    config.moodleUrl = ""
+                    config.username = ""
+                    password = ""
+                    url = ""
+                    username = ""
+                    showSettings = false
+                    showClearCredsConfirm = false
+                }) { Text(Strings.get("clear_creds", lang), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearCredsConfirm = false }) { Text(Strings.get("cancel", lang)) }
+            })
+    }
     }
 }
 
