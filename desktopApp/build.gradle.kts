@@ -28,3 +28,15 @@ compose.desktop {
         mainClass = "com.moodlebridge.MainKt"
     }
 }
+
+tasks.jar {
+    dependsOn(configurations.runtimeClasspath)
+    manifest {
+        attributes["Main-Class"] = "com.moodlebridge.MainKt"
+    }
+    from({
+        configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) }
+    }) {
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    }
+}

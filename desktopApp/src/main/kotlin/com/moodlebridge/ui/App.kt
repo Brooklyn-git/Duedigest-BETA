@@ -406,6 +406,7 @@ fun DesktopApp(config: DesktopConfigStore) {
                         onDeleteTask = { showDeleteConfirm = it },
                         isWorking = isWorking, lang = lang, use24h = use24h,
                         showClearCompleted = hasCompleted,
+                        showIntro = config.lastSyncTimestamp == 0L && fetchedEvents.isEmpty(),
                     )
                     FloatingActionButton(
                         onClick = { openTaskDialog() },
@@ -693,51 +694,88 @@ private fun TaskTabContent(
     onDeleteTask: (String) -> Unit,
     isWorking: Boolean, lang: String, use24h: Boolean,
     showClearCompleted: Boolean = false,
+    showIntro: Boolean = false,
 ) {
     Column(Modifier.fillMaxSize().padding(horizontal = 32.dp)) {
         Spacer(Modifier.height(8.dp))
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = 72.dp)) {
-            val grouped = events.groupBy { it.course.ifBlank { "General" } }.toSortedMap()
-            grouped.forEach { (course, courseEvents) ->
-                Text(course, style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
-                courseEvents.forEach { ev ->
-                    val isDone = completionMap[ev.id] == true
-                    val isExpanded = expandedId == ev.id
-                    TaskItem(
-                        event = ev, isCompleted = isDone,
-                        isExpanded = isExpanded,
-                        onToggleCompletion = { onToggleCompletion(ev.id) },
-                        onExpand = { onExpandedChange(if (isExpanded) null else ev.id) },
-                        onEdit = if (ev.isManual) {{ onEditTask(ev) }} else {{ }},
-                        onDelete = if (ev.isManual) {{ onDeleteTask(ev.id) }} else {{ }},
-                        lang = lang, use24h = use24h,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                }
-            }
-            if (showClearCompleted) {
-                Spacer(Modifier.height(12.dp))
-                OutlinedButton(
-                    onClick = onClearCompleted,
-                    modifier = Modifier.align(Alignment.CenterHorizontally),
-                ) {
-                    Text(Strings.get("clear_completed", lang), color = MaterialTheme.colorScheme.error)
-                }
+            if (events.isEmpty() && showIntro) {
+                Text(Strings.get("intro_title", lang), style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.height(8.dp))
-            }
-            if (events.isEmpty()) {
-                Spacer(Modifier.height(48.dp))
-                Icon(
-                    imageVector = Icons.Default.DateRange,
-                    contentDescription = null,
-                    modifier = Modifier.size(48.dp).then(Modifier.padding(bottom = 16.dp)).align(Alignment.CenterHorizontally),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                )
-                Text(Strings.get("no_tasks", lang), style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.align(Alignment.CenterHorizontally))
+                Text(Strings.get("intro_welcome", lang), style = MaterialTheme.typography.bodyLarge)
+                Spacer(Modifier.height(16.dp))
+                Text(Strings.get("intro_setup_outputs", lang), style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(20.dp))
+                Text(Strings.get("intro_getting_started", lang), style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(8.dp))
+                Text(Strings.get("intro_step1", lang), style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(4.dp))
+                Text(Strings.get("intro_step2", lang), style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(4.dp))
+                Text(Strings.get("intro_step3", lang), style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(20.dp))
+                Text(Strings.get("intro_outputs", lang), style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(8.dp))
+                Text(Strings.get("intro_ics", lang), style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(4.dp))
+                Text(Strings.get("intro_logseq", lang), style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(4.dp))
+                Text(Strings.get("intro_obsidian", lang), style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(4.dp))
+                Text(Strings.get("intro_tasks", lang), style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(8.dp))
+                Text(Strings.get("intro_configure", lang), style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(20.dp))
+                Text(Strings.get("intro_footer", lang), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                val grouped = events.groupBy { it.course.ifBlank { "General" } }.toSortedMap()
+                grouped.forEach { (course, courseEvents) ->
+                    Text(course, style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
+                    courseEvents.forEach { ev ->
+                        val isDone = completionMap[ev.id] == true
+                        val isExpanded = expandedId == ev.id
+                        TaskItem(
+                            event = ev, isCompleted = isDone,
+                            isExpanded = isExpanded,
+                            onToggleCompletion = { onToggleCompletion(ev.id) },
+                            onExpand = { onExpandedChange(if (isExpanded) null else ev.id) },
+                            onEdit = if (ev.isManual) {{ onEditTask(ev) }} else {{ }},
+                            onDelete = if (ev.isManual) {{ onDeleteTask(ev.id) }} else {{ }},
+                            lang = lang, use24h = use24h,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                    }
+                }
+                if (showClearCompleted) {
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedButton(
+                        onClick = onClearCompleted,
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                    ) {
+                        Text(Strings.get("clear_completed", lang), color = MaterialTheme.colorScheme.error)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+                if (events.isEmpty()) {
+                    Spacer(Modifier.height(48.dp))
+                    Icon(
+                        imageVector = Icons.Default.DateRange,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp).then(Modifier.padding(bottom = 16.dp)).align(Alignment.CenterHorizontally),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                    )
+                    Text(Strings.get("no_tasks", lang), style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.align(Alignment.CenterHorizontally))
+                }
             }
         }
     }
