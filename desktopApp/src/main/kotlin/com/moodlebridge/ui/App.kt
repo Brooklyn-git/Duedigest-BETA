@@ -456,72 +456,74 @@ fun DesktopApp(config: DesktopConfigStore) {
                     }
                 }
                 3 -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(32.dp)) {
-                    Text("Output Settings", style = MaterialTheme.typography.titleLarge)
-                    Spacer(Modifier.height(16.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Switch(checked = logseqEnabled, onCheckedChange = { logseqEnabled = it; config.logseqEnabled = it })
-                        Spacer(Modifier.width(8.dp))
-                        Text(Strings.get("logseq_label", lang), style = MaterialTheme.typography.bodyMedium)
-                    }
-                    if (logseqEnabled) {
-                        Spacer(Modifier.height(8.dp))
-                        Text(Strings.get("logseq_dir", lang), style = MaterialTheme.typography.labelMedium)
-                        Spacer(Modifier.height(4.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                            OutlinedTextField(value = logseqPath, onValueChange = { logseqPath = it; config.logseqPath = it },
-                                singleLine = true, modifier = Modifier.weight(1f))
+                    Column(Modifier.widthIn(max = 480.dp)) {
+                        Text("Output Settings", style = MaterialTheme.typography.titleLarge)
+                        Spacer(Modifier.height(16.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Switch(checked = logseqEnabled, onCheckedChange = { logseqEnabled = it; config.logseqEnabled = it })
                             Spacer(Modifier.width(8.dp))
-                            Button(onClick = { browseDirectory(logseqPath)?.let { logseqPath = it; config.logseqPath = it } }) {
-                                Text(Strings.get("browse", lang))
+                            Text(Strings.get("logseq_label", lang), style = MaterialTheme.typography.bodyMedium)
+                        }
+                        if (logseqEnabled) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(Strings.get("logseq_dir", lang), style = MaterialTheme.typography.labelMedium)
+                            Spacer(Modifier.height(4.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                                OutlinedTextField(value = logseqPath, onValueChange = { logseqPath = it; config.logseqPath = it },
+                                    singleLine = true, modifier = Modifier.weight(1f))
+                                Spacer(Modifier.width(8.dp))
+                                Button(onClick = { browseDirectory(logseqPath)?.let { logseqPath = it; config.logseqPath = it } }) {
+                                    Text(Strings.get("browse", lang))
+                                }
                             }
                         }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Switch(checked = obsidianEnabled, onCheckedChange = { obsidianEnabled = it; config.obsidianEnabled = it })
-                        Spacer(Modifier.width(8.dp))
-                        Text(Strings.get("obsidian_label", lang), style = MaterialTheme.typography.bodyMedium)
-                    }
-                    if (obsidianEnabled) {
-                        Spacer(Modifier.height(8.dp))
-                        Text(Strings.get("obsidian_dir", lang), style = MaterialTheme.typography.labelMedium)
-                        Spacer(Modifier.height(4.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                            OutlinedTextField(value = obsidianPath, onValueChange = { obsidianPath = it; config.obsidianPath = it },
-                                singleLine = true, modifier = Modifier.weight(1f))
+                        Spacer(Modifier.height(12.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Switch(checked = obsidianEnabled, onCheckedChange = { obsidianEnabled = it; config.obsidianEnabled = it })
                             Spacer(Modifier.width(8.dp))
-                            Button(onClick = { browseDirectory(obsidianPath)?.let { obsidianPath = it; config.obsidianPath = it } }) {
-                                Text(Strings.get("browse", lang))
+                            Text(Strings.get("obsidian_label", lang), style = MaterialTheme.typography.bodyMedium)
+                        }
+                        if (obsidianEnabled) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(Strings.get("obsidian_dir", lang), style = MaterialTheme.typography.labelMedium)
+                            Spacer(Modifier.height(4.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                                OutlinedTextField(value = obsidianPath, onValueChange = { obsidianPath = it; config.obsidianPath = it },
+                                    singleLine = true, modifier = Modifier.weight(1f))
+                                Spacer(Modifier.width(8.dp))
+                                Button(onClick = { browseDirectory(obsidianPath)?.let { obsidianPath = it; config.obsidianPath = it } }) {
+                                    Text(Strings.get("browse", lang))
+                                }
                             }
                         }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Switch(checked = tasksEnabled, onCheckedChange = { tasksEnabled = it; config.tasksEnabled = it })
-                        Spacer(Modifier.width(8.dp))
-                        Text(Strings.get("tasks_path", lang), style = MaterialTheme.typography.bodyMedium)
-                    }
-                    if (tasksEnabled) {
-                        Spacer(Modifier.height(8.dp))
-                        Text(Strings.get("tasks_path", lang), style = MaterialTheme.typography.labelMedium)
-                        Spacer(Modifier.height(4.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                            OutlinedTextField(value = tasksOutputPath, onValueChange = { tasksOutputPath = it; config.tasksOutputPath = it },
-                                singleLine = true, modifier = Modifier.weight(1f))
+                        Spacer(Modifier.height(12.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Switch(checked = tasksEnabled, onCheckedChange = { tasksEnabled = it; config.tasksEnabled = it })
                             Spacer(Modifier.width(8.dp))
-                            Button(onClick = { browseFile(tasksOutputPath)?.let { tasksOutputPath = it; config.tasksOutputPath = it } }) {
-                                Text(Strings.get("browse", lang))
+                            Text(Strings.get("tasks_path", lang), style = MaterialTheme.typography.bodyMedium)
+                        }
+                        if (tasksEnabled) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(Strings.get("tasks_path", lang), style = MaterialTheme.typography.labelMedium)
+                            Spacer(Modifier.height(4.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                                OutlinedTextField(value = tasksOutputPath, onValueChange = { tasksOutputPath = it; config.tasksOutputPath = it },
+                                    singleLine = true, modifier = Modifier.weight(1f))
+                                Spacer(Modifier.width(8.dp))
+                                Button(onClick = { browseFile(tasksOutputPath)?.let { tasksOutputPath = it; config.tasksOutputPath = it } }) {
+                                    Text(Strings.get("browse", lang))
+                                }
                             }
                         }
-                    }
-                    Spacer(Modifier.height(16.dp))
-                    Text(Strings.get("fetch_params", lang), style = MaterialTheme.typography.titleMedium)
-                    Spacer(Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        OutlinedTextField(value = daysBackText, onValueChange = { daysBackText = it; config.fetchDaysBack = it.toIntOrNull() ?: 7 },
-                            label = { Text(Strings.get("fetch_days", lang)) }, singleLine = true, modifier = Modifier.weight(1f))
-                        OutlinedTextField(value = limitText, onValueChange = { limitText = it; config.fetchLimit = it.toIntOrNull() ?: 100 },
-                            label = { Text(Strings.get("fetch_limit", lang)) }, singleLine = true, modifier = Modifier.weight(1f))
+                        Spacer(Modifier.height(16.dp))
+                        Text(Strings.get("fetch_params", lang), style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            OutlinedTextField(value = daysBackText, onValueChange = { daysBackText = it; config.fetchDaysBack = it.toIntOrNull() ?: 7 },
+                                label = { Text(Strings.get("fetch_days", lang)) }, singleLine = true, modifier = Modifier.weight(1f))
+                            OutlinedTextField(value = limitText, onValueChange = { limitText = it; config.fetchLimit = it.toIntOrNull() ?: 100 },
+                                label = { Text(Strings.get("fetch_limit", lang)) }, singleLine = true, modifier = Modifier.weight(1f))
+                        }
                     }
                 }
             }
@@ -946,28 +948,32 @@ private fun ConnectionTabContent(
     onFetch: () -> Unit,
 ) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 32.dp)) {
-        Spacer(Modifier.height(8.dp))
-        OutlinedTextField(value = url, onValueChange = onUrlChange,
-            label = { Text(Strings.get("moodle_url", lang)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        Spacer(Modifier.height(8.dp))
-        OutlinedTextField(value = username, onValueChange = onUsernameChange,
-            label = { Text(Strings.get("username", lang)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        Spacer(Modifier.height(8.dp))
-        OutlinedTextField(value = password, onValueChange = onPasswordChange,
-            label = { Text(Strings.get("password", lang)) }, singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            modifier = Modifier.fillMaxWidth())
-        Spacer(Modifier.height(8.dp))
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(checked = savePw, onCheckedChange = onSavePwChange)
-            Spacer(Modifier.width(4.dp))
-            Text(Strings.get("store_pw", lang), style = MaterialTheme.typography.bodySmall)
-        }
-        Spacer(Modifier.height(8.dp))
-        Button(onClick = onFetch,
-            enabled = url.isNotBlank() && username.isNotBlank() && password.isNotBlank() && !isWorking,
-            modifier = Modifier.fillMaxWidth()) {
-            Text(if (isWorking) Strings.get("working", lang) else Strings.get("fetch", lang))
+        Column(Modifier.widthIn(max = 420.dp)) {
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(value = url, onValueChange = onUrlChange,
+                label = { Text(Strings.get("moodle_url", lang)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(value = username, onValueChange = onUsernameChange,
+                label = { Text(Strings.get("username", lang)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(value = password, onValueChange = onPasswordChange,
+                label = { Text(Strings.get("password", lang)) }, singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = savePw, onCheckedChange = onSavePwChange)
+                Spacer(Modifier.width(4.dp))
+                Text(Strings.get("store_pw", lang), style = MaterialTheme.typography.bodySmall)
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                Button(onClick = onFetch,
+                    enabled = url.isNotBlank() && username.isNotBlank() && password.isNotBlank() && !isWorking,
+                    modifier = Modifier.widthIn(min = 200.dp)) {
+                    Text(if (isWorking) Strings.get("working", lang) else Strings.get("fetch", lang))
+                }
+            }
         }
         Spacer(Modifier.height(8.dp))
         Text(Strings.get("log", lang), style = MaterialTheme.typography.labelMedium)
