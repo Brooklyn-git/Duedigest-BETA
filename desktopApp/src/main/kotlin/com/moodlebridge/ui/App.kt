@@ -417,45 +417,49 @@ fun DesktopApp(config: DesktopConfigStore) {
                         Icon(Icons.Default.Add, contentDescription = Strings.get("add_task", lang))
                     }
                 }
-                2 -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(32.dp)) {
-                    Text(Strings.get("settings", lang), style = MaterialTheme.typography.titleLarge)
-                    Spacer(Modifier.height(16.dp))
-                    Text(Strings.get("theme", lang), style = MaterialTheme.typography.labelMedium)
-                    listOf(
-                        "system" to Strings.get("theme_system", lang),
-                        "light" to Strings.get("theme_light", lang),
-                        "dark" to Strings.get("theme_dark", lang),
-                        "amoled_dark" to Strings.get("theme_amoled", lang),
-                    ).forEach { (v, lbl) ->
-                        Row(Modifier.clickable { themeMode = v; config.themeMode = v }.padding(end = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(selected = themeMode == v, onClick = { themeMode = v; config.themeMode = v })
-                            Text(lbl, style = MaterialTheme.typography.bodySmall)
+                2 -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(Modifier.widthIn(max = 480.dp)) {
+                        Text(Strings.get("settings", lang), style = MaterialTheme.typography.titleLarge)
+                        Spacer(Modifier.height(16.dp))
+                        Text(Strings.get("theme", lang), style = MaterialTheme.typography.labelMedium)
+                        listOf(
+                            "system" to Strings.get("theme_system", lang),
+                            "light" to Strings.get("theme_light", lang),
+                            "dark" to Strings.get("theme_dark", lang),
+                            "amoled_dark" to Strings.get("theme_amoled", lang),
+                        ).forEach { (v, lbl) ->
+                            Row(Modifier.clickable { themeMode = v; config.themeMode = v }.padding(end = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                RadioButton(selected = themeMode == v, onClick = { themeMode = v; config.themeMode = v })
+                                Text(lbl, style = MaterialTheme.typography.bodySmall)
+                            }
                         }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    Text(Strings.get("language", lang), style = MaterialTheme.typography.labelMedium)
-                    listOf("en" to "English", "es" to "Español").forEach { (v, lbl) ->
-                        Row(Modifier.clickable { selectedLang = v; config.language = v }.padding(end = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(selected = selectedLang == v, onClick = { selectedLang = v; config.language = v })
-                            Text(lbl, style = MaterialTheme.typography.bodySmall)
+                        Spacer(Modifier.height(12.dp))
+                        Text(Strings.get("language", lang), style = MaterialTheme.typography.labelMedium)
+                        listOf("en" to "English", "es" to "Español").forEach { (v, lbl) ->
+                            Row(Modifier.clickable { selectedLang = v; config.language = v }.padding(end = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                RadioButton(selected = selectedLang == v, onClick = { selectedLang = v; config.language = v })
+                                Text(lbl, style = MaterialTheme.typography.bodySmall)
+                            }
                         }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    Text(Strings.get("time_format", lang), style = MaterialTheme.typography.labelMedium)
-                    Row(Modifier.padding(end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(selected = !use24h, onClick = { use24h = false; config.use24h = false })
-                        Text(Strings.get("time_12h", lang), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(end = 16.dp))
-                        RadioButton(selected = use24h, onClick = { use24h = true; config.use24h = true })
-                        Text(Strings.get("time_24h", lang), style = MaterialTheme.typography.bodySmall)
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    TextButton(onClick = { showClearCredsConfirm = true }) {
-                        Text(Strings.get("clear_creds", lang), color = MaterialTheme.colorScheme.error)
+                        Spacer(Modifier.height(12.dp))
+                        Text(Strings.get("time_format", lang), style = MaterialTheme.typography.labelMedium)
+                        Row(Modifier.padding(end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(selected = !use24h, onClick = { use24h = false; config.use24h = false })
+                            Text(Strings.get("time_12h", lang), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(end = 16.dp))
+                            RadioButton(selected = use24h, onClick = { use24h = true; config.use24h = true })
+                            Text(Strings.get("time_24h", lang), style = MaterialTheme.typography.bodySmall)
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        TextButton(onClick = { showClearCredsConfirm = true }) {
+                            Text(Strings.get("clear_creds", lang), color = MaterialTheme.colorScheme.error)
+                        }
                     }
                 }
-                3 -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(32.dp)) {
+                3 -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally) {
                     Column(Modifier.widthIn(max = 480.dp)) {
                         Text("Output Settings", style = MaterialTheme.typography.titleLarge)
                         Spacer(Modifier.height(16.dp))
@@ -698,9 +702,10 @@ private fun TaskTabContent(
     showClearCompleted: Boolean = false,
     showIntro: Boolean = false,
 ) {
-    Column(Modifier.fillMaxSize().padding(horizontal = 32.dp)) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally) {
         Spacer(Modifier.height(8.dp))
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = 72.dp)) {
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).widthIn(max = 640.dp).padding(bottom = 72.dp)) {
             if (events.isEmpty() && showIntro) {
                 Text(Strings.get("intro_title", lang), style = MaterialTheme.typography.headlineMedium,
                     color = MaterialTheme.colorScheme.primary)
@@ -947,7 +952,8 @@ private fun ConnectionTabContent(
     lang: String,
     onFetch: () -> Unit,
 ) {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 32.dp)) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally) {
         Column(Modifier.widthIn(max = 420.dp)) {
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(value = url, onValueChange = onUrlChange,
@@ -978,7 +984,7 @@ private fun ConnectionTabContent(
         Spacer(Modifier.height(8.dp))
         Text(Strings.get("log", lang), style = MaterialTheme.typography.labelMedium)
         Card(
-            Modifier.fillMaxWidth()
+            Modifier.widthIn(max = 600.dp)
                 .clip(RoundedCornerShape(8.dp)),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         ) {
