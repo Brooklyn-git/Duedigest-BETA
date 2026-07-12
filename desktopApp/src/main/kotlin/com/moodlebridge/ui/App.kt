@@ -417,111 +417,119 @@ fun DesktopApp(config: DesktopConfigStore) {
                         Icon(Icons.Default.Add, contentDescription = Strings.get("add_task", lang))
                     }
                 }
-                2 -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally) {
-                    Column(Modifier.widthIn(max = 480.dp)) {
+                2 -> Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+                    Column(Modifier.widthIn(max = 640.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(20.dp)) {
                         Text(Strings.get("settings", lang), style = MaterialTheme.typography.titleLarge)
-                        Spacer(Modifier.height(16.dp))
-                        Text(Strings.get("theme", lang), style = MaterialTheme.typography.labelMedium)
-                        listOf(
-                            "system" to Strings.get("theme_system", lang),
-                            "light" to Strings.get("theme_light", lang),
-                            "dark" to Strings.get("theme_dark", lang),
-                            "amoled_dark" to Strings.get("theme_amoled", lang),
-                        ).forEach { (v, lbl) ->
-                            Row(Modifier.clickable { themeMode = v; config.themeMode = v }.padding(end = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically) {
-                                RadioButton(selected = themeMode == v, onClick = { themeMode = v; config.themeMode = v })
-                                Text(lbl, style = MaterialTheme.typography.bodySmall)
+                        HorizontalDivider()
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(Strings.get("theme", lang), style = MaterialTheme.typography.titleMedium)
+                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                listOf(
+                                    "system" to Strings.get("theme_system", lang),
+                                    "light" to Strings.get("theme_light", lang),
+                                    "dark" to Strings.get("theme_dark", lang),
+                                    "amoled_dark" to Strings.get("theme_amoled", lang),
+                                ).forEach { (v, lbl) ->
+                                    Row(Modifier.clickable { themeMode = v; config.themeMode = v },
+                                        verticalAlignment = Alignment.CenterVertically) {
+                                        RadioButton(selected = themeMode == v, onClick = { themeMode = v; config.themeMode = v })
+                                        Text(lbl, style = MaterialTheme.typography.bodyMedium)
+                                    }
+                                }
                             }
                         }
-                        Spacer(Modifier.height(12.dp))
-                        Text(Strings.get("language", lang), style = MaterialTheme.typography.labelMedium)
-                        listOf("en" to "English", "es" to "Español").forEach { (v, lbl) ->
-                            Row(Modifier.clickable { selectedLang = v; config.language = v }.padding(end = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically) {
-                                RadioButton(selected = selectedLang == v, onClick = { selectedLang = v; config.language = v })
-                                Text(lbl, style = MaterialTheme.typography.bodySmall)
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(Strings.get("language", lang), style = MaterialTheme.typography.titleMedium)
+                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                listOf("en" to "English", "es" to "Español").forEach { (v, lbl) ->
+                                    Row(Modifier.clickable { selectedLang = v; config.language = v },
+                                        verticalAlignment = Alignment.CenterVertically) {
+                                        RadioButton(selected = selectedLang == v, onClick = { selectedLang = v; config.language = v })
+                                        Text(lbl, style = MaterialTheme.typography.bodyMedium)
+                                    }
+                                }
                             }
                         }
-                        Spacer(Modifier.height(12.dp))
-                        Text(Strings.get("time_format", lang), style = MaterialTheme.typography.labelMedium)
-                        Row(Modifier.padding(end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(selected = !use24h, onClick = { use24h = false; config.use24h = false })
-                            Text(Strings.get("time_12h", lang), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(end = 16.dp))
-                            RadioButton(selected = use24h, onClick = { use24h = true; config.use24h = true })
-                            Text(Strings.get("time_24h", lang), style = MaterialTheme.typography.bodySmall)
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(Strings.get("time_format", lang), style = MaterialTheme.typography.titleMedium)
+                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                Row(Modifier.clickable { use24h = false; config.use24h = false },
+                                    verticalAlignment = Alignment.CenterVertically) {
+                                    RadioButton(selected = !use24h, onClick = { use24h = false; config.use24h = false })
+                                    Text(Strings.get("time_12h", lang), style = MaterialTheme.typography.bodyMedium)
+                                }
+                                Row(Modifier.clickable { use24h = true; config.use24h = true },
+                                    verticalAlignment = Alignment.CenterVertically) {
+                                    RadioButton(selected = use24h, onClick = { use24h = true; config.use24h = true })
+                                    Text(Strings.get("time_24h", lang), style = MaterialTheme.typography.bodyMedium)
+                                }
+                            }
                         }
-                        Spacer(Modifier.height(8.dp))
+                        HorizontalDivider()
                         TextButton(onClick = { showClearCredsConfirm = true }) {
                             Text(Strings.get("clear_creds", lang), color = MaterialTheme.colorScheme.error)
                         }
                     }
                 }
-                3 -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally) {
-                    Column(Modifier.widthIn(max = 480.dp)) {
+                3 -> Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+                    Column(Modifier.widthIn(max = 640.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         Text("Output Settings", style = MaterialTheme.typography.titleLarge)
-                        Spacer(Modifier.height(16.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Switch(checked = logseqEnabled, onCheckedChange = { logseqEnabled = it; config.logseqEnabled = it })
-                            Spacer(Modifier.width(8.dp))
-                            Text(Strings.get("logseq_label", lang), style = MaterialTheme.typography.bodyMedium)
-                        }
-                        if (logseqEnabled) {
-                            Spacer(Modifier.height(8.dp))
-                            Text(Strings.get("logseq_dir", lang), style = MaterialTheme.typography.labelMedium)
-                            Spacer(Modifier.height(4.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                                OutlinedTextField(value = logseqPath, onValueChange = { logseqPath = it; config.logseqPath = it },
-                                    singleLine = true, modifier = Modifier.weight(1f))
+                        HorizontalDivider()
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Switch(checked = logseqEnabled, onCheckedChange = { logseqEnabled = it; config.logseqEnabled = it })
                                 Spacer(Modifier.width(8.dp))
-                                Button(onClick = { browseDirectory(logseqPath)?.let { logseqPath = it; config.logseqPath = it } }) {
-                                    Text(Strings.get("browse", lang))
+                                Text(Strings.get("logseq_label", lang), style = MaterialTheme.typography.bodyMedium)
+                            }
+                            if (logseqEnabled) {
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                                    OutlinedTextField(value = logseqPath, onValueChange = { logseqPath = it; config.logseqPath = it },
+                                        singleLine = true, modifier = Modifier.weight(1f))
+                                    Spacer(Modifier.width(8.dp))
+                                    Button(onClick = { browseDirectory(logseqPath)?.let { logseqPath = it; config.logseqPath = it } }) {
+                                        Text(Strings.get("browse", lang))
+                                    }
                                 }
                             }
                         }
-                        Spacer(Modifier.height(12.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Switch(checked = obsidianEnabled, onCheckedChange = { obsidianEnabled = it; config.obsidianEnabled = it })
-                            Spacer(Modifier.width(8.dp))
-                            Text(Strings.get("obsidian_label", lang), style = MaterialTheme.typography.bodyMedium)
-                        }
-                        if (obsidianEnabled) {
-                            Spacer(Modifier.height(8.dp))
-                            Text(Strings.get("obsidian_dir", lang), style = MaterialTheme.typography.labelMedium)
-                            Spacer(Modifier.height(4.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                                OutlinedTextField(value = obsidianPath, onValueChange = { obsidianPath = it; config.obsidianPath = it },
-                                    singleLine = true, modifier = Modifier.weight(1f))
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Switch(checked = obsidianEnabled, onCheckedChange = { obsidianEnabled = it; config.obsidianEnabled = it })
                                 Spacer(Modifier.width(8.dp))
-                                Button(onClick = { browseDirectory(obsidianPath)?.let { obsidianPath = it; config.obsidianPath = it } }) {
-                                    Text(Strings.get("browse", lang))
+                                Text(Strings.get("obsidian_label", lang), style = MaterialTheme.typography.bodyMedium)
+                            }
+                            if (obsidianEnabled) {
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                                    OutlinedTextField(value = obsidianPath, onValueChange = { obsidianPath = it; config.obsidianPath = it },
+                                        singleLine = true, modifier = Modifier.weight(1f))
+                                    Spacer(Modifier.width(8.dp))
+                                    Button(onClick = { browseDirectory(obsidianPath)?.let { obsidianPath = it; config.obsidianPath = it } }) {
+                                        Text(Strings.get("browse", lang))
+                                    }
                                 }
                             }
                         }
-                        Spacer(Modifier.height(12.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Switch(checked = tasksEnabled, onCheckedChange = { tasksEnabled = it; config.tasksEnabled = it })
-                            Spacer(Modifier.width(8.dp))
-                            Text(Strings.get("tasks_path", lang), style = MaterialTheme.typography.bodyMedium)
-                        }
-                        if (tasksEnabled) {
-                            Spacer(Modifier.height(8.dp))
-                            Text(Strings.get("tasks_path", lang), style = MaterialTheme.typography.labelMedium)
-                            Spacer(Modifier.height(4.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                                OutlinedTextField(value = tasksOutputPath, onValueChange = { tasksOutputPath = it; config.tasksOutputPath = it },
-                                    singleLine = true, modifier = Modifier.weight(1f))
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Switch(checked = tasksEnabled, onCheckedChange = { tasksEnabled = it; config.tasksEnabled = it })
                                 Spacer(Modifier.width(8.dp))
-                                Button(onClick = { browseFile(tasksOutputPath)?.let { tasksOutputPath = it; config.tasksOutputPath = it } }) {
-                                    Text(Strings.get("browse", lang))
+                                Text(Strings.get("tasks_path", lang), style = MaterialTheme.typography.bodyMedium)
+                            }
+                            if (tasksEnabled) {
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                                    OutlinedTextField(value = tasksOutputPath, onValueChange = { tasksOutputPath = it; config.tasksOutputPath = it },
+                                        singleLine = true, modifier = Modifier.weight(1f))
+                                    Spacer(Modifier.width(8.dp))
+                                    Button(onClick = { browseFile(tasksOutputPath)?.let { tasksOutputPath = it; config.tasksOutputPath = it } }) {
+                                        Text(Strings.get("browse", lang))
+                                    }
                                 }
                             }
                         }
-                        Spacer(Modifier.height(16.dp))
+                        HorizontalDivider()
                         Text(Strings.get("fetch_params", lang), style = MaterialTheme.typography.titleMedium)
-                        Spacer(Modifier.height(8.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                             OutlinedTextField(value = daysBackText, onValueChange = { daysBackText = it; config.fetchDaysBack = it.toIntOrNull() ?: 7 },
                                 label = { Text(Strings.get("fetch_days", lang)) }, singleLine = true, modifier = Modifier.weight(1f))
@@ -702,10 +710,8 @@ private fun TaskTabContent(
     showClearCompleted: Boolean = false,
     showIntro: Boolean = false,
 ) {
-    Column(Modifier.fillMaxSize().padding(horizontal = 32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally) {
-        Spacer(Modifier.height(8.dp))
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).widthIn(max = 640.dp).padding(bottom = 72.dp)) {
+    Box(Modifier.fillMaxSize().padding(horizontal = 32.dp), contentAlignment = Alignment.Center) {
+        Column(Modifier.widthIn(max = 640.dp).verticalScroll(rememberScrollState()).padding(bottom = 72.dp)) {
             if (events.isEmpty() && showIntro) {
                 Text(Strings.get("intro_title", lang), style = MaterialTheme.typography.headlineMedium,
                     color = MaterialTheme.colorScheme.primary)
@@ -952,27 +958,22 @@ private fun ConnectionTabContent(
     lang: String,
     onFetch: () -> Unit,
 ) {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally) {
-        Column(Modifier.widthIn(max = 420.dp)) {
-            Spacer(Modifier.height(8.dp))
+    Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+        Column(Modifier.widthIn(max = 480.dp).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(value = url, onValueChange = onUrlChange,
                 label = { Text(Strings.get("moodle_url", lang)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height(8.dp))
             OutlinedTextField(value = username, onValueChange = onUsernameChange,
                 label = { Text(Strings.get("username", lang)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height(8.dp))
             OutlinedTextField(value = password, onValueChange = onPasswordChange,
                 label = { Text(Strings.get("password", lang)) }, singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(checked = savePw, onCheckedChange = onSavePwChange)
                 Spacer(Modifier.width(4.dp))
                 Text(Strings.get("store_pw", lang), style = MaterialTheme.typography.bodySmall)
             }
-            Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
                 Button(onClick = onFetch,
                     enabled = url.isNotBlank() && username.isNotBlank() && password.isNotBlank() && !isWorking,
@@ -980,16 +981,15 @@ private fun ConnectionTabContent(
                     Text(if (isWorking) Strings.get("working", lang) else Strings.get("fetch", lang))
                 }
             }
-        }
-        Spacer(Modifier.height(8.dp))
-        Text(Strings.get("log", lang), style = MaterialTheme.typography.labelMedium)
-        Card(
-            Modifier.widthIn(max = 600.dp)
-                .clip(RoundedCornerShape(8.dp)),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        ) {
-            Column(Modifier.fillMaxWidth().padding(8.dp)) {
-                logLines.forEach { line -> Text(line, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace) }
+            Text(Strings.get("log", lang), style = MaterialTheme.typography.labelMedium)
+            Card(
+                Modifier.fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp)),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            ) {
+                Column(Modifier.fillMaxWidth().padding(8.dp)) {
+                    logLines.forEach { line -> Text(line, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace) }
+                }
             }
         }
     }
