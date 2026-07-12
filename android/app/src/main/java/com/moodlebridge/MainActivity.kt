@@ -1218,36 +1218,79 @@ private fun TasksTabContent(
             }
         } else {
             val sorted = events.sortedBy { it.timestart }
-            val grouped = sorted.groupBy { it.course.ifBlank { "General" } }.toSortedMap()
+            val activeEvents = sorted.filter { completionMap[it.id] != true }
+            val completedEvents = sorted.filter { completionMap[it.id] == true }
 
-            grouped.forEach { (course, courseEvents) ->
-            Text(course, style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
-            courseEvents.forEach { ev ->
-                val isDone = completionMap[ev.id] == true
-                val isExpanded = expandedId == ev.id
-                TaskCard(
-                    event = ev, isDone = isDone, isExpanded = isExpanded,
-                    onToggle = { onToggleCompletion(ev.id) },
-                    onExpand = { onExpandedChange(if (isExpanded) null else ev.id) },
-                    onEdit = if (ev.isManual) {{ onEditTask(ev) }} else null,
-                    onDelete = if (ev.isManual) {{ onDeleteTask(ev.id) }} else null,
-                    lang = lang, context = context, use24h = use24h,
-                )
-                Spacer(Modifier.height(4.dp))
+            val activeGrouped = activeEvents.groupBy { it.course.ifBlank { "General" } }.toSortedMap()
+            activeGrouped.forEach { (course, courseEvents) ->
+                Text(course, style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
+                courseEvents.forEach { ev ->
+                    val isExpanded = expandedId == ev.id
+                    TaskCard(
+                        event = ev, isDone = false, isExpanded = isExpanded,
+                        onToggle = { onToggleCompletion(ev.id) },
+                        onExpand = { onExpandedChange(if (isExpanded) null else ev.id) },
+                        onEdit = if (ev.isManual) {{ onEditTask(ev) }} else null,
+                        onDelete = if (ev.isManual) {{ onDeleteTask(ev.id) }} else null,
+                        lang = lang, context = context, use24h = use24h,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                }
             }
-        }
-        if (completionMap.any { it.value }) {
-            Spacer(Modifier.height(12.dp))
-            OutlinedButton(
-                onClick = onClearCompleted,
-                modifier = Modifier.align(Alignment.CenterHorizontally),
-            ) {
-                Text(Strings.get("clear_completed", lang), color = MaterialTheme.colorScheme.error)
+
+            if (completedEvents.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                var showCompleted by remember { mutableStateOf(false) }
+                HorizontalDivider()
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { showCompleted = !showCompleted }
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(Strings.get("completed_tasks", lang),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icon(
+                        imageVector = if (showCompleted) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = if (showCompleted) Strings.get("collapse", lang) else "Expand",
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    )
+                }
+                if (showCompleted) {
+                    val completedGrouped = completedEvents.groupBy { it.course.ifBlank { "General" } }.toSortedMap()
+                    completedGrouped.forEach { (course, courseEvents) ->
+                        Text(course, style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
+                        courseEvents.forEach { ev ->
+                            val isExpanded = expandedId == ev.id
+                            TaskCard(
+                                event = ev, isDone = true, isExpanded = isExpanded,
+                                onToggle = { onToggleCompletion(ev.id) },
+                                onExpand = { onExpandedChange(if (isExpanded) null else ev.id) },
+                                onEdit = if (ev.isManual) {{ onEditTask(ev) }} else null,
+                                onDelete = if (ev.isManual) {{ onDeleteTask(ev.id) }} else null,
+                                lang = lang, context = context, use24h = use24h,
+                            )
+                            Spacer(Modifier.height(4.dp))
+                        }
+                    }
+                }
+                HorizontalDivider()
+                if (completionMap.any { it.value }) {
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = onClearCompleted,
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                    ) {
+                        Text(Strings.get("clear_completed", lang), color = MaterialTheme.colorScheme.error)
+                    }
+                }
             }
-            Spacer(Modifier.height(8.dp))
-    }
 
     }
 
