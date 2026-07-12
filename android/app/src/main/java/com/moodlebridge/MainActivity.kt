@@ -1317,7 +1317,9 @@ private fun TaskCard(
         ((c.timeInMillis - n.timeInMillis) / (1000 * 60 * 60 * 24)).toInt()
     }()
     val timeStr = com.moodlebridge.data.Strings.formatTimestamp(event.timestart, use24h)
-    val relativeDate = when {
+    val relativeDate = if (isDone) {
+        Strings.get("delivered", lang)
+    } else when {
         isOverdue -> Strings.get("tasks_overdue", lang)
         diffDays == 0 -> "${Strings.get("tasks_today", lang)} $timeStr"
         diffDays == 1 -> "${Strings.get("tasks_tomorrow", lang)} $timeStr"
@@ -1330,14 +1332,17 @@ private fun TaskCard(
     }
 
     val overdueColor = MaterialTheme.colorScheme.error
-    val dateColor = when {
+    val dateColor = if (isDone) MaterialTheme.colorScheme.onSurfaceVariant else when {
         isOverdue -> overdueColor
         diffDays <= 2 -> MaterialTheme.colorScheme.tertiary
         else -> Color(0xFF22C55E)
     }
     val dateIcon: androidx.compose.ui.graphics.vector.ImageVector
     val dateTint: Color
-    when {
+    if (isDone) {
+        dateIcon = Icons.Default.CheckCircle
+        dateTint = MaterialTheme.colorScheme.onSurfaceVariant
+    } else when {
         isOverdue -> { dateIcon = Icons.Default.Warning; dateTint = overdueColor }
         diffDays <= 2 -> { dateIcon = Icons.Default.DateRange; dateTint = MaterialTheme.colorScheme.tertiary }
         else -> { dateIcon = Icons.Default.DateRange; dateTint = Color(0xFF22C55E) }

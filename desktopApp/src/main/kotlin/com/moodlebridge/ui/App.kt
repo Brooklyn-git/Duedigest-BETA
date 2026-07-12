@@ -858,7 +858,9 @@ private fun TaskItem(
         ((c.timeInMillis - n.timeInMillis) / (1000 * 60 * 60 * 24)).toInt()
     }()
     val timeStr = Strings.formatTimestamp(event.timestart, use24h)
-    val relativeDate = when {
+    val relativeDate = if (isCompleted) {
+        Strings.get("delivered", lang)
+    } else when {
         isOverdue -> Strings.get("tasks_overdue", "en")
         diffDays == 0 -> "${Strings.get("tasks_today", "en")} $timeStr"
         diffDays == 1 -> "${Strings.get("tasks_tomorrow", "en")} $timeStr"
@@ -870,16 +872,16 @@ private fun TaskItem(
         }
     }
     val overdueColor = MaterialTheme.colorScheme.error
-    val dateColor = when {
+    val dateColor = if (isCompleted) MaterialTheme.colorScheme.onSurfaceVariant else when {
         isOverdue -> overdueColor
         diffDays <= 2 -> MaterialTheme.colorScheme.tertiary
         else -> Color(0xFF22C55E)
     }
-    val dateIcon = when {
+    val dateIcon = if (isCompleted) Icons.Default.CheckCircle else when {
         isOverdue -> Icons.Default.Warning
         else -> Icons.Default.DateRange
     }
-    val dateTint = when {
+    val dateTint = if (isCompleted) MaterialTheme.colorScheme.onSurfaceVariant else when {
         isOverdue -> overdueColor
         diffDays <= 2 -> MaterialTheme.colorScheme.tertiary
         else -> Color(0xFF22C55E)
