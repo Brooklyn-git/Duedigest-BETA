@@ -747,16 +747,18 @@ private fun TaskTabContent(
                 Text(Strings.get("intro_footer", lang), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
-                val grouped = events.groupBy { it.course.ifBlank { "General" } }.toSortedMap()
-                grouped.forEach { (course, courseEvents) ->
+                val activeEvents = events.filter { completionMap[it.id] != true }
+                val completedEvents = events.filter { completionMap[it.id] == true }
+
+                val activeGrouped = activeEvents.groupBy { it.course.ifBlank { "General" } }.toSortedMap()
+                activeGrouped.forEach { (course, courseEvents) ->
                     Text(course, style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
                     courseEvents.forEach { ev ->
-                        val isDone = completionMap[ev.id] == true
                         val isExpanded = expandedId == ev.id
                         TaskItem(
-                            event = ev, isCompleted = isDone,
+                            event = ev, isCompleted = false,
                             isExpanded = isExpanded,
                             onToggleCompletion = { onToggleCompletion(ev.id) },
                             onExpand = { onExpandedChange(if (isExpanded) null else ev.id) },
@@ -767,16 +769,60 @@ private fun TaskTabContent(
                         Spacer(Modifier.height(4.dp))
                     }
                 }
-                if (showClearCompleted) {
+
+                if (completedEvents.isNotEmpty()) {
                     Spacer(Modifier.height(12.dp))
-                    OutlinedButton(
-                        onClick = onClearCompleted,
-                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                    var showCompleted by remember { mutableStateOf(false) }
+                    HorizontalDivider()
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { showCompleted = !showCompleted }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Text(Strings.get("clear_completed", lang), color = MaterialTheme.colorScheme.error)
+                        Text(Strings.get("completed_tasks", lang),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Icon(
+                            imageVector = if (showCompleted) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                            contentDescription = if (showCompleted) Strings.get("collapse", lang) else "Expand",
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        )
                     }
-                    Spacer(Modifier.height(8.dp))
+                    if (showCompleted) {
+                        val completedGrouped = completedEvents.groupBy { it.course.ifBlank { "General" } }.toSortedMap()
+                        completedGrouped.forEach { (course, courseEvents) ->
+                            Text(course, style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
+                            courseEvents.forEach { ev ->
+                                val isExpanded = expandedId == ev.id
+                                TaskItem(
+                                    event = ev, isCompleted = true,
+                                    isExpanded = isExpanded,
+                                    onToggleCompletion = { onToggleCompletion(ev.id) },
+                                    onExpand = { onExpandedChange(if (isExpanded) null else ev.id) },
+                                    onEdit = if (ev.isManual) {{ onEditTask(ev) }} else {{ }},
+                                    onDelete = if (ev.isManual) {{ onDeleteTask(ev.id) }} else {{ }},
+                                    lang = lang, use24h = use24h,
+                                )
+                                Spacer(Modifier.height(4.dp))
+                            }
+                        }
+                    }
+                    HorizontalDivider()
+                    if (showClearCompleted) {
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = onClearCompleted,
+                            modifier = Modifier.align(Alignment.CenterHorizontally),
+                        ) {
+                            Text(Strings.get("clear_completed", lang), color = MaterialTheme.colorScheme.error)
+                        }
+                    }
                 }
+
                 if (events.isEmpty()) {
                     Spacer(Modifier.height(48.dp))
                     Icon(
