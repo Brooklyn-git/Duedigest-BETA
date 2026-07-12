@@ -710,7 +710,7 @@ private fun TaskTabContent(
     showClearCompleted: Boolean = false,
     showIntro: Boolean = false,
 ) {
-    Box(Modifier.fillMaxSize().padding(horizontal = 32.dp), contentAlignment = Alignment.Center) {
+    Box(Modifier.fillMaxSize().padding(horizontal = 32.dp), contentAlignment = Alignment.TopCenter) {
         Column(Modifier.widthIn(max = 640.dp).verticalScroll(rememberScrollState()).padding(bottom = 72.dp)) {
             if (events.isEmpty() && showIntro) {
                 Text(Strings.get("intro_title", lang), style = MaterialTheme.typography.headlineMedium,
