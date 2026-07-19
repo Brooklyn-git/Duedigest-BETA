@@ -500,39 +500,44 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
             }
         }
         LaunchedEffect(Unit) {
-            val savedUrl = config.lastSyncUrl
-            if (savedUrl.isNotBlank()) {
-                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                    try {
-                        val sp = SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId)
-                        val client = OkHttpClient.Builder()
-                            .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
-                            .build()
-                        val reqBody = SyncManager.serializePayload(sp)
-                            .toRequestBody("text/plain".toMediaType())
-                        val request = OkHttpRequest.Builder().url("$savedUrl/sync").post(reqBody).build()
-                        val resp = client.newCall(request).execute()
-                        val respBody = resp.body?.string()
-                        if (resp.isSuccessful && respBody != null) {
-                            val remote = SyncManager.deserializePayload(respBody)
-                            if (remote != null) {
-                                val merged = SyncManager.mergePayload(sp, remote)
-                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                    manualEvents = merged.manualEvents
-                                    taskCompletionMap = merged.taskCompletion
-                                    deletedEventIds = merged.deletedEventIds
-                                    config.manualEventCache = Json.encodeToString(manualEvents)
-                                    config.taskCompletionState = Json.encodeToString(taskCompletionMap)
-                                    config.deletedEventIds = Json.encodeToString(deletedEventIds)
-                                    persistMergeRef?.invoke()
+            while (true) {
+                val savedUrl = config.lastSyncUrl
+                if (savedUrl.isNotBlank()) {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        try {
+                            val sp = SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId)
+                            val client = OkHttpClient.Builder()
+                                .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                                .build()
+                            val reqBody = SyncManager.serializePayload(sp)
+                                .toRequestBody("text/plain".toMediaType())
+                            val request = OkHttpRequest.Builder().url("$savedUrl/sync").post(reqBody).build()
+                            val resp = client.newCall(request).execute()
+                            val respBody = resp.body?.string()
+                            if (resp.isSuccessful && respBody != null) {
+                                val remote = SyncManager.deserializePayload(respBody)
+                                if (remote != null) {
+                                    val merged = SyncManager.mergePayload(sp, remote)
+                                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                        if (merged.manualEvents != manualEvents || merged.taskCompletion != taskCompletionMap || merged.deletedEventIds != deletedEventIds) {
+                                            manualEvents = merged.manualEvents
+                                            taskCompletionMap = merged.taskCompletion
+                                            deletedEventIds = merged.deletedEventIds
+                                            config.manualEventCache = Json.encodeToString(manualEvents)
+                                            config.taskCompletionState = Json.encodeToString(taskCompletionMap)
+                                            config.deletedEventIds = Json.encodeToString(deletedEventIds)
+                                            persistMergeRef?.invoke()
+                                            Log.d("DueNest", "Auto-sync applied: ${merged.manualEvents.size} events")
+                                        }
+                                    }
                                 }
-                                Log.d("DueNest", "Auto-sync applied: ${merged.manualEvents.size} events")
                             }
+                        } catch (e: Exception) {
+                            Log.d("DueNest", "Auto-sync skipped: ${e.message}")
                         }
-                    } catch (e: Exception) {
-                        Log.d("DueNest", "Auto-sync skipped: ${e.message}")
                     }
                 }
+                kotlinx.coroutines.delay(30_000)
             }
         }
         if (showOutputSettings) {
