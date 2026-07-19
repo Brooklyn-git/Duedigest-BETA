@@ -370,12 +370,12 @@ fun DesktopApp(config: DesktopConfigStore) {
     DueNestTheme(themeMode = themeMode) {
     val cs = MaterialTheme.colorScheme
     var sidebarExpanded by remember { mutableStateOf(true) }
-    var selectedSection by remember { mutableStateOf(0) }
+    var selectedSection by remember { mutableStateOf(1) }
 
     Row(Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
-                .width(if (sidebarExpanded) 180.dp else 48.dp)
+                .width(if (sidebarExpanded) 240.dp else 48.dp)
                 .fillMaxHeight()
                 .background(MaterialTheme.colorScheme.surfaceVariant),
             verticalArrangement = Arrangement.Center,
@@ -387,9 +387,9 @@ fun DesktopApp(config: DesktopConfigStore) {
                     "Collapse", false, sidebarExpanded,
                 ) { sidebarExpanded = !sidebarExpanded }
                 HorizontalDivider()
-                NavItem(Icons.Default.Build, Strings.get("connection", lang), selectedSection == 0, sidebarExpanded) { selectedSection = 0 }
-                HorizontalDivider()
                 NavItem(Icons.Default.CheckCircle, Strings.get("tasks", lang), selectedSection == 1, sidebarExpanded) { selectedSection = 1 }
+                HorizontalDivider()
+                NavItem(Icons.Default.Build, Strings.get("connection", lang), selectedSection == 0, sidebarExpanded) { selectedSection = 0 }
                 HorizontalDivider()
                 NavItem(Icons.Default.Settings, Strings.get("settings", lang), selectedSection == 2, sidebarExpanded) { selectedSection = 2 }
                 HorizontalDivider()
@@ -402,8 +402,8 @@ fun DesktopApp(config: DesktopConfigStore) {
             TopAppBar(
                 title = {
                     Column {
-                        Text(Strings.get("app_title", lang), style = MaterialTheme.typography.titleLarge)
-                        Text(Strings.get("subtitle", lang), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(Strings.get("app_title", lang), style = MaterialTheme.typography.headlineMedium)
+                        Text(Strings.get("subtitle", lang), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 },
                 actions = {
@@ -412,6 +412,7 @@ fun DesktopApp(config: DesktopConfigStore) {
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+                modifier = Modifier.height(100.dp),
             )
             when (selectedSection) {
                 0 -> ConnectionTabContent(
@@ -460,10 +461,10 @@ fun DesktopApp(config: DesktopConfigStore) {
                 2 -> Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
                     Column(Modifier.widthIn(max = 640.dp).verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                        Text(Strings.get("settings", lang), style = MaterialTheme.typography.titleLarge)
+                        Text(Strings.get("settings", lang), style = MaterialTheme.typography.headlineMedium)
                         HorizontalDivider()
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(Strings.get("theme", lang), style = MaterialTheme.typography.titleMedium)
+                            Text(Strings.get("theme", lang), style = MaterialTheme.typography.titleLarge)
                             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                                 listOf(
                                     "system" to Strings.get("theme_system", lang),
@@ -480,7 +481,7 @@ fun DesktopApp(config: DesktopConfigStore) {
                             }
                         }
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(Strings.get("language", lang), style = MaterialTheme.typography.titleMedium)
+                            Text(Strings.get("language", lang), style = MaterialTheme.typography.titleLarge)
                             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                                 listOf("en" to "English", "es" to "Español").forEach { (v, lbl) ->
                                     Row(Modifier.clickable { selectedLang = v; config.language = v },
@@ -492,7 +493,7 @@ fun DesktopApp(config: DesktopConfigStore) {
                             }
                         }
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(Strings.get("time_format", lang), style = MaterialTheme.typography.titleMedium)
+                            Text(Strings.get("time_format", lang), style = MaterialTheme.typography.titleLarge)
                             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                                 Row(Modifier.clickable { use24h = false; config.use24h = false },
                                     verticalAlignment = Alignment.CenterVertically) {
@@ -515,7 +516,7 @@ fun DesktopApp(config: DesktopConfigStore) {
                 3 -> Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
                     Column(Modifier.widthIn(max = 640.dp).verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        Text("Output Settings", style = MaterialTheme.typography.titleLarge)
+                        Text("Output Settings", style = MaterialTheme.typography.headlineMedium)
                         HorizontalDivider()
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -569,7 +570,7 @@ fun DesktopApp(config: DesktopConfigStore) {
                             }
                         }
                         HorizontalDivider()
-                        Text(Strings.get("fetch_params", lang), style = MaterialTheme.typography.titleMedium)
+                        Text(Strings.get("fetch_params", lang), style = MaterialTheme.typography.titleLarge)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                             OutlinedTextField(value = daysBackText, onValueChange = { daysBackText = it; config.fetchDaysBack = it.toIntOrNull() ?: 7 },
                                 label = { Text(Strings.get("fetch_days", lang)) }, singleLine = true, modifier = Modifier.weight(1f))
@@ -1030,7 +1031,7 @@ private fun NavItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(48.dp)
+            .height(64.dp)
             .background(bg)
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp),
@@ -1357,6 +1358,7 @@ private fun ConnectionTabContent(
     Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
         Column(Modifier.widthIn(max = 480.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(Strings.get("log_in", lang), style = MaterialTheme.typography.headlineMedium)
             OutlinedTextField(value = url, onValueChange = onUrlChange,
                 label = { Text(Strings.get("moodle_url", lang)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(value = username, onValueChange = onUsernameChange,
