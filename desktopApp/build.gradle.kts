@@ -22,11 +22,14 @@ dependencies {
     implementation(compose.material3)
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
     implementation("com.google.zxing:core:3.5.3")
+    implementation("com.google.zxing:javase:3.5.3")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }
 
 compose.desktop {
     application {
         mainClass = "com.moodlebridge.MainKt"
+        jvmArgs += "--enable-native-access=ALL-UNNAMED"
     }
 }
 
@@ -34,6 +37,8 @@ tasks.jar {
     dependsOn(configurations.runtimeClasspath)
     manifest {
         attributes["Main-Class"] = "com.moodlebridge.MainKt"
+        attributes["Add-Opens"] = "java.base/java.lang=ALL-UNNAMED"
+        attributes["Enable-Native-Access"] = "ALL-UNNAMED"
     }
     from({
         configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) }

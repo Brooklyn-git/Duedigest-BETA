@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.util.Log
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -76,6 +77,7 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -98,6 +100,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import android.app.Activity
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
@@ -121,6 +124,7 @@ import com.moodlebridge.data.MarkdownGenerator
 import com.moodlebridge.data.MoodleApi
 import com.moodlebridge.data.PathResolver
 import com.moodlebridge.data.Strings
+import com.moodlebridge.data.MergeResult
 import com.moodlebridge.data.SyncManager
 import com.moodlebridge.worker.NotificationWorker
 import com.moodlebridge.worker.TaskReminderWorker
@@ -136,9 +140,27 @@ import java.util.UUID
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request as OkHttpRequest
+import okhttp3.RequestBody.Companion.toRequestBody
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import com.google.zxing.BinaryBitmap
+import com.google.zxing.common.HybridBinarizer
+import com.google.zxing.PlanarYUVLuminanceSource
+import com.google.zxing.qrcode.QRCodeReader
+import java.util.concurrent.Executors
+import androidx.concurrent.futures.await
 
 import androidx.glance.appwidget.updateAll
 import com.moodlebridge.widget.TaskWidget
@@ -251,29 +273,16 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     var showNewCourseDialog by remember { mutableStateOf(false) }
     var newCourseName by remember { mutableStateOf("") }
     var showSyncDialog by remember { mutableStateOf(false) }
-    var syncScanMode by remember { mutableStateOf(false) }
+    var syncScanMode by remember { mutableStateOf(true) }
     var syncMergeMsg by remember { mutableStateOf<String?>(null) }
     var persistMergeRef by remember { mutableStateOf<(() -> Unit)?>(null) }
 
-    val qrScannerLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
-        if (result.contents != null) {
-            val remote = SyncManager.deserializePayload(result.contents)
-            if (remote != null) {
-                val syncPayload = SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId)
-                val merged = SyncManager.mergePayload(syncPayload, remote)
-                manualEvents = merged.manualEvents
-                taskCompletionMap = merged.taskCompletion
-                deletedEventIds = merged.deletedEventIds
-                config.manualEventCache = Json.encodeToString(manualEvents)
-                config.taskCompletionState = Json.encodeToString(taskCompletionMap)
-                config.deletedEventIds = Json.encodeToString(deletedEventIds)
-                persistMergeRef?.invoke()
-                syncScanMode = false
-                syncMergeMsg = Strings.get("sync_merged", lang)
-            } else {
-                syncScanMode = false
-                syncMergeMsg = Strings.get("sync_no_data", lang)
-            }
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (!granted) {
+            syncScanMode = false
+            syncMergeMsg = Strings.get("sync_error", lang)
         }
     }
 
@@ -503,7 +512,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                         }
                     },
                     actions = {
-                        IconButton(onClick = { showSyncDialog = true; syncScanMode = false; syncMergeMsg = null }) {
+                        IconButton(onClick = { showSyncDialog = true; syncScanMode = true; syncMergeMsg = null }) {
                             Icon(Icons.Default.Share, contentDescription = Strings.get("sync", lang))
                         }
                         IconButton(onClick = { showSettings = !showSettings }) {
@@ -944,11 +953,18 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
         val syncPayload = remember(manualEvents, taskCompletionMap, deletedEventIds) {
             SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId)
         }
-        val qrImage: ImageBitmap? = remember(syncPayload) {
+
+        if (syncScanMode && ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            LaunchedEffect(Unit) { cameraPermissionLauncher.launch(Manifest.permission.CAMERA) }
+        }
+
+        val qrContent = remember(syncPayload) {
+            SyncManager.serializePayload(syncPayload)
+        }
+        val qrImage: ImageBitmap? = remember(qrContent) {
             try {
-                val serialized = SyncManager.serializePayload(syncPayload)
                 val writer = QRCodeWriter()
-                val matrix: BitMatrix = writer.encode(serialized, BarcodeFormat.QR_CODE, 400, 400)
+                val matrix: BitMatrix = writer.encode(qrContent, BarcodeFormat.QR_CODE, 400, 400)
                 val w = matrix.width
                 val h = matrix.height
                 val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.RGB_565)
@@ -960,6 +976,15 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                 bmp.asImageBitmap()
             } catch (_: Exception) { null }
         }
+
+        val scanChannel = remember { kotlinx.coroutines.channels.Channel<String>(kotlinx.coroutines.channels.Channel.CONFLATED) }
+        val lifecycleOwner = LocalLifecycleOwner.current
+        val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
+
+        DisposableEffect(Unit) {
+            onDispose { cameraExecutor.shutdown() }
+        }
+
         AlertDialog(
             onDismissRequest = { showSyncDialog = false },
             containerColor = cs.surface, titleContentColor = cs.onSurface, textContentColor = cs.onSurface,
@@ -967,7 +992,38 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
             text = {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     if (syncScanMode) {
-                        Text(Strings.get("sync_scanning", lang), style = MaterialTheme.typography.bodyMedium)
+                        Box(
+                            modifier = Modifier.size(250.dp).clip(RoundedCornerShape(8.dp))
+                                .background(Color.Black)
+                        ) {
+                            val previewView = remember { PreviewView(context) }
+                            AndroidView(
+                                factory = { previewView },
+                                modifier = Modifier.size(250.dp).clip(RoundedCornerShape(8.dp))
+                            )
+                            LaunchedEffect(Unit) {
+                                try {
+                                    val cameraProvider = ProcessCameraProvider.getInstance(context).await()
+                                    val preview = androidx.camera.core.Preview.Builder().build().also {
+                                        it.surfaceProvider = previewView.surfaceProvider
+                                    }
+                                    val imageAnalysis = ImageAnalysis.Builder()
+                                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                                        .build()
+                                    imageAnalysis.setAnalyzer(cameraExecutor) { imageProxy ->
+                                        decodeQrFromImage(imageProxy) { content ->
+                                            scanChannel.trySend(content)
+                                        }
+                                    }
+                                    cameraProvider.unbindAll()
+                                    cameraProvider.bindToLifecycle(
+                                        lifecycleOwner,
+                                        CameraSelector.DEFAULT_BACK_CAMERA,
+                                        preview, imageAnalysis
+                                    )
+                                } catch (_: Exception) {}
+                            }
+                        }
                         Spacer(Modifier.height(8.dp))
                         TextButton(onClick = { syncScanMode = false }) {
                             Text(Strings.get("sync_show_qr", lang))
@@ -986,22 +1042,129 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                         }
                         Spacer(Modifier.height(12.dp))
                         TextButton(onClick = {
-                            syncScanMode = false
+                            syncScanMode = true
                             syncMergeMsg = null
-                            val options = ScanOptions()
-                            options.setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                            options.setPrompt(Strings.get("sync_scanning", lang))
-                            options.setBeepEnabled(false)
-                            qrScannerLauncher.launch(options)
                         }) {
                             Text(Strings.get("sync_scan_qr", lang))
                         }
                     }
                 }
             },
-            confirmButton = {},
+            confirmButton = {
+                if (!syncScanMode) {
+                    TextButton(onClick = {
+                        try {
+                            val ms = SyncManager.serializePayload(syncPayload)
+                            val writer = QRCodeWriter()
+                            val matrix = writer.encode(ms, BarcodeFormat.QR_CODE, 400, 400)
+                            val bmp = Bitmap.createBitmap(400, 400, Bitmap.Config.RGB_565)
+                            for (x in 0 until 400) for (y in 0 until 400)
+                                bmp.setPixel(x, y, if (matrix.get(x, y)) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+                            val file = File(context.cacheDir, "duenest-qr.png")
+                            java.io.FileOutputStream(file).use { out ->
+                                bmp.compress(Bitmap.CompressFormat.PNG, 100, out)
+                            }
+                            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                            val share = Intent(Intent.ACTION_SEND).apply {
+                                type = "image/png"
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(Intent.createChooser(share, Strings.get("sync_export_qr", lang)))
+                        } catch (_: Exception) {}
+                    }) { Text(Strings.get("sync_export_qr", lang)) }
+                }
+            },
             dismissButton = { TextButton(onClick = { showSyncDialog = false }) { Text(Strings.get("cancel", lang)) } })
+
+        LaunchedEffect(Unit) {
+            for (content in scanChannel) {
+                Log.d("DueNest", "QR raw content length: ${content.length}, starts: ${content.take(80)}")
+                val (url, remotePayload) = SyncManager.decodeQrContent(content)
+                Log.d("DueNest", "QR decoded: url=$url, remoteEvents=${remotePayload?.manualEvents?.size}, remoteCompletions=${remotePayload?.taskCompletion?.size}")
+                val applyMerged: (MergeResult) -> Unit = { merged ->
+                    manualEvents = merged.manualEvents
+                    taskCompletionMap = merged.taskCompletion
+                    deletedEventIds = merged.deletedEventIds
+                    config.manualEventCache = Json.encodeToString(manualEvents)
+                    config.taskCompletionState = Json.encodeToString(taskCompletionMap)
+                    config.deletedEventIds = Json.encodeToString(deletedEventIds)
+                    persistMergeRef?.invoke()
+                    syncScanMode = false
+                    syncMergeMsg = Strings.get("sync_merged", lang)
+                    CoroutineScope(Dispatchers.Main).launch {
+                        delay(1500)
+                        showSyncDialog = false
+                    }
+                }
+                if (url != null) {
+                    Log.d("DueNest", "POST to $url/sync with ${syncPayload.manualEvents.size} events, ${syncPayload.taskCompletion.size} completions")
+                    syncMergeMsg = Strings.get("sync_syncing", lang)
+                    withContext(Dispatchers.IO) {
+                        try {
+                            val client = OkHttpClient.Builder()
+                                .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                                .build()
+                            val reqBody = SyncManager.serializePayload(syncPayload)
+                                .toRequestBody("text/plain".toMediaType())
+                            val request = OkHttpRequest.Builder().url("$url/sync").post(reqBody).build()
+                            val resp = client.newCall(request).execute()
+                            val respBody = resp.body?.string()
+                            Log.d("DueNest", "POST response: code=${resp.code}, bodyLen=${respBody?.length}")
+                            if (resp.isSuccessful && respBody != null) {
+                                val remote = SyncManager.deserializePayload(respBody)
+                                if (remote != null) {
+                                    val merged = SyncManager.mergePayload(syncPayload, remote)
+                                    withContext(Dispatchers.Main) { applyMerged(merged) }
+                                } else if (remotePayload != null) {
+                                    val merged = SyncManager.mergePayload(syncPayload, remotePayload)
+                                    withContext(Dispatchers.Main) { applyMerged(merged) }
+                                }
+                            } else if (remotePayload != null) {
+                                val merged = SyncManager.mergePayload(syncPayload, remotePayload)
+                                withContext(Dispatchers.Main) { applyMerged(merged) }
+                            }
+                        } catch (e: Exception) {
+                            Log.e("DueNest", "POST failed: ${e.message}")
+                            if (remotePayload != null) {
+                                val merged = SyncManager.mergePayload(syncPayload, remotePayload)
+                                withContext(Dispatchers.Main) {
+                                    applyMerged(merged)
+                                    syncMergeMsg = Strings.get("sync_connection_failed", lang)
+                                }
+                            } else withContext(Dispatchers.Main) {
+                                syncScanMode = false
+                                syncMergeMsg = Strings.get("sync_connection_failed", lang)
+                            }
+                        }
+                    }
+                } else if (remotePayload != null) {
+                    val merged = SyncManager.mergePayload(syncPayload, remotePayload)
+                    applyMerged(merged)
+                } else {
+                    syncScanMode = false
+                    syncMergeMsg = Strings.get("sync_no_data", lang)
+                }
+            }
+        }
     }
+    }
+}
+
+private fun decodeQrFromImage(imageProxy: ImageProxy, onFound: (String) -> Unit) {
+    try {
+        val buffer = imageProxy.planes[0].buffer
+        val bytes = ByteArray(buffer.remaining())
+        buffer.get(bytes)
+        val source = PlanarYUVLuminanceSource(
+            bytes, imageProxy.width, imageProxy.height, 0, 0, imageProxy.width, imageProxy.height, false
+        )
+        val binaryBitmap = BinaryBitmap(HybridBinarizer(source))
+        val result = QRCodeReader().decode(binaryBitmap)
+        onFound(result.text)
+    } catch (_: Exception) {
+    } finally {
+        imageProxy.close()
     }
 }
 

@@ -103,7 +103,7 @@ object Strings {
         "time_24h" to "24h",
         "time_12h" to "12h",
         "sync" to "Sync",
-        "sync_qr_title" to "Sync between devices",
+        "sync_qr_title" to "Sync with nearby devices",
         "sync_scan_qr" to "Scan QR instead?",
         "sync_show_qr" to "Show QR instead?",
         "sync_import" to "Import from file",
@@ -112,6 +112,12 @@ object Strings {
         "sync_merged" to "Sync data merged successfully",
         "sync_no_data" to "No sync data found",
         "sync_error" to "Failed to sync",
+        "sync_syncing" to "Syncing\u2026",
+        "sync_connected" to "Synced!",
+        "sync_connection_failed" to "Could not connect. Try again.",
+        "sync_export_qr" to "Export QR",
+        "sync_import_qr" to "Import QR",
+        "sync_no_network" to "No network connection",
     )
 
     private val es = mapOf(
@@ -215,7 +221,7 @@ object Strings {
         "time_24h" to "24h",
         "time_12h" to "12h",
         "sync" to "Sincronizar",
-        "sync_qr_title" to "Sincronizar entre dispositivos",
+        "sync_qr_title" to "Sincronizar con dispositivos cercanos",
         "sync_scan_qr" to "\u00bfEscanear QR?",
         "sync_show_qr" to "\u00bfMostrar QR?",
         "sync_import" to "Importar desde archivo",
@@ -224,6 +230,12 @@ object Strings {
         "sync_merged" to "Datos sincronizados correctamente",
         "sync_no_data" to "No se encontraron datos de sincronizaci\u00f3n",
         "sync_error" to "Error al sincronizar",
+        "sync_syncing" to "Sincronizando\u2026",
+        "sync_connected" to "\u00a1Sincronizado!",
+        "sync_connection_failed" to "No se pudo conectar. Intenta de nuevo.",
+        "sync_export_qr" to "Exportar QR",
+        "sync_import_qr" to "Importar QR",
+        "sync_no_network" to "Sin conexi\u00f3n de red",
     )
 
     fun get(key: String, lang: String = "en"): String {

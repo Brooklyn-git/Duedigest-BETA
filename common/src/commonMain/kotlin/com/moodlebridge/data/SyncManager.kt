@@ -2,6 +2,11 @@ package com.moodlebridge.data
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 
 @Serializable
 data class SyncPayload(
@@ -87,6 +92,28 @@ object SyncManager {
             json.decodeFromString<SyncPayload>(jsonBytes.decodeToString())
         } catch (_: Exception) {
             null
+        }
+    }
+
+    fun encodeQrContent(serverUrl: String?, payload: SyncPayload): String {
+        val data = serializePayload(payload)
+        if (serverUrl == null) return data
+        val obj = buildJsonObject {
+            put("u", JsonPrimitive(serverUrl))
+            put("d", JsonPrimitive(data))
+        }
+        return obj.toString()
+    }
+
+    fun decodeQrContent(content: String): Pair<String?, SyncPayload?> {
+        return try {
+            val obj = json.parseToJsonElement(content).jsonObject
+            val url = obj["u"]?.jsonPrimitive?.content
+            val data = obj["d"]?.jsonPrimitive?.content
+            val payload = data?.let { deserializePayload(it) }
+            Pair(url, payload)
+        } catch (_: Exception) {
+            Pair(null, deserializePayload(content))
         }
     }
 }

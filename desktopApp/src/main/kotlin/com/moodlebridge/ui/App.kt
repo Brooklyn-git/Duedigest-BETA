@@ -92,22 +92,38 @@ import com.moodlebridge.data.MarkdownGenerator
 import com.moodlebridge.data.MoodleApi
 import com.moodlebridge.data.Strings
 import com.moodlebridge.data.SyncManager
+import com.moodlebridge.data.MergeResult
 import com.moodlebridge.data.SyncPayload
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.awt.Desktop
 import java.awt.image.BufferedImage
 import java.io.File
+import java.net.Inet4Address
+import java.net.InetSocketAddress
+import java.net.NetworkInterface
 import java.net.URI
 import java.util.UUID
+import java.util.concurrent.Executors
+import javax.imageio.ImageIO
 import javax.swing.JFileChooser
 import javax.swing.filechooser.FileNameExtensionFilter
 import com.google.zxing.BarcodeFormat
+import com.google.zxing.BinaryBitmap
 import com.google.zxing.common.BitMatrix
+import com.google.zxing.common.HybridBinarizer
+import com.google.zxing.client.j2se.BufferedImageLuminanceSource
+import com.google.zxing.qrcode.QRCodeReader
 import com.google.zxing.qrcode.QRCodeWriter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -689,16 +705,113 @@ fun DesktopApp(config: DesktopConfigStore) {
                 confirmButton = { TextButton(onClick = { errorDialogMsg = null }) { Text("OK") } })
         }
 
+        val syncChannel = remember { Channel<MergeResult>(Channel.CONFLATED) }
+
+        val localIp = remember {
+            try {
+                NetworkInterface.getNetworkInterfaces().toList().asSequence()
+                    .filter { it.isUp && !it.isLoopback && !it.isVirtual && it.name != "docker0" }
+                    .filter { it.name.startsWith("eth") || it.name.startsWith("wlan") || it.name.startsWith("en") || it.name.startsWith("wl") || it.name.startsWith("wlp") }
+                    .flatMap { it.inetAddresses.toList().asSequence() }
+                    .firstOrNull { !it.isLoopbackAddress && it is Inet4Address }
+                    ?.hostAddress
+                    ?: run {
+                        NetworkInterface.getNetworkInterfaces().toList().asSequence()
+                            .filter { it.isUp && !it.isLoopback && !it.isVirtual }
+                            .flatMap { it.inetAddresses.toList().asSequence() }
+                            .firstOrNull { !it.isLoopbackAddress && it is Inet4Address }
+                            ?.hostAddress
+                    }
+            } catch (_: Exception) { null }
+        }
+
+        LaunchedEffect(Unit) {
+            val server = try {
+                val s = com.sun.net.httpserver.HttpServer.create(InetSocketAddress(8765), 0)
+                s.createContext("/sync") { exchange ->
+                    println("[DueNest Sync] Received ${exchange.requestMethod} from ${exchange.remoteAddress}")
+                    if (exchange.requestMethod == "POST") {
+                        try {
+                            val body = exchange.requestBody.readBytes().decodeToString()
+                            val remote = SyncManager.deserializePayload(body)
+                            if (remote != null) {
+                                println("[DueNest Sync] Remote has ${remote.manualEvents.size} events, ${remote.taskCompletion.size} completions")
+                                val le = try { Json.decodeFromString<List<Event>>(config.manualEventCache) } catch (_: Exception) { emptyList() }
+                                val lc = try { Json.decodeFromString<Map<String, Boolean>>(config.taskCompletionState) } catch (_: Exception) { emptyMap() }
+                                val ld = try { Json.decodeFromString<Set<String>>(config.deletedEventIds) } catch (_: Exception) { emptySet() }
+                                val local = SyncManager.generatePayload(le, lc, ld, config.deviceId)
+                                println("[DueNest Sync] Local has ${local.manualEvents.size} events, ${local.taskCompletion.size} completions")
+                                val merged = SyncManager.mergePayload(local, remote)
+                                println("[DueNest Sync] Merged: ${merged.manualEvents.size} events, ${merged.taskCompletion.size} completions")
+                                val response = SyncManager.serializePayload(
+                                    SyncManager.generatePayload(merged.manualEvents, merged.taskCompletion, merged.deletedEventIds, config.deviceId)
+                                )
+                                exchange.responseHeaders.add("Content-Type", "text/plain")
+                                exchange.sendResponseHeaders(200, response.toByteArray().size.toLong())
+                                exchange.responseBody.write(response.toByteArray())
+                                exchange.close()
+                                println("[DueNest Sync] Response sent, sending to syncChannel")
+                                syncChannel.trySend(merged)
+                                println("[DueNest Sync] syncChannel sent ok")
+                            } else {
+                                println("[DueNest Sync] Failed to deserialize remote payload")
+                                exchange.sendResponseHeaders(400, 0)
+                                exchange.close()
+                            }
+                        } catch (e: Exception) {
+                            println("[DueNest Sync] Error: ${e.message}")
+                            try { exchange.sendResponseHeaders(500, 0); exchange.close() } catch (_: Exception) {}
+                        }
+                    } else {
+                        exchange.sendResponseHeaders(405, 0)
+                        exchange.close()
+                    }
+                }
+                s.executor = Executors.newSingleThreadExecutor()
+                s.start()
+                println("[DueNest Sync] Server started on port 8765")
+                s
+            } catch (e: Exception) {
+                println("[DueNest Sync] Failed to start server: ${e.message}")
+                null
+            }
+
+            try {
+                while (true) {
+                    val merged = syncChannel.receive()
+                    println("[DueNest Sync] Consumer received: ${merged.manualEvents.size} events, ${merged.taskCompletion.size} completions, ${merged.deletedEventIds.size} deleted")
+                    manualEvents = merged.manualEvents
+                    taskCompletionMap = merged.taskCompletion
+                    deletedEventIds = merged.deletedEventIds
+                    config.manualEventCache = Json.encodeToString(manualEvents)
+                    config.taskCompletionState = Json.encodeToString(taskCompletionMap)
+                    config.deletedEventIds = Json.encodeToString(deletedEventIds)
+                    persistMergedEvents()
+                    kotlinx.coroutines.delay(1500)
+                    showSyncDialog = false
+                }
+                awaitCancellation()
+            } finally {
+                server?.stop(0)
+            }
+        }
+
         if (showSyncDialog) {
             var syncMergeMsg by remember { mutableStateOf<String?>(null) }
             val syncPayload = remember(manualEvents, taskCompletionMap, deletedEventIds) {
                 SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId)
             }
-            val qrImage: ImageBitmap? = remember(syncPayload) {
+
+            val qrContent = remember(syncPayload, localIp) {
+                val content = if (localIp != null) SyncManager.encodeQrContent("http://$localIp:8765", syncPayload)
+                else SyncManager.serializePayload(syncPayload)
+                println("[DueNest Sync] QR content: localIp=$localIp, contentLen=${content.length}, startsWith=${content.take(80)}")
+                content
+            }
+            val qrImage: ImageBitmap? = remember(qrContent) {
                 try {
-                    val serialized = SyncManager.serializePayload(syncPayload)
                     val writer = QRCodeWriter()
-                    val matrix: BitMatrix = writer.encode(serialized, BarcodeFormat.QR_CODE, 400, 400)
+                    val matrix: BitMatrix = writer.encode(qrContent, BarcodeFormat.QR_CODE, 400, 400)
                     val buffered = BufferedImage(400, 400, BufferedImage.TYPE_INT_RGB)
                     for (x in 0 until 400) {
                         for (y in 0 until 400) {
@@ -720,6 +833,12 @@ fun DesktopApp(config: DesktopConfigStore) {
                         } else {
                             Text(Strings.get("sync_error", lang), color = MaterialTheme.colorScheme.error)
                         }
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            if (localIp != null) "http://$localIp:8765" else Strings.get("sync_no_network", lang),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (localIp != null) cs.onSurface.copy(alpha = 0.5f) else MaterialTheme.colorScheme.error
+                        )
                         if (syncMergeMsg != null) {
                             Spacer(Modifier.height(8.dp))
                             Text(syncMergeMsg!!, color = MaterialTheme.colorScheme.primary,
@@ -770,6 +889,122 @@ fun DesktopApp(config: DesktopConfigStore) {
                                 } catch (_: Exception) {}
                             }, modifier = Modifier.weight(1f)) {
                                 Text(Strings.get("sync_import", lang))
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = {
+                                try {
+                                    val fc = JFileChooser()
+                                    fc.dialogTitle = Strings.get("sync_import_qr", lang)
+                                    fc.fileFilter = FileNameExtensionFilter("Image files", "png", "jpg", "jpeg", "bmp")
+                                    val result = fc.showOpenDialog(null)
+                                    if (result == JFileChooser.APPROVE_OPTION) {
+                                        val image = ImageIO.read(fc.selectedFile)
+                                        if (image != null) {
+                                            val source = BufferedImageLuminanceSource(image)
+                                            val binarizer = HybridBinarizer(source)
+                                            val bitmap = BinaryBitmap(binarizer)
+                                            val qrResult = QRCodeReader().decode(bitmap)
+                                            val (url, payload) = SyncManager.decodeQrContent(qrResult.text)
+                                            if (url != null) {
+                                                syncMergeMsg = Strings.get("sync_syncing", lang)
+                                                scope.launch(Dispatchers.IO) {
+                                                    try {
+                                                        val client = OkHttpClient.Builder()
+                                                            .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                                                            .build()
+                                                        val reqBody = SyncManager.serializePayload(syncPayload)
+                                                            .toRequestBody("text/plain".toMediaType())
+                                                        val request = Request.Builder().url("$url/sync").post(reqBody).build()
+                                                        val resp = client.newCall(request).execute()
+                                                        val respBody = resp.body?.string()
+                                                        if (resp.isSuccessful && respBody != null) {
+                                                            val remote = SyncManager.deserializePayload(respBody)
+                                                            if (remote != null) {
+                                                                val merged = SyncManager.mergePayload(syncPayload, remote)
+                                                                withContext(Dispatchers.Main) {
+                                                                    manualEvents = merged.manualEvents
+                                                                    taskCompletionMap = merged.taskCompletion
+                                                                    deletedEventIds = merged.deletedEventIds
+                                                                    config.manualEventCache = Json.encodeToString(manualEvents)
+                                                                    config.taskCompletionState = Json.encodeToString(taskCompletionMap)
+                                                                    config.deletedEventIds = Json.encodeToString(deletedEventIds)
+                                                                    persistMergedEvents()
+                                                                    syncMergeMsg = Strings.get("sync_merged", lang)
+                                                                }
+                                                            }
+                                                        } else if (payload != null) {
+                                                            withContext(Dispatchers.Main) {
+                                                                val merged = SyncManager.mergePayload(syncPayload, payload)
+                                                                manualEvents = merged.manualEvents
+                                                                taskCompletionMap = merged.taskCompletion
+                                                                deletedEventIds = merged.deletedEventIds
+                                                                config.manualEventCache = Json.encodeToString(manualEvents)
+                                                                config.taskCompletionState = Json.encodeToString(taskCompletionMap)
+                                                                config.deletedEventIds = Json.encodeToString(deletedEventIds)
+                                                                persistMergedEvents()
+                                                                syncMergeMsg = Strings.get("sync_merged", lang)
+                                                            }
+                                                        }
+                                                    } catch (_: Exception) {
+                                                        if (payload != null) withContext(Dispatchers.Main) {
+                                                            val merged = SyncManager.mergePayload(syncPayload, payload)
+                                                            manualEvents = merged.manualEvents
+                                                            taskCompletionMap = merged.taskCompletion
+                                                            deletedEventIds = merged.deletedEventIds
+                                                            config.manualEventCache = Json.encodeToString(manualEvents)
+                                                            config.taskCompletionState = Json.encodeToString(taskCompletionMap)
+                                                            config.deletedEventIds = Json.encodeToString(deletedEventIds)
+                                                            persistMergedEvents()
+                                                            syncMergeMsg = Strings.get("sync_merged", lang)
+                                                        } else withContext(Dispatchers.Main) {
+                                                            syncMergeMsg = Strings.get("sync_connection_failed", lang)
+                                                        }
+                                                    }
+                                                }
+                                            } else if (payload != null) {
+                                                val merged = SyncManager.mergePayload(syncPayload, payload)
+                                                manualEvents = merged.manualEvents
+                                                taskCompletionMap = merged.taskCompletion
+                                                deletedEventIds = merged.deletedEventIds
+                                                config.manualEventCache = Json.encodeToString(manualEvents)
+                                                config.taskCompletionState = Json.encodeToString(taskCompletionMap)
+                                                config.deletedEventIds = Json.encodeToString(deletedEventIds)
+                                                persistMergedEvents()
+                                                syncMergeMsg = Strings.get("sync_merged", lang)
+                                            } else {
+                                                syncMergeMsg = Strings.get("sync_no_data", lang)
+                                            }
+                                        } else {
+                                            syncMergeMsg = Strings.get("sync_no_data", lang)
+                                        }
+                                    }
+                                } catch (_: Exception) { syncMergeMsg = Strings.get("sync_no_data", lang) }
+                            }, modifier = Modifier.weight(1f)) {
+                                Text(Strings.get("sync_import_qr", lang))
+                            }
+                            OutlinedButton(onClick = {
+                                try {
+                                    val fc = JFileChooser()
+                                    fc.dialogTitle = Strings.get("sync_export_qr", lang)
+                                    fc.fileFilter = FileNameExtensionFilter("PNG images", "png")
+                                    fc.selectedFile = File("duenest-qr.png")
+                                    val result = fc.showSaveDialog(null)
+                                    if (result == JFileChooser.APPROVE_OPTION) {
+                                        var file = fc.selectedFile
+                                        if (!file.name.endsWith(".png")) file = File(file.absolutePath + ".png")
+                                        val writer = QRCodeWriter()
+                                        val matrix = writer.encode(qrContent, BarcodeFormat.QR_CODE, 400, 400)
+                                        val img = BufferedImage(400, 400, BufferedImage.TYPE_INT_RGB)
+                                        for (x in 0 until 400) for (y in 0 until 400)
+                                            img.setRGB(x, y, if (matrix.get(x, y)) 0xFF000000.toInt() else 0xFFFFFFFF.toInt())
+                                        ImageIO.write(img, "png", file)
+                                        showSyncDialog = false
+                                    }
+                                } catch (_: Exception) {}
+                            }, modifier = Modifier.weight(1f)) {
+                                Text(Strings.get("sync_export_qr", lang))
                             }
                         }
                     }
