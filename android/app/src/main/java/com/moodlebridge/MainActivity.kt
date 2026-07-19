@@ -167,6 +167,8 @@ import com.moodlebridge.widget.TaskWidget
 import com.moodlebridge.widget.FetchTaskWidget
 
 class MainActivity : ComponentActivity() {
+    private var lastNetworkCallback: android.net.ConnectivityManager.NetworkCallback? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val config = ConfigStore(this)
@@ -176,8 +178,20 @@ class MainActivity : ComponentActivity() {
                 registerForActivityResult(ActivityResultContracts.RequestPermission()) { }.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
         TaskReminderWorker.schedule(this)
+
+        val cm = getSystemService(android.net.ConnectivityManager::class.java)
+        val currentNetId = cm.activeNetwork
+        val lastNetId = prefs().getString("last_network_id", null)
+        if (lastNetId != null && currentNetId?.toString() != lastNetId && config.lastSyncUrl.isNotBlank()) {
+            config.lastSyncUrl = ""
+            android.util.Log.d("DueNest", "Network changed — cleared sync URL")
+        }
+        prefs().edit().putString("last_network_id", currentNetId?.toString() ?: "").apply()
+
         setContent { MainContent(config = config, autoSync = intent?.getStringExtra("sync") == "true") }
     }
+
+    private fun prefs() = getSharedPreferences("duenest_network", android.content.Context.MODE_PRIVATE)
     private fun createNotificationChannel() {
         val syncCh = NotificationChannel(SyncWorker.CHANNEL_ID, "Moodle Sync", NotificationManager.IMPORTANCE_DEFAULT)
         getSystemService(NotificationManager::class.java).createNotificationChannel(syncCh)
@@ -483,6 +497,42 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
             SideEffect {
                 val window = (view.context as Activity).window
                 WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !currentThemeIsDark
+            }
+        }
+        LaunchedEffect(Unit) {
+            val savedUrl = config.lastSyncUrl
+            if (savedUrl.isNotBlank()) {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    try {
+                        val sp = SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId)
+                        val client = OkHttpClient.Builder()
+                            .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                            .build()
+                        val reqBody = SyncManager.serializePayload(sp)
+                            .toRequestBody("text/plain".toMediaType())
+                        val request = OkHttpRequest.Builder().url("$savedUrl/sync").post(reqBody).build()
+                        val resp = client.newCall(request).execute()
+                        val respBody = resp.body?.string()
+                        if (resp.isSuccessful && respBody != null) {
+                            val remote = SyncManager.deserializePayload(respBody)
+                            if (remote != null) {
+                                val merged = SyncManager.mergePayload(sp, remote)
+                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                    manualEvents = merged.manualEvents
+                                    taskCompletionMap = merged.taskCompletion
+                                    deletedEventIds = merged.deletedEventIds
+                                    config.manualEventCache = Json.encodeToString(manualEvents)
+                                    config.taskCompletionState = Json.encodeToString(taskCompletionMap)
+                                    config.deletedEventIds = Json.encodeToString(deletedEventIds)
+                                    persistMergeRef?.invoke()
+                                }
+                                Log.d("DueNest", "Auto-sync applied: ${merged.manualEvents.size} events")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.d("DueNest", "Auto-sync skipped: ${e.message}")
+                    }
+                }
             }
         }
         if (showOutputSettings) {
@@ -1112,6 +1162,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                             val respBody = resp.body?.string()
                             Log.d("DueNest", "POST response: code=${resp.code}, bodyLen=${respBody?.length}")
                             if (resp.isSuccessful && respBody != null) {
+                                config.lastSyncUrl = url
                                 val remote = SyncManager.deserializePayload(respBody)
                                 if (remote != null) {
                                     val merged = SyncManager.mergePayload(syncPayload, remote)

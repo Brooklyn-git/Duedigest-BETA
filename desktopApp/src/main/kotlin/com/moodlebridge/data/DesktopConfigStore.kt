@@ -111,6 +111,10 @@ class DesktopConfigStore {
         }
         set(value) = prefs.put(KEY_DEVICE_ID, value)
 
+    var lastSyncUrl: String
+        get() = prefs.get(KEY_LAST_SYNC_URL, "")
+        set(value) = prefs.put(KEY_LAST_SYNC_URL, value)
+
     val isConfigured: Boolean
         get() = moodleUrl.isNotBlank() && (token.isNotBlank() || (username.isNotBlank() && password.isNotBlank()))
 
@@ -144,5 +148,6 @@ class DesktopConfigStore {
         const val KEY_MANUAL_EVENT_CACHE = "manual_event_cache"
         const val KEY_DELETED_EVENT_IDS = "deleted_event_ids"
         const val KEY_DEVICE_ID = "device_id"
+        const val KEY_LAST_SYNC_URL = "last_sync_url"
     }
 }
