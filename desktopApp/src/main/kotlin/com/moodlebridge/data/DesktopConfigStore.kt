@@ -97,6 +97,16 @@ class DesktopConfigStore {
         get() = prefs.get(KEY_MANUAL_EVENT_CACHE, "[]")
         set(value) = prefs.put(KEY_MANUAL_EVENT_CACHE, value)
 
+    var deviceId: String
+        get() {
+            val existing = prefs.get(KEY_DEVICE_ID, "")
+            if (existing.isNotBlank()) return existing
+            val newId = java.util.UUID.randomUUID().toString()
+            prefs.put(KEY_DEVICE_ID, newId)
+            return newId
+        }
+        set(value) = prefs.put(KEY_DEVICE_ID, value)
+
     val isConfigured: Boolean
         get() = moodleUrl.isNotBlank() && (token.isNotBlank() || (username.isNotBlank() && password.isNotBlank()))
 
@@ -128,5 +138,6 @@ class DesktopConfigStore {
         const val KEY_TASK_COMPLETION = "task_completion"
         const val KEY_TASK_EVENT_CACHE = "task_event_cache"
         const val KEY_MANUAL_EVENT_CACHE = "manual_event_cache"
+        const val KEY_DEVICE_ID = "device_id"
     }
 }

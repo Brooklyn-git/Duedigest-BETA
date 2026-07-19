@@ -102,6 +102,16 @@ object Strings {
         "time_format" to "Time format",
         "time_24h" to "24h",
         "time_12h" to "12h",
+        "sync" to "Sync",
+        "sync_qr_title" to "Sync between devices",
+        "sync_scan_qr" to "Scan QR instead?",
+        "sync_show_qr" to "Show QR instead?",
+        "sync_import" to "Import from file",
+        "sync_export" to "Export to file",
+        "sync_scanning" to "Scanning\u2026",
+        "sync_merged" to "Sync data merged successfully",
+        "sync_no_data" to "No sync data found",
+        "sync_error" to "Failed to sync",
     )
 
     private val es = mapOf(
@@ -204,6 +214,16 @@ object Strings {
         "time_format" to "Formato de hora",
         "time_24h" to "24h",
         "time_12h" to "12h",
+        "sync" to "Sincronizar",
+        "sync_qr_title" to "Sincronizar entre dispositivos",
+        "sync_scan_qr" to "\u00bfEscanear QR?",
+        "sync_show_qr" to "\u00bfMostrar QR?",
+        "sync_import" to "Importar desde archivo",
+        "sync_export" to "Exportar a archivo",
+        "sync_scanning" to "Escaneando\u2026",
+        "sync_merged" to "Datos sincronizados correctamente",
+        "sync_no_data" to "No se encontraron datos de sincronizaci\u00f3n",
+        "sync_error" to "Error al sincronizar",
     )
 
     fun get(key: String, lang: String = "en"): String {

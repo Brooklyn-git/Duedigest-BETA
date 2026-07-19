@@ -73,6 +73,7 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -100,11 +101,15 @@ import androidx.compose.ui.unit.dp
 import android.app.Activity
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import android.graphics.Bitmap
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.view.WindowCompat
@@ -116,10 +121,16 @@ import com.moodlebridge.data.MarkdownGenerator
 import com.moodlebridge.data.MoodleApi
 import com.moodlebridge.data.PathResolver
 import com.moodlebridge.data.Strings
+import com.moodlebridge.data.SyncManager
 import com.moodlebridge.worker.NotificationWorker
 import com.moodlebridge.worker.TaskReminderWorker
 import com.moodlebridge.worker.SyncWorker
 import androidx.work.WorkManager
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.common.BitMatrix
+import com.google.zxing.qrcode.QRCodeWriter
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import java.io.File
 import java.util.UUID
 import kotlinx.serialization.json.Json
@@ -236,6 +247,25 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     var courseExpanded by remember { mutableStateOf(false) }
     var showNewCourseDialog by remember { mutableStateOf(false) }
     var newCourseName by remember { mutableStateOf("") }
+    var showSyncDialog by remember { mutableStateOf(false) }
+    var syncScanMode by remember { mutableStateOf(false) }
+    var persistMergeRef by remember { mutableStateOf<(() -> Unit)?>(null) }
+
+    val qrScannerLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
+        if (result.contents != null) {
+            val remote = SyncManager.deserializePayload(result.contents)
+            if (remote != null) {
+                val syncPayload = SyncManager.generatePayload(manualEvents, taskCompletionMap, config.deviceId)
+                val merged = SyncManager.mergePayload(syncPayload, remote)
+                manualEvents = merged.manualEvents
+                taskCompletionMap = merged.taskCompletion
+                config.manualEventCache = Json.encodeToString(manualEvents)
+                config.taskCompletionState = Json.encodeToString(taskCompletionMap)
+                persistMergeRef?.invoke()
+            }
+            showSyncDialog = false
+        }
+    }
 
     val courseOptions by remember {
         derivedStateOf {
@@ -294,6 +324,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
             FetchTaskWidget().updateAll(context)
         }
     }
+    persistMergeRef = { persistMergedEvents() }
 
     fun addOrUpdateManualEvent(event: Event) {
         manualEvents = manualEvents.toMutableList().also { list ->
@@ -460,6 +491,9 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                         }
                     },
                     actions = {
+                        IconButton(onClick = { showSyncDialog = true; syncScanMode = false }) {
+                            Icon(Icons.Default.Share, contentDescription = Strings.get("sync", lang))
+                        }
                         IconButton(onClick = { showSettings = !showSettings }) {
                             Icon(Icons.Default.Settings, contentDescription = "Settings")
                         }
@@ -891,6 +925,65 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
             dismissButton = {
                 TextButton(onClick = { showClearCredsConfirm = false }) { Text(Strings.get("cancel", lang)) }
             })
+    }
+
+    // ── Sync dialog ──────────────────────────────────────
+    if (showSyncDialog) {
+        val syncPayload = remember {
+            SyncManager.generatePayload(manualEvents, taskCompletionMap, config.deviceId)
+        }
+        val qrImage: ImageBitmap? = remember(syncPayload) {
+            try {
+                val serialized = SyncManager.serializePayload(syncPayload)
+                val writer = QRCodeWriter()
+                val matrix: BitMatrix = writer.encode(serialized, BarcodeFormat.QR_CODE, 400, 400)
+                val w = matrix.width
+                val h = matrix.height
+                val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.RGB_565)
+                for (x in 0 until w) {
+                    for (y in 0 until h) {
+                        bmp.setPixel(x, y, if (matrix.get(x, y)) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+                    }
+                }
+                bmp.asImageBitmap()
+            } catch (_: Exception) { null }
+        }
+        AlertDialog(
+            onDismissRequest = { showSyncDialog = false },
+            containerColor = cs.surface, titleContentColor = cs.onSurface, textContentColor = cs.onSurface,
+            title = { Text(Strings.get("sync_qr_title", lang)) },
+            text = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    if (syncScanMode) {
+                        Text(Strings.get("sync_scanning", lang), style = MaterialTheme.typography.bodyMedium)
+                        Spacer(Modifier.height(8.dp))
+                        TextButton(onClick = { syncScanMode = false }) {
+                            Text(Strings.get("sync_show_qr", lang))
+                        }
+                    } else {
+                        if (qrImage != null) {
+                            Image(qrImage, contentDescription = "QR Code",
+                                modifier = Modifier.size(250.dp).clip(RoundedCornerShape(8.dp)))
+                        } else {
+                            Text(Strings.get("sync_error", lang), color = MaterialTheme.colorScheme.error)
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        TextButton(onClick = {
+                            syncScanMode = false
+                            val options = ScanOptions()
+                            options.setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                            options.setPrompt(Strings.get("sync_scanning", lang))
+                            options.setBeepEnabled(false)
+                            qrScannerLauncher.launch(options)
+                            showSyncDialog = false
+                        }) {
+                            Text(Strings.get("sync_scan_qr", lang))
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { showSyncDialog = false }) { Text(Strings.get("cancel", lang)) } })
     }
     }
 }

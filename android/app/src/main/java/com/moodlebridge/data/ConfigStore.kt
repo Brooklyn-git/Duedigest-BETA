@@ -159,6 +159,16 @@ class ConfigStore(context: Context) {
         get() = prefs.getString(KEY_MANUAL_EVENT_CACHE, "[]") ?: "[]"
         set(value) = prefs.edit().putString(KEY_MANUAL_EVENT_CACHE, value).apply()
 
+    var deviceId: String
+        get() {
+            val existing = prefs.getString(KEY_DEVICE_ID, "") ?: ""
+            if (existing.isNotBlank()) return existing
+            val newId = java.util.UUID.randomUUID().toString()
+            prefs.edit().putString(KEY_DEVICE_ID, newId).apply()
+            return newId
+        }
+        set(value) = prefs.edit().putString(KEY_DEVICE_ID, value).apply()
+
     var lastConfiguredOpacity: Float
         get() = prefs.getFloat(KEY_LAST_OPACITY, 1.0f)
         set(value) { prefs.edit().putFloat(KEY_LAST_OPACITY, value).commit() }
@@ -206,5 +216,6 @@ class ConfigStore(context: Context) {
         const val KEY_TASK_COMPLETION = "task_completion"
         const val KEY_TASK_EVENT_CACHE = "task_event_cache"
         const val KEY_MANUAL_EVENT_CACHE = "manual_event_cache"
+        const val KEY_DEVICE_ID = "device_id"
     }
 }

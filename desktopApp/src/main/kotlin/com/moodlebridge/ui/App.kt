@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -36,6 +37,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -77,6 +79,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -87,6 +91,8 @@ import com.moodlebridge.data.Event
 import com.moodlebridge.data.MarkdownGenerator
 import com.moodlebridge.data.MoodleApi
 import com.moodlebridge.data.Strings
+import com.moodlebridge.data.SyncManager
+import com.moodlebridge.data.SyncPayload
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -94,10 +100,15 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
 import java.awt.Desktop
+import java.awt.image.BufferedImage
 import java.io.File
 import java.net.URI
 import java.util.UUID
 import javax.swing.JFileChooser
+import javax.swing.filechooser.FileNameExtensionFilter
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.common.BitMatrix
+import com.google.zxing.qrcode.QRCodeWriter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -156,6 +167,7 @@ fun DesktopApp(config: DesktopConfigStore) {
     var showClearCredsConfirm by remember { mutableStateOf(false) }
     var showNewCourseDialog by remember { mutableStateOf(false) }
     var newCourseName by remember { mutableStateOf("") }
+    var showSyncDialog by remember { mutableStateOf(false) }
 
     val courseOptions: List<String> by remember {
         derivedStateOf {
@@ -369,6 +381,11 @@ fun DesktopApp(config: DesktopConfigStore) {
                     Column {
                         Text(Strings.get("app_title", lang), style = MaterialTheme.typography.titleLarge)
                         Text(Strings.get("subtitle", lang), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { showSyncDialog = true }) {
+                        Icon(Icons.Default.Share, contentDescription = Strings.get("sync", lang))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -663,6 +680,85 @@ fun DesktopApp(config: DesktopConfigStore) {
                 title = { Text(Strings.get("error", lang)) },
                 text = { Text(errorDialogMsg ?: "") },
                 confirmButton = { TextButton(onClick = { errorDialogMsg = null }) { Text("OK") } })
+        }
+
+        if (showSyncDialog) {
+            val syncPayload = remember {
+                SyncManager.generatePayload(manualEvents, taskCompletionMap, config.deviceId)
+            }
+            val qrImage: ImageBitmap? = remember(syncPayload) {
+                try {
+                    val serialized = SyncManager.serializePayload(syncPayload)
+                    val writer = QRCodeWriter()
+                    val matrix: BitMatrix = writer.encode(serialized, BarcodeFormat.QR_CODE, 400, 400)
+                    val buffered = BufferedImage(400, 400, BufferedImage.TYPE_INT_RGB)
+                    for (x in 0 until 400) {
+                        for (y in 0 until 400) {
+                            buffered.setRGB(x, y, if (matrix.get(x, y)) 0xFF000000.toInt() else 0xFFFFFFFF.toInt())
+                        }
+                    }
+                    buffered.toComposeImageBitmap()
+                } catch (_: Exception) { null }
+            }
+            AlertDialog(
+                onDismissRequest = { showSyncDialog = false },
+                containerColor = cs.surface, titleContentColor = cs.onSurface, textContentColor = cs.onSurface,
+                title = { Text(Strings.get("sync_qr_title", lang)) },
+                text = {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(440.dp)) {
+                        if (qrImage != null) {
+                            Image(qrImage, contentDescription = "QR Code",
+                                modifier = Modifier.size(300.dp).clip(RoundedCornerShape(8.dp)))
+                        } else {
+                            Text(Strings.get("sync_error", lang), color = MaterialTheme.colorScheme.error)
+                        }
+                        Spacer(Modifier.height(16.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = {
+                                try {
+                                    val fc = JFileChooser()
+                                    fc.dialogTitle = Strings.get("sync_export", lang)
+                                    fc.fileFilter = FileNameExtensionFilter("JSON files", "json")
+                                    fc.selectedFile = File("duenest-sync.json")
+                                    val result = fc.showSaveDialog(null)
+                                    if (result == JFileChooser.APPROVE_OPTION) {
+                                        var file = fc.selectedFile
+                                        if (!file.name.endsWith(".json")) file = File(file.absolutePath + ".json")
+                                        file.writeText(SyncManager.serializePayload(syncPayload))
+                                        showSyncDialog = false
+                                    }
+                                } catch (_: Exception) {}
+                            }, modifier = Modifier.weight(1f)) {
+                                Text(Strings.get("sync_export", lang))
+                            }
+                            OutlinedButton(onClick = {
+                                try {
+                                    val fc = JFileChooser()
+                                    fc.dialogTitle = Strings.get("sync_import", lang)
+                                    fc.fileFilter = FileNameExtensionFilter("JSON files", "json")
+                                    val result = fc.showOpenDialog(null)
+                                    if (result == JFileChooser.APPROVE_OPTION) {
+                                        val data = fc.selectedFile.readText()
+                                        val remote = SyncManager.deserializePayload(data)
+                                        if (remote != null) {
+                                            val merged = SyncManager.mergePayload(syncPayload, remote)
+                                            manualEvents = merged.manualEvents
+                                            taskCompletionMap = merged.taskCompletion
+                                            config.manualEventCache = Json.encodeToString(manualEvents)
+                                            config.taskCompletionState = Json.encodeToString(taskCompletionMap)
+                                            persistMergedEvents()
+                                        }
+                                        showSyncDialog = false
+                                    }
+                                } catch (_: Exception) {}
+                            }, modifier = Modifier.weight(1f)) {
+                                Text(Strings.get("sync_import", lang))
+                            }
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = { TextButton(onClick = { showSyncDialog = false }) { Text(Strings.get("cancel", lang)) } })
         }
 
 
