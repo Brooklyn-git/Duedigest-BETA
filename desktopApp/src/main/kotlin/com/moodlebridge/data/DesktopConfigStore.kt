@@ -97,6 +97,10 @@ class DesktopConfigStore {
         get() = prefs.get(KEY_MANUAL_EVENT_CACHE, "[]")
         set(value) = prefs.put(KEY_MANUAL_EVENT_CACHE, value)
 
+    var deletedEventIds: String
+        get() = prefs.get(KEY_DELETED_EVENT_IDS, "[]")
+        set(value) = prefs.put(KEY_DELETED_EVENT_IDS, value)
+
     var deviceId: String
         get() {
             val existing = prefs.get(KEY_DEVICE_ID, "")
@@ -138,6 +142,7 @@ class DesktopConfigStore {
         const val KEY_TASK_COMPLETION = "task_completion"
         const val KEY_TASK_EVENT_CACHE = "task_event_cache"
         const val KEY_MANUAL_EVENT_CACHE = "manual_event_cache"
+        const val KEY_DELETED_EVENT_IDS = "deleted_event_ids"
         const val KEY_DEVICE_ID = "device_id"
     }
 }

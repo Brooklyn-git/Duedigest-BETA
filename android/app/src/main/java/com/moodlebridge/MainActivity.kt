@@ -228,6 +228,9 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     var taskCompletionMap by remember { mutableStateOf(
         try { Json.decodeFromString<Map<String, Boolean>>(config.taskCompletionState) } catch (_: Exception) { emptyMap() }
     ) }
+    var deletedEventIds by remember { mutableStateOf(
+        try { Json.decodeFromString<Set<String>>(config.deletedEventIds) } catch (_: Exception) { emptySet() }
+    ) }
     var expandedTaskId by remember { mutableStateOf<String?>(null) }
     var tasksEnabled by remember { mutableStateOf(config.tasksEnabled) }
     var tasksOutputPath by remember { mutableStateOf(config.tasksOutputPath) }
@@ -249,21 +252,28 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     var newCourseName by remember { mutableStateOf("") }
     var showSyncDialog by remember { mutableStateOf(false) }
     var syncScanMode by remember { mutableStateOf(false) }
+    var syncMergeMsg by remember { mutableStateOf<String?>(null) }
     var persistMergeRef by remember { mutableStateOf<(() -> Unit)?>(null) }
 
     val qrScannerLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
         if (result.contents != null) {
             val remote = SyncManager.deserializePayload(result.contents)
             if (remote != null) {
-                val syncPayload = SyncManager.generatePayload(manualEvents, taskCompletionMap, config.deviceId)
+                val syncPayload = SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId)
                 val merged = SyncManager.mergePayload(syncPayload, remote)
                 manualEvents = merged.manualEvents
                 taskCompletionMap = merged.taskCompletion
+                deletedEventIds = merged.deletedEventIds
                 config.manualEventCache = Json.encodeToString(manualEvents)
                 config.taskCompletionState = Json.encodeToString(taskCompletionMap)
+                config.deletedEventIds = Json.encodeToString(deletedEventIds)
                 persistMergeRef?.invoke()
+                syncScanMode = false
+                syncMergeMsg = Strings.get("sync_merged", lang)
+            } else {
+                syncScanMode = false
+                syncMergeMsg = Strings.get("sync_no_data", lang)
             }
-            showSyncDialog = false
         }
     }
 
@@ -340,6 +350,8 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
         config.manualEventCache = Json.encodeToString(manualEvents)
         taskCompletionMap = taskCompletionMap.toMutableMap().also { it.remove(id) }
         saveCompletionMap()
+        deletedEventIds = deletedEventIds + id
+        config.deletedEventIds = Json.encodeToString(deletedEventIds)
         persistMergedEvents()
     }
 
@@ -491,7 +503,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                         }
                     },
                     actions = {
-                        IconButton(onClick = { showSyncDialog = true; syncScanMode = false }) {
+                        IconButton(onClick = { showSyncDialog = true; syncScanMode = false; syncMergeMsg = null }) {
                             Icon(Icons.Default.Share, contentDescription = Strings.get("sync", lang))
                         }
                         IconButton(onClick = { showSettings = !showSettings }) {
@@ -929,8 +941,8 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
 
     // ── Sync dialog ──────────────────────────────────────
     if (showSyncDialog) {
-        val syncPayload = remember {
-            SyncManager.generatePayload(manualEvents, taskCompletionMap, config.deviceId)
+        val syncPayload = remember(manualEvents, taskCompletionMap, deletedEventIds) {
+            SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId)
         }
         val qrImage: ImageBitmap? = remember(syncPayload) {
             try {
@@ -967,15 +979,20 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                         } else {
                             Text(Strings.get("sync_error", lang), color = MaterialTheme.colorScheme.error)
                         }
+                        if (syncMergeMsg != null) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(syncMergeMsg!!, color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.bodyMedium)
+                        }
                         Spacer(Modifier.height(12.dp))
                         TextButton(onClick = {
                             syncScanMode = false
+                            syncMergeMsg = null
                             val options = ScanOptions()
                             options.setDesiredBarcodeFormats(ScanOptions.QR_CODE)
                             options.setPrompt(Strings.get("sync_scanning", lang))
                             options.setBeepEnabled(false)
                             qrScannerLauncher.launch(options)
-                            showSyncDialog = false
                         }) {
                             Text(Strings.get("sync_scan_qr", lang))
                         }

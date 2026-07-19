@@ -149,6 +149,11 @@ fun DesktopApp(config: DesktopConfigStore) {
             try { Json.decodeFromString(config.taskCompletionState) } catch (_: Exception) { emptyMap() }
         )
     }
+    var deletedEventIds by remember {
+        mutableStateOf<Set<String>>(
+            try { Json.decodeFromString<Set<String>>(config.deletedEventIds) } catch (_: Exception) { emptySet() }
+        )
+    }
     var expandedTaskId by remember { mutableStateOf<String?>(null) }
     var tasksEnabled by remember { mutableStateOf(config.tasksEnabled) }
     var tasksOutputPath by remember { mutableStateOf(config.tasksOutputPath) }
@@ -216,6 +221,8 @@ fun DesktopApp(config: DesktopConfigStore) {
         upd.remove(id)
         taskCompletionMap = upd
         saveCompletionMap()
+        deletedEventIds = deletedEventIds + id
+        config.deletedEventIds = Json.encodeToString(deletedEventIds)
         persistMergedEvents()
     }
 
@@ -683,8 +690,9 @@ fun DesktopApp(config: DesktopConfigStore) {
         }
 
         if (showSyncDialog) {
-            val syncPayload = remember {
-                SyncManager.generatePayload(manualEvents, taskCompletionMap, config.deviceId)
+            var syncMergeMsg by remember { mutableStateOf<String?>(null) }
+            val syncPayload = remember(manualEvents, taskCompletionMap, deletedEventIds) {
+                SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId)
             }
             val qrImage: ImageBitmap? = remember(syncPayload) {
                 try {
@@ -711,6 +719,11 @@ fun DesktopApp(config: DesktopConfigStore) {
                                 modifier = Modifier.size(300.dp).clip(RoundedCornerShape(8.dp)))
                         } else {
                             Text(Strings.get("sync_error", lang), color = MaterialTheme.colorScheme.error)
+                        }
+                        if (syncMergeMsg != null) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(syncMergeMsg!!, color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.bodyMedium)
                         }
                         Spacer(Modifier.height(16.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -744,11 +757,15 @@ fun DesktopApp(config: DesktopConfigStore) {
                                             val merged = SyncManager.mergePayload(syncPayload, remote)
                                             manualEvents = merged.manualEvents
                                             taskCompletionMap = merged.taskCompletion
+                                            deletedEventIds = merged.deletedEventIds
                                             config.manualEventCache = Json.encodeToString(manualEvents)
                                             config.taskCompletionState = Json.encodeToString(taskCompletionMap)
+                                            config.deletedEventIds = Json.encodeToString(deletedEventIds)
                                             persistMergedEvents()
+                                            syncMergeMsg = Strings.get("sync_merged", lang)
+                                        } else {
+                                            syncMergeMsg = Strings.get("sync_no_data", lang)
                                         }
-                                        showSyncDialog = false
                                     }
                                 } catch (_: Exception) {}
                             }, modifier = Modifier.weight(1f)) {

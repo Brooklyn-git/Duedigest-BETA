@@ -7,6 +7,7 @@ import kotlinx.serialization.json.Json
 data class SyncPayload(
     val manualEvents: List<Event>,
     val taskCompletion: Map<String, Boolean>,
+    val deletedEventIds: Set<String>,
     val deviceId: String,
     val timestamp: Long,
 )
@@ -14,6 +15,7 @@ data class SyncPayload(
 data class MergeResult(
     val manualEvents: List<Event>,
     val taskCompletion: Map<String, Boolean>,
+    val deletedEventIds: Set<String>,
 )
 
 object SyncManager {
@@ -26,15 +28,19 @@ object SyncManager {
     fun generatePayload(
         manualEvents: List<Event>,
         taskCompletion: Map<String, Boolean>,
+        deletedEventIds: Set<String>,
         deviceId: String,
     ): SyncPayload = SyncPayload(
         manualEvents = manualEvents,
         taskCompletion = taskCompletion,
+        deletedEventIds = deletedEventIds,
         deviceId = deviceId,
         timestamp = System.currentTimeMillis(),
     )
 
     fun mergePayload(local: SyncPayload, remote: SyncPayload): MergeResult {
+        val mergedDeleted = local.deletedEventIds + remote.deletedEventIds
+
         val mergedEvents = mutableMapOf<String, Event>()
         for (e in local.manualEvents) mergedEvents[e.id] = e
         for (e in remote.manualEvents) {
@@ -44,9 +50,14 @@ object SyncManager {
             }
         }
 
+        for (id in mergedDeleted) {
+            mergedEvents.remove(id)
+        }
+
         val mergedCompletion = mutableMapOf<String, Boolean>()
         val allKeys = local.taskCompletion.keys.toMutableSet().apply { addAll(remote.taskCompletion.keys) }
         for (key in allKeys) {
+            if (key in mergedDeleted) continue
             val localVal = local.taskCompletion[key]
             val remoteVal = remote.taskCompletion[key]
             mergedCompletion[key] = when {
@@ -59,6 +70,7 @@ object SyncManager {
         return MergeResult(
             manualEvents = mergedEvents.values.sortedBy { it.timestart },
             taskCompletion = mergedCompletion,
+            deletedEventIds = mergedDeleted,
         )
     }
 
