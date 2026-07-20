@@ -488,6 +488,7 @@ fun DesktopApp(config: DesktopConfigStore) {
                             val themeIcon = when (themeMode) {
                                 "light", "solarized_light", "high_contrast" -> AppIcons.Sun
                                 "amoled_dark" -> AppIcons.MoonAmoled
+                                "sakura" -> AppIcons.Sakura
                                 else -> AppIcons.MoonDark
                             }
                             Icon(themeIcon, null, modifier = Modifier.size(20.dp),
@@ -506,6 +507,7 @@ fun DesktopApp(config: DesktopConfigStore) {
                                 "dracula" to Strings.get("theme_dracula", lang),
                                 "catppuccin" to Strings.get("theme_catppuccin", lang),
                                 "high_contrast" to Strings.get("theme_high_contrast", lang),
+                                "sakura" to Strings.get("theme_sakura", lang),
                             )
                             ExposedDropdownMenuBox(expanded = themeExpanded, onExpandedChange = { themeExpanded = it }) {
                                 OutlinedTextField(
@@ -519,6 +521,7 @@ fun DesktopApp(config: DesktopConfigStore) {
                                         val icon = when (value) {
                                             "light", "solarized_light", "high_contrast" -> AppIcons.Sun
                                             "amoled_dark" -> AppIcons.MoonAmoled
+                                            "sakura" -> AppIcons.Sakura
                                             else -> AppIcons.MoonDark
                                         }
                                         DropdownMenuItem(

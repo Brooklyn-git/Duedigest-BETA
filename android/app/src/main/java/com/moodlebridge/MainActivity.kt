@@ -1346,6 +1346,7 @@ private fun SettingsPage(
                     val themeIcon: Painter = when (themeMode) {
                         "light", "solarized_light", "high_contrast" -> painterResource(R.drawable.ic_sun)
                         "amoled_dark" -> painterResource(R.drawable.ic_moon_amoled)
+                        "sakura" -> painterResource(R.drawable.ic_sakura)
                         else -> painterResource(R.drawable.ic_moon_dark)
                     }
                     Icon(themeIcon, null, modifier = Modifier.size(20.dp),
@@ -1364,6 +1365,7 @@ private fun SettingsPage(
                         "dracula" to Strings.get("theme_dracula", lang),
                         "catppuccin" to Strings.get("theme_catppuccin", lang),
                         "high_contrast" to Strings.get("theme_high_contrast", lang),
+                        "sakura" to Strings.get("theme_sakura", lang),
                     )
                     ExposedDropdownMenuBox(expanded = themeExpanded, onExpandedChange = { themeExpanded = it }) {
                         OutlinedTextField(
@@ -1373,12 +1375,13 @@ private fun SettingsPage(
                             singleLine = true,
                             modifier = Modifier.widthIn(max = 160.dp).menuAnchor(MenuAnchorType.PrimaryNotEditable))
                         ExposedDropdownMenu(expanded = themeExpanded, onDismissRequest = { themeExpanded = false }) {
-                            themeOptions.forEach { (value, label) ->
-                                val icon: Painter = when (value) {
-                                    "light" -> painterResource(R.drawable.ic_sun)
-                                    "amoled_dark" -> painterResource(R.drawable.ic_moon_amoled)
-                                    else -> painterResource(R.drawable.ic_moon_dark)
-                                }
+                                    themeOptions.forEach { (value, label) ->
+                                        val icon: Painter = when (value) {
+                                            "light", "solarized_light", "high_contrast" -> painterResource(R.drawable.ic_sun)
+                                            "amoled_dark" -> painterResource(R.drawable.ic_moon_amoled)
+                                            "sakura" -> painterResource(R.drawable.ic_sakura)
+                                            else -> painterResource(R.drawable.ic_moon_dark)
+                                        }
                                 DropdownMenuItem(
                                     text = {
                                         Row(verticalAlignment = Alignment.CenterVertically) {

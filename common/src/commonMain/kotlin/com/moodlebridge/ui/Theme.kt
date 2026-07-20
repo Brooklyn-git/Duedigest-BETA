@@ -262,6 +262,33 @@ private val HighContrastLightColorScheme = lightColorScheme(
     onBackground = Color.Black,
 )
 
+private val SakuraColorScheme = lightColorScheme(
+    primary = Color(0xFFD4577A),
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFFCDCE6),
+    onPrimaryContainer = Color(0xFF6B1A35),
+    secondary = Color(0xFF8B4572),
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFFF5DAE8),
+    onSecondaryContainer = Color(0xFF5B2D4A),
+    tertiary = Color(0xFFC76B8A),
+    onTertiary = Color.White,
+    tertiaryContainer = Color(0xFFF9E2EC),
+    onTertiaryContainer = Color(0xFF7A3B55),
+    error = Color(0xFFCF3055),
+    onError = Color.White,
+    errorContainer = Color(0xFFFADCE5),
+    onErrorContainer = Color(0xFF931A35),
+    surface = Color(0xFFFFF8F9),
+    onSurface = Color(0xFF3B2230),
+    surfaceVariant = Color(0xFFF8EAF0),
+    onSurfaceVariant = Color(0xFF7A5668),
+    outline = Color(0xFFD4BFC8),
+    outlineVariant = Color(0xFFF0E0E8),
+    background = Color(0xFFFFF8F9),
+    onBackground = Color(0xFF3B2230),
+)
+
 private val AppTypography = Typography(
     displayLarge = TextStyle(fontWeight = FontWeight.Bold, fontSize = 36.sp, lineHeight = 44.sp),
     displayMedium = TextStyle(fontWeight = FontWeight.Bold, fontSize = 28.sp, lineHeight = 36.sp),
@@ -285,7 +312,7 @@ fun DueNestTheme(
 ) {
     val isDark = when (themeMode) {
         "amoled_dark", "dark", "solarized_dark", "nord", "dracula", "catppuccin" -> true
-        "light", "solarized_light", "high_contrast" -> false
+        "light", "solarized_light", "high_contrast", "sakura" -> false
         else -> isSystemInDarkTheme()
     }
     val colorScheme = when (themeMode) {
@@ -298,6 +325,7 @@ fun DueNestTheme(
         "dracula" -> DraculaColorScheme
         "catppuccin" -> CatppuccinColorScheme
         "high_contrast" -> HighContrastLightColorScheme
+        "sakura" -> SakuraColorScheme
         else -> if (isSystemInDarkTheme()) DarkColorScheme else LightColorScheme
     }
 
