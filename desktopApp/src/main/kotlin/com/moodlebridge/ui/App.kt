@@ -1560,44 +1560,43 @@ private fun SyncDialog(
                                     BinaryBitmap(HybridBinarizer(BufferedImageLuminanceSource(image)))
                                 )
                                 val (url, payload) = SyncManager.decodeQrContent(qrResult.text)
-                                if (url != null) {
+                                if (payload != null) {
                                     syncMergeMsg = Strings.get("sync_syncing", lang)
-                                    scope.launch(Dispatchers.IO) {
-                                        try {
-                                            val client = OkHttpClient.Builder()
-                                                .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
-                                                .build()
-                                            val reqBody = SyncManager.serializePayload(syncPayload)
-                                                .toRequestBody("text/plain".toMediaType())
-                                            val resp = client.newCall(
-                                                Request.Builder().url("$url/sync").post(reqBody).build()
-                                            ).execute()
-                                            val respBody = resp.body?.string()
-                                            val remote = if (resp.isSuccessful && respBody != null)
-                                                SyncManager.deserializePayload(respBody) else null
-                                            if (remote != null) {
+                                    if (url != null) {
+                                        scope.launch(Dispatchers.IO) {
+                                            try {
+                                                val client = OkHttpClient.Builder()
+                                                    .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                                                    .build()
+                                                val reqBody = SyncManager.serializePayload(syncPayload)
+                                                    .toRequestBody("text/plain".toMediaType())
+                                                val resp = client.newCall(
+                                                    Request.Builder().url("$url/sync").post(reqBody).build()
+                                                ).execute()
+                                                val respBody = resp.body?.string()
+                                                val remote = if (resp.isSuccessful && respBody != null)
+                                                    SyncManager.deserializePayload(respBody) else null
                                                 withContext(Dispatchers.Main) {
-                                                    applyAndMerge(SyncManager.mergePayload(syncPayload, remote))
+                                                    val base = SyncManager.mergePayload(syncPayload, payload)
+                                                    val final = if (remote != null)
+                                                        SyncManager.mergePayload(
+                                                            SyncManager.generatePayload(base.manualEvents, base.taskCompletion, base.deletedEventIds, config.deviceId),
+                                                            remote
+                                                        ) else base
+                                                    applyAndMerge(final)
                                                     syncMergeMsg = Strings.get("sync_merged", lang)
                                                 }
-                                            } else if (payload != null) {
+                                            } catch (_: Exception) {
                                                 withContext(Dispatchers.Main) {
                                                     applyAndMerge(SyncManager.mergePayload(syncPayload, payload))
                                                     syncMergeMsg = Strings.get("sync_merged", lang)
                                                 }
                                             }
-                                        } catch (_: Exception) {
-                                            if (payload != null) withContext(Dispatchers.Main) {
-                                                applyAndMerge(SyncManager.mergePayload(syncPayload, payload))
-                                                syncMergeMsg = Strings.get("sync_merged", lang)
-                                            } else withContext(Dispatchers.Main) {
-                                                syncMergeMsg = Strings.get("sync_connection_failed", lang)
-                                            }
                                         }
+                                    } else {
+                                        applyAndMerge(SyncManager.mergePayload(syncPayload, payload))
+                                        syncMergeMsg = Strings.get("sync_merged", lang)
                                     }
-                                } else if (payload != null) {
-                                    applyAndMerge(SyncManager.mergePayload(syncPayload, payload))
-                                    syncMergeMsg = Strings.get("sync_merged", lang)
                                 } else {
                                     syncMergeMsg = Strings.get("sync_no_data", lang)
                                 }
