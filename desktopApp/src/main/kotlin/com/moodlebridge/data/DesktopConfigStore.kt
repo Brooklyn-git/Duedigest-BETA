@@ -119,7 +119,7 @@ class DesktopConfigStore {
         get() = moodleUrl.isNotBlank() && (token.isNotBlank() || (username.isNotBlank() && password.isNotBlank()))
 
     fun clear() {
-        try { prefs.clear() } catch (_: Exception) {}
+        try { prefs.clear() } catch (e: Exception) { com.moodlebridge.Log.w("Config", "Failed to clear preferences", e) }
     }
 
     private companion object {

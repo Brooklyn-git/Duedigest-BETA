@@ -126,6 +126,8 @@ import com.google.zxing.client.j2se.BufferedImageLuminanceSource
 import com.google.zxing.qrcode.QRCodeReader
 import com.google.zxing.qrcode.QRCodeWriter
 
+private const val SYNC_PORT = 8765
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DesktopApp(config: DesktopConfigStore) {
@@ -157,17 +159,17 @@ fun DesktopApp(config: DesktopConfigStore) {
     var fetchedEvents by remember { mutableStateOf<List<Event>>(emptyList()) }
     var manualEvents by remember {
         mutableStateOf<List<Event>>(
-            try { Json.decodeFromString(config.manualEventCache) } catch (_: Exception) { emptyList() }
+            try { Json.decodeFromString(config.manualEventCache) } catch (e: Exception) { com.moodlebridge.Log.w("Config", "Failed to parse manualEventCache", e); emptyList() }
         )
     }
     var taskCompletionMap by remember {
         mutableStateOf<Map<String, Boolean>>(
-            try { Json.decodeFromString(config.taskCompletionState) } catch (_: Exception) { emptyMap() }
+            try { Json.decodeFromString(config.taskCompletionState) } catch (e: Exception) { com.moodlebridge.Log.w("Config", "Failed to parse taskCompletionState", e); emptyMap() }
         )
     }
     var deletedEventIds by remember {
         mutableStateOf<Set<String>>(
-            try { Json.decodeFromString<Set<String>>(config.deletedEventIds) } catch (_: Exception) { emptySet() }
+            try { Json.decodeFromString<Set<String>>(config.deletedEventIds) } catch (e: Exception) { com.moodlebridge.Log.w("Config", "Failed to parse deletedEventIds", e); emptySet() }
         )
     }
     var expandedTaskId by remember { mutableStateOf<String?>(null) }
@@ -457,197 +459,22 @@ fun DesktopApp(config: DesktopConfigStore) {
                         Icon(Icons.Default.Add, contentDescription = Strings.get("add_task", lang))
                     }
                 }
-                2 -> Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.TopStart) {
-                    Column(Modifier.widthIn(max = 640.dp).verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        Text(Strings.get("settings", lang), style = MaterialTheme.typography.headlineMedium)
-
-                        Text(Strings.get("general", lang), style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(AppIcons.Language, null, modifier = Modifier.size(20.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Spacer(Modifier.width(12.dp))
-                            Text(Strings.get("language", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                            var langExpanded by remember { mutableStateOf(false) }
-                            ExposedDropdownMenuBox(expanded = langExpanded, onExpandedChange = { langExpanded = it }) {
-                                OutlinedTextField(value = Strings.langLabel(selectedLang), onValueChange = {}, readOnly = true,
-                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = langExpanded) },
-                                    singleLine = true,
-                                    modifier = Modifier.widthIn(max = 160.dp).menuAnchor(MenuAnchorType.PrimaryNotEditable))
-                                ExposedDropdownMenu(expanded = langExpanded, onDismissRequest = { langExpanded = false }) {
-                                    listOf("en" to "English", "es" to "Espa\u00f1ol").forEach { (code, name) ->
-                                        DropdownMenuItem(text = { Text(name) }, onClick = { selectedLang = code; config.language = code; langExpanded = false })
-                                    }
-                                }
-                            }
-                        }
-
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            val themeIcon = when (themeMode) {
-                                "light" -> AppIcons.Sun
-                                "solarized_light" -> AppIcons.SolarizedLight
-                                "high_contrast" -> AppIcons.HighContrast
-                                "amoled_dark" -> AppIcons.MoonAmoled
-                                "sakura" -> AppIcons.Sakura
-                                "solarized_dark" -> AppIcons.SolarizedDark
-                                "nord" -> AppIcons.Nord
-                                "dracula" -> AppIcons.Dracula
-                                "catppuccin" -> AppIcons.Catppuccin
-                                else -> AppIcons.MoonDark
-                            }
-                            Icon(themeIcon, null, modifier = Modifier.size(20.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Spacer(Modifier.width(12.dp))
-                            Text(Strings.get("theme", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                            var themeExpanded by remember { mutableStateOf(false) }
-                            val themeOptions = listOf(
-                                "system" to Strings.get("theme_system", lang),
-                                "light" to Strings.get("theme_light", lang),
-                                "dark" to Strings.get("theme_dark", lang),
-                                "amoled_dark" to Strings.get("theme_amoled", lang),
-                                "solarized_light" to Strings.get("theme_solarized_light", lang),
-                                "solarized_dark" to Strings.get("theme_solarized_dark", lang),
-                                "nord" to Strings.get("theme_nord", lang),
-                                "dracula" to Strings.get("theme_dracula", lang),
-                                "catppuccin" to Strings.get("theme_catppuccin", lang),
-                                "high_contrast" to Strings.get("theme_high_contrast", lang),
-                                "sakura" to Strings.get("theme_sakura", lang),
-                            )
-                            ExposedDropdownMenuBox(expanded = themeExpanded, onExpandedChange = { themeExpanded = it }) {
-                                OutlinedTextField(
-                                    value = themeOptions.firstOrNull { it.first == themeMode }?.second ?: "",
-                                    onValueChange = {}, readOnly = true,
-                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = themeExpanded) },
-                                    singleLine = true,
-                                    modifier = Modifier.widthIn(max = 160.dp).menuAnchor(MenuAnchorType.PrimaryNotEditable))
-                                ExposedDropdownMenu(expanded = themeExpanded, onDismissRequest = { themeExpanded = false }) {
-                                    themeOptions.forEach { (value, label) ->
-                                        val icon = when (value) {
-                                            "light" -> AppIcons.Sun
-                                            "solarized_light" -> AppIcons.SolarizedLight
-                                            "high_contrast" -> AppIcons.HighContrast
-                                            "amoled_dark" -> AppIcons.MoonAmoled
-                                            "sakura" -> AppIcons.Sakura
-                                            "solarized_dark" -> AppIcons.SolarizedDark
-                                            "nord" -> AppIcons.Nord
-                                            "dracula" -> AppIcons.Dracula
-                                            "catppuccin" -> AppIcons.Catppuccin
-                                            else -> AppIcons.MoonDark
-                                        }
-                                        DropdownMenuItem(
-                                            text = {
-                                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    Icon(icon, null, modifier = Modifier.size(18.dp),
-                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                    Spacer(Modifier.width(8.dp))
-                                                    Text(label)
-                                                }
-                                            },
-                                            onClick = { themeMode = value; config.themeMode = value; themeExpanded = false }
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.DateRange, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Spacer(Modifier.width(12.dp))
-                            Text(Strings.get("time_format", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                            SimpleDropdown(
-                                label = Strings.get("time_format", lang),
-                                selected = if (use24h) Strings.get("time_24h", lang) else Strings.get("time_12h", lang),
-                                options = listOf(Strings.get("time_12h", lang), Strings.get("time_24h", lang)),
-                                onSelect = { v -> use24h = v == Strings.get("time_24h", lang); config.use24h = use24h },
-                                modifier = Modifier.widthIn(max = 120.dp),
-                            )
-                        }
-
-                        HorizontalDivider()
-                        Text(Strings.get("output", lang), style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(AppIcons.Logseq, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Spacer(Modifier.width(12.dp))
-                            Text(Strings.get("logseq_label", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                            Switch(checked = logseqEnabled, onCheckedChange = { logseqEnabled = it; config.logseqEnabled = it })
-                        }
-                        if (logseqEnabled) {
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                                Icon(AppIcons.Folder, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Spacer(Modifier.width(8.dp))
-                                OutlinedTextField(value = logseqPath, onValueChange = { logseqPath = it; config.logseqPath = it },
-                                    singleLine = true, modifier = Modifier.weight(1f))
-                                Spacer(Modifier.width(8.dp))
-                                Button(onClick = { browseDirectory(logseqPath)?.let { logseqPath = it; config.logseqPath = it } }) {
-                                    Text(Strings.get("browse", lang))
-                                }
-                            }
-                        }
-
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(AppIcons.Obsidian, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Spacer(Modifier.width(12.dp))
-                            Text(Strings.get("obsidian_label", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                            Switch(checked = obsidianEnabled, onCheckedChange = { obsidianEnabled = it; config.obsidianEnabled = it })
-                        }
-                        if (obsidianEnabled) {
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                                Icon(AppIcons.Folder, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Spacer(Modifier.width(8.dp))
-                                OutlinedTextField(value = obsidianPath, onValueChange = { obsidianPath = it; config.obsidianPath = it },
-                                    singleLine = true, modifier = Modifier.weight(1f))
-                                Spacer(Modifier.width(8.dp))
-                                Button(onClick = { browseDirectory(obsidianPath)?.let { obsidianPath = it; config.obsidianPath = it } }) {
-                                    Text(Strings.get("browse", lang))
-                                }
-                            }
-                        }
-
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(AppIcons.Folder, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Spacer(Modifier.width(12.dp))
-                            Text(Strings.get("tasks_path", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                            Switch(checked = tasksEnabled, onCheckedChange = { tasksEnabled = it; config.tasksEnabled = it })
-                        }
-                        if (tasksEnabled) {
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                                Icon(AppIcons.Folder, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Spacer(Modifier.width(8.dp))
-                                OutlinedTextField(value = tasksOutputPath, onValueChange = { tasksOutputPath = it; config.tasksOutputPath = it },
-                                    singleLine = true, modifier = Modifier.weight(1f))
-                                Spacer(Modifier.width(8.dp))
-                                Button(onClick = { browseFile(tasksOutputPath)?.let { tasksOutputPath = it; config.tasksOutputPath = it } }) {
-                                    Text(Strings.get("browse", lang))
-                                }
-                            }
-                        }
-
-                        HorizontalDivider()
-                        Text(Strings.get("advanced", lang), style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text(Strings.get("fetch_days", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                            OutlinedTextField(value = daysBackText, onValueChange = { daysBackText = it; config.fetchDaysBack = it.toIntOrNull() ?: 7 },
-                                singleLine = true, modifier = Modifier.widthIn(max = 100.dp))
-                        }
-
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text(Strings.get("fetch_limit", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                            OutlinedTextField(value = limitText, onValueChange = { limitText = it; config.fetchLimit = it.toIntOrNull() ?: 100 },
-                                singleLine = true, modifier = Modifier.widthIn(max = 100.dp))
-                        }
-
-                        HorizontalDivider()
-                        TextButton(onClick = { showClearCredsConfirm = true }) {
-                            Text(Strings.get("clear_creds", lang), color = MaterialTheme.colorScheme.error)
-                        }
-                    }
-                }
+                2 -> DesktopSettingsPage(
+                    config = config,
+                    themeMode = themeMode, onThemeModeChange = { themeMode = it },
+                    selectedLang = selectedLang, onSelectedLangChange = { selectedLang = it },
+                    use24h = use24h, onUse24hChange = { use24h = it },
+                    logseqEnabled = logseqEnabled, onLogseqEnabledChange = { logseqEnabled = it },
+                    logseqPath = logseqPath, onLogseqPathChange = { logseqPath = it },
+                    obsidianEnabled = obsidianEnabled, onObsidianEnabledChange = { obsidianEnabled = it },
+                    obsidianPath = obsidianPath, onObsidianPathChange = { obsidianPath = it },
+                    tasksEnabled = tasksEnabled, onTasksEnabledChange = { tasksEnabled = it },
+                    tasksOutputPath = tasksOutputPath, onTasksOutputPathChange = { tasksOutputPath = it },
+                    daysBackText = daysBackText, onDaysBackTextChange = { daysBackText = it },
+                    limitText = limitText, onLimitTextChange = { limitText = it },
+                    onClearCredsClick = { showClearCredsConfirm = true },
+                    lang = lang,
+                )
             }
         }
     }
@@ -792,27 +619,23 @@ fun DesktopApp(config: DesktopConfigStore) {
                             .firstOrNull { !it.isLoopbackAddress && it is Inet4Address }
                             ?.hostAddress
                     }
-            } catch (_: Exception) { null }
+            } catch (e: Exception) { com.moodlebridge.Log.w("Network", "Failed to detect local IP", e); null }
         }
 
         LaunchedEffect(Unit) {
             val server = try {
-                val s = com.sun.net.httpserver.HttpServer.create(InetSocketAddress(8765), 0)
+                val s = com.sun.net.httpserver.HttpServer.create(InetSocketAddress(SYNC_PORT), 0)
                 s.createContext("/sync") { exchange ->
-                    println("[DueNest Sync] Received ${exchange.requestMethod} from ${exchange.remoteAddress}")
                     if (exchange.requestMethod == "POST") {
                         try {
                             val body = exchange.requestBody.readBytes().decodeToString()
                             val remote = SyncManager.deserializePayload(body)
                             if (remote != null) {
-                                println("[DueNest Sync] Remote has ${remote.manualEvents.size} events, ${remote.taskCompletion.size} completions")
-                                val le = try { Json.decodeFromString<List<Event>>(config.manualEventCache) } catch (_: Exception) { emptyList() }
-                                val lc = try { Json.decodeFromString<Map<String, Boolean>>(config.taskCompletionState) } catch (_: Exception) { emptyMap() }
-                                val ld = try { Json.decodeFromString<Set<String>>(config.deletedEventIds) } catch (_: Exception) { emptySet() }
+                                val le = try { Json.decodeFromString<List<Event>>(config.manualEventCache) } catch (e: Exception) { com.moodlebridge.Log.w("Sync", "Failed to parse manualEventCache", e); emptyList() }
+                                val lc = try { Json.decodeFromString<Map<String, Boolean>>(config.taskCompletionState) } catch (e: Exception) { com.moodlebridge.Log.w("Sync", "Failed to parse taskCompletionState", e); emptyMap() }
+                                val ld = try { Json.decodeFromString<Set<String>>(config.deletedEventIds) } catch (e: Exception) { com.moodlebridge.Log.w("Sync", "Failed to parse deletedEventIds", e); emptySet() }
                                 val local = SyncManager.generatePayload(le, lc, ld, config.deviceId)
-                                println("[DueNest Sync] Local has ${local.manualEvents.size} events, ${local.taskCompletion.size} completions")
                                 val merged = SyncManager.mergePayload(local, remote)
-                                println("[DueNest Sync] Merged: ${merged.manualEvents.size} events, ${merged.taskCompletion.size} completions")
                                 val response = SyncManager.serializePayload(
                                     SyncManager.generatePayload(merged.manualEvents, merged.taskCompletion, merged.deletedEventIds, config.deviceId)
                                 )
@@ -820,16 +643,12 @@ fun DesktopApp(config: DesktopConfigStore) {
                                 exchange.sendResponseHeaders(200, response.toByteArray().size.toLong())
                                 exchange.responseBody.write(response.toByteArray())
                                 exchange.close()
-                                println("[DueNest Sync] Response sent, sending to syncChannel")
                                 syncChannel.trySend(merged)
-                                println("[DueNest Sync] syncChannel sent ok")
                             } else {
-                                println("[DueNest Sync] Failed to deserialize remote payload")
                                 exchange.sendResponseHeaders(400, 0)
                                 exchange.close()
                             }
                         } catch (e: Exception) {
-                            println("[DueNest Sync] Error: ${e.message}")
                             try { exchange.sendResponseHeaders(500, 0); exchange.close() } catch (_: Exception) {}
                         }
                     } else {
@@ -839,17 +658,14 @@ fun DesktopApp(config: DesktopConfigStore) {
                 }
                 s.executor = Executors.newSingleThreadExecutor()
                 s.start()
-                println("[DueNest Sync] Server started on port 8765")
                 s
             } catch (e: Exception) {
-                println("[DueNest Sync] Failed to start server: ${e.message}")
                 null
             }
 
             try {
                 while (true) {
                     val merged = syncChannel.receive()
-                    println("[DueNest Sync] Consumer received: ${merged.manualEvents.size} events, ${merged.taskCompletion.size} completions, ${merged.deletedEventIds.size} deleted")
                     manualEvents = merged.manualEvents
                     taskCompletionMap = merged.taskCompletion
                     deletedEventIds = merged.deletedEventIds
@@ -867,220 +683,20 @@ fun DesktopApp(config: DesktopConfigStore) {
         }
 
         if (showSyncDialog) {
-            var syncMergeMsg by remember { mutableStateOf<String?>(null) }
-            val syncPayload = remember(manualEvents, taskCompletionMap, deletedEventIds) {
-                SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId)
-            }
-
-            val qrContent = remember(syncPayload, localIp) {
-                val content = if (localIp != null) SyncManager.encodeQrContent("http://$localIp:8765", syncPayload)
-                else SyncManager.serializePayload(syncPayload)
-                println("[DueNest Sync] QR content: localIp=$localIp, contentLen=${content.length}, startsWith=${content.take(80)}")
-                content
-            }
-            val qrImage: ImageBitmap? = remember(qrContent) {
-                try {
-                    val writer = QRCodeWriter()
-                    val matrix: BitMatrix = writer.encode(qrContent, BarcodeFormat.QR_CODE, 400, 400)
-                    val buffered = BufferedImage(400, 400, BufferedImage.TYPE_INT_RGB)
-                    for (x in 0 until 400) {
-                        for (y in 0 until 400) {
-                            buffered.setRGB(x, y, if (matrix.get(x, y)) 0xFF000000.toInt() else 0xFFFFFFFF.toInt())
-                        }
-                    }
-                    buffered.toComposeImageBitmap()
-                } catch (_: Exception) { null }
-            }
-            AlertDialog(
-                onDismissRequest = { showSyncDialog = false },
-                containerColor = cs.surface, titleContentColor = cs.onSurface, textContentColor = cs.onSurface,
-                title = { Text(Strings.get("sync_qr_title", lang)) },
-                text = {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(440.dp)) {
-                        if (qrImage != null) {
-                            Image(qrImage, contentDescription = "QR Code",
-                                modifier = Modifier.size(300.dp).clip(RoundedCornerShape(8.dp)))
-                        } else {
-                            Text(Strings.get("sync_error", lang), color = MaterialTheme.colorScheme.error)
-                        }
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            if (localIp != null) "http://$localIp:8765" else Strings.get("sync_no_network", lang),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (localIp != null) cs.onSurface.copy(alpha = 0.5f) else MaterialTheme.colorScheme.error
-                        )
-                        if (syncMergeMsg != null) {
-                            Spacer(Modifier.height(8.dp))
-                            Text(syncMergeMsg!!, color = MaterialTheme.colorScheme.primary,
-                                style = MaterialTheme.typography.bodyMedium)
-                        }
-                        Spacer(Modifier.height(16.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(onClick = {
-                                try {
-                                    val fc = JFileChooser()
-                                    fc.dialogTitle = Strings.get("sync_export", lang)
-                                    fc.fileFilter = FileNameExtensionFilter("JSON files", "json")
-                                    fc.selectedFile = File("duenest-sync.json")
-                                    val result = fc.showSaveDialog(null)
-                                    if (result == JFileChooser.APPROVE_OPTION) {
-                                        var file = fc.selectedFile
-                                        if (!file.name.endsWith(".json")) file = File(file.absolutePath + ".json")
-                                        file.writeText(SyncManager.serializePayload(syncPayload))
-                                        showSyncDialog = false
-                                    }
-                                } catch (_: Exception) {}
-                            }, modifier = Modifier.weight(1f)) {
-                                Text(Strings.get("sync_export", lang))
-                            }
-                            OutlinedButton(onClick = {
-                                try {
-                                    val fc = JFileChooser()
-                                    fc.dialogTitle = Strings.get("sync_import", lang)
-                                    fc.fileFilter = FileNameExtensionFilter("JSON files", "json")
-                                    val result = fc.showOpenDialog(null)
-                                    if (result == JFileChooser.APPROVE_OPTION) {
-                                        val data = fc.selectedFile.readText()
-                                        val remote = SyncManager.deserializePayload(data)
-                                        if (remote != null) {
-                                            val merged = SyncManager.mergePayload(syncPayload, remote)
-                                            manualEvents = merged.manualEvents
-                                            taskCompletionMap = merged.taskCompletion
-                                            deletedEventIds = merged.deletedEventIds
-                                            config.manualEventCache = Json.encodeToString(manualEvents)
-                                            config.taskCompletionState = Json.encodeToString(taskCompletionMap)
-                                            config.deletedEventIds = Json.encodeToString(deletedEventIds)
-                                            persistMergedEvents()
-                                            syncMergeMsg = Strings.get("sync_merged", lang)
-                                        } else {
-                                            syncMergeMsg = Strings.get("sync_no_data", lang)
-                                        }
-                                    }
-                                } catch (_: Exception) {}
-                            }, modifier = Modifier.weight(1f)) {
-                                Text(Strings.get("sync_import", lang))
-                            }
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = {
-                                try {
-                                    val fc = JFileChooser()
-                                    fc.dialogTitle = Strings.get("sync_import_qr", lang)
-                                    fc.fileFilter = FileNameExtensionFilter("Image files", "png", "jpg", "jpeg", "bmp")
-                                    val result = fc.showOpenDialog(null)
-                                    if (result == JFileChooser.APPROVE_OPTION) {
-                                        val image = ImageIO.read(fc.selectedFile)
-                                        if (image != null) {
-                                            val source = BufferedImageLuminanceSource(image)
-                                            val binarizer = HybridBinarizer(source)
-                                            val bitmap = BinaryBitmap(binarizer)
-                                            val qrResult = QRCodeReader().decode(bitmap)
-                                            val (url, payload) = SyncManager.decodeQrContent(qrResult.text)
-                                            if (url != null) {
-                                                syncMergeMsg = Strings.get("sync_syncing", lang)
-                                                scope.launch(Dispatchers.IO) {
-                                                    try {
-                                                        val client = OkHttpClient.Builder()
-                                                            .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
-                                                            .build()
-                                                        val reqBody = SyncManager.serializePayload(syncPayload)
-                                                            .toRequestBody("text/plain".toMediaType())
-                                                        val request = Request.Builder().url("$url/sync").post(reqBody).build()
-                                                        val resp = client.newCall(request).execute()
-                                                        val respBody = resp.body?.string()
-                                                        if (resp.isSuccessful && respBody != null) {
-                                                            val remote = SyncManager.deserializePayload(respBody)
-                                                            if (remote != null) {
-                                                                val merged = SyncManager.mergePayload(syncPayload, remote)
-                                                                withContext(Dispatchers.Main) {
-                                                                    manualEvents = merged.manualEvents
-                                                                    taskCompletionMap = merged.taskCompletion
-                                                                    deletedEventIds = merged.deletedEventIds
-                                                                    config.manualEventCache = Json.encodeToString(manualEvents)
-                                                                    config.taskCompletionState = Json.encodeToString(taskCompletionMap)
-                                                                    config.deletedEventIds = Json.encodeToString(deletedEventIds)
-                                                                    persistMergedEvents()
-                                                                    syncMergeMsg = Strings.get("sync_merged", lang)
-                                                                }
-                                                            }
-                                                        } else if (payload != null) {
-                                                            withContext(Dispatchers.Main) {
-                                                                val merged = SyncManager.mergePayload(syncPayload, payload)
-                                                                manualEvents = merged.manualEvents
-                                                                taskCompletionMap = merged.taskCompletion
-                                                                deletedEventIds = merged.deletedEventIds
-                                                                config.manualEventCache = Json.encodeToString(manualEvents)
-                                                                config.taskCompletionState = Json.encodeToString(taskCompletionMap)
-                                                                config.deletedEventIds = Json.encodeToString(deletedEventIds)
-                                                                persistMergedEvents()
-                                                                syncMergeMsg = Strings.get("sync_merged", lang)
-                                                            }
-                                                        }
-                                                    } catch (_: Exception) {
-                                                        if (payload != null) withContext(Dispatchers.Main) {
-                                                            val merged = SyncManager.mergePayload(syncPayload, payload)
-                                                            manualEvents = merged.manualEvents
-                                                            taskCompletionMap = merged.taskCompletion
-                                                            deletedEventIds = merged.deletedEventIds
-                                                            config.manualEventCache = Json.encodeToString(manualEvents)
-                                                            config.taskCompletionState = Json.encodeToString(taskCompletionMap)
-                                                            config.deletedEventIds = Json.encodeToString(deletedEventIds)
-                                                            persistMergedEvents()
-                                                            syncMergeMsg = Strings.get("sync_merged", lang)
-                                                        } else withContext(Dispatchers.Main) {
-                                                            syncMergeMsg = Strings.get("sync_connection_failed", lang)
-                                                        }
-                                                    }
-                                                }
-                                            } else if (payload != null) {
-                                                val merged = SyncManager.mergePayload(syncPayload, payload)
-                                                manualEvents = merged.manualEvents
-                                                taskCompletionMap = merged.taskCompletion
-                                                deletedEventIds = merged.deletedEventIds
-                                                config.manualEventCache = Json.encodeToString(manualEvents)
-                                                config.taskCompletionState = Json.encodeToString(taskCompletionMap)
-                                                config.deletedEventIds = Json.encodeToString(deletedEventIds)
-                                                persistMergedEvents()
-                                                syncMergeMsg = Strings.get("sync_merged", lang)
-                                            } else {
-                                                syncMergeMsg = Strings.get("sync_no_data", lang)
-                                            }
-                                        } else {
-                                            syncMergeMsg = Strings.get("sync_no_data", lang)
-                                        }
-                                    }
-                                } catch (_: Exception) { syncMergeMsg = Strings.get("sync_no_data", lang) }
-                            }, modifier = Modifier.weight(1f)) {
-                                Text(Strings.get("sync_import_qr", lang))
-                            }
-                            OutlinedButton(onClick = {
-                                try {
-                                    val fc = JFileChooser()
-                                    fc.dialogTitle = Strings.get("sync_export_qr", lang)
-                                    fc.fileFilter = FileNameExtensionFilter("PNG images", "png")
-                                    fc.selectedFile = File("duenest-qr.png")
-                                    val result = fc.showSaveDialog(null)
-                                    if (result == JFileChooser.APPROVE_OPTION) {
-                                        var file = fc.selectedFile
-                                        if (!file.name.endsWith(".png")) file = File(file.absolutePath + ".png")
-                                        val writer = QRCodeWriter()
-                                        val matrix = writer.encode(qrContent, BarcodeFormat.QR_CODE, 400, 400)
-                                        val img = BufferedImage(400, 400, BufferedImage.TYPE_INT_RGB)
-                                        for (x in 0 until 400) for (y in 0 until 400)
-                                            img.setRGB(x, y, if (matrix.get(x, y)) 0xFF000000.toInt() else 0xFFFFFFFF.toInt())
-                                        ImageIO.write(img, "png", file)
-                                        showSyncDialog = false
-                                    }
-                                } catch (_: Exception) {}
-                            }, modifier = Modifier.weight(1f)) {
-                                Text(Strings.get("sync_export_qr", lang))
-                            }
-                        }
-                    }
+            SyncDialog(
+                onDismiss = { showSyncDialog = false },
+                config = config,
+                manualEvents = manualEvents,
+                taskCompletionMap = taskCompletionMap,
+                deletedEventIds = deletedEventIds,
+                onStateUpdate = { me, tc, de ->
+                    manualEvents = me; taskCompletionMap = tc; deletedEventIds = de
                 },
-                confirmButton = {},
-                dismissButton = { TextButton(onClick = { showSyncDialog = false }) { Text(Strings.get("cancel", lang)) } })
+                persistMergedEvents = { persistMergedEvents() },
+                localIp = localIp,
+                lang = lang,
+                scope = scope,
+            )
         }
 
 
@@ -1605,4 +1221,415 @@ private fun TimePickerRow(
             Spacer(Modifier.weight(1f))
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DesktopSettingsPage(
+    config: DesktopConfigStore,
+    themeMode: String, onThemeModeChange: (String) -> Unit,
+    selectedLang: String, onSelectedLangChange: (String) -> Unit,
+    use24h: Boolean, onUse24hChange: (Boolean) -> Unit,
+    logseqEnabled: Boolean, onLogseqEnabledChange: (Boolean) -> Unit,
+    logseqPath: String, onLogseqPathChange: (String) -> Unit,
+    obsidianEnabled: Boolean, onObsidianEnabledChange: (Boolean) -> Unit,
+    obsidianPath: String, onObsidianPathChange: (String) -> Unit,
+    tasksEnabled: Boolean, onTasksEnabledChange: (Boolean) -> Unit,
+    tasksOutputPath: String, onTasksOutputPathChange: (String) -> Unit,
+    daysBackText: String, onDaysBackTextChange: (String) -> Unit,
+    limitText: String, onLimitTextChange: (String) -> Unit,
+    onClearCredsClick: () -> Unit,
+    lang: String,
+) {
+    Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.TopStart) {
+        Column(Modifier.widthIn(max = 640.dp).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text(Strings.get("settings", lang), style = MaterialTheme.typography.headlineMedium)
+
+            Text(Strings.get("general", lang), style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Icon(AppIcons.Language, null, modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.width(12.dp))
+                Text(Strings.get("language", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                var langExpanded by remember { mutableStateOf(false) }
+                ExposedDropdownMenuBox(expanded = langExpanded, onExpandedChange = { langExpanded = it }) {
+                    OutlinedTextField(value = Strings.langLabel(selectedLang), onValueChange = {}, readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = langExpanded) },
+                        singleLine = true,
+                        modifier = Modifier.widthIn(max = 160.dp).menuAnchor(MenuAnchorType.PrimaryNotEditable))
+                    ExposedDropdownMenu(expanded = langExpanded, onDismissRequest = { langExpanded = false }) {
+                        listOf("en" to "English", "es" to "Espa\u00f1ol").forEach { (code, name) ->
+                            DropdownMenuItem(text = { Text(name) }, onClick = { onSelectedLangChange(code); config.language = code; langExpanded = false })
+                        }
+                    }
+                }
+            }
+
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                val themeIcon = when (themeMode) {
+                    "light" -> AppIcons.Sun
+                    "solarized_light" -> AppIcons.SolarizedLight
+                    "high_contrast" -> AppIcons.HighContrast
+                    "amoled_dark" -> AppIcons.MoonAmoled
+                    "sakura" -> AppIcons.Sakura
+                    "solarized_dark" -> AppIcons.SolarizedDark
+                    "nord" -> AppIcons.Nord
+                    "dracula" -> AppIcons.Dracula
+                    "catppuccin" -> AppIcons.Catppuccin
+                    else -> AppIcons.MoonDark
+                }
+                Icon(themeIcon, null, modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.width(12.dp))
+                Text(Strings.get("theme", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                var themeExpanded by remember { mutableStateOf(false) }
+                val themeOptions = listOf(
+                    "system" to Strings.get("theme_system", lang),
+                    "light" to Strings.get("theme_light", lang),
+                    "dark" to Strings.get("theme_dark", lang),
+                    "amoled_dark" to Strings.get("theme_amoled", lang),
+                    "solarized_light" to Strings.get("theme_solarized_light", lang),
+                    "solarized_dark" to Strings.get("theme_solarized_dark", lang),
+                    "nord" to Strings.get("theme_nord", lang),
+                    "dracula" to Strings.get("theme_dracula", lang),
+                    "catppuccin" to Strings.get("theme_catppuccin", lang),
+                    "high_contrast" to Strings.get("theme_high_contrast", lang),
+                    "sakura" to Strings.get("theme_sakura", lang),
+                )
+                ExposedDropdownMenuBox(expanded = themeExpanded, onExpandedChange = { themeExpanded = it }) {
+                    OutlinedTextField(
+                        value = themeOptions.firstOrNull { it.first == themeMode }?.second ?: "",
+                        onValueChange = {}, readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = themeExpanded) },
+                        singleLine = true,
+                        modifier = Modifier.widthIn(max = 160.dp).menuAnchor(MenuAnchorType.PrimaryNotEditable))
+                    ExposedDropdownMenu(expanded = themeExpanded, onDismissRequest = { themeExpanded = false }) {
+                        themeOptions.forEach { (value, label) ->
+                            val icon = when (value) {
+                                "light" -> AppIcons.Sun
+                                "solarized_light" -> AppIcons.SolarizedLight
+                                "high_contrast" -> AppIcons.HighContrast
+                                "amoled_dark" -> AppIcons.MoonAmoled
+                                "sakura" -> AppIcons.Sakura
+                                "solarized_dark" -> AppIcons.SolarizedDark
+                                "nord" -> AppIcons.Nord
+                                "dracula" -> AppIcons.Dracula
+                                "catppuccin" -> AppIcons.Catppuccin
+                                else -> AppIcons.MoonDark
+                            }
+                            DropdownMenuItem(
+                                text = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(icon, null, modifier = Modifier.size(18.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(label)
+                                    }
+                                },
+                                onClick = { onThemeModeChange(value); config.themeMode = value; themeExpanded = false }
+                            )
+                        }
+                    }
+                }
+            }
+
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.DateRange, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.width(12.dp))
+                Text(Strings.get("time_format", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                SimpleDropdown(
+                    label = Strings.get("time_format", lang),
+                    selected = if (use24h) Strings.get("time_24h", lang) else Strings.get("time_12h", lang),
+                    options = listOf(Strings.get("time_12h", lang), Strings.get("time_24h", lang)),
+                    onSelect = { v -> onUse24hChange(v == Strings.get("time_24h", lang)); config.use24h = use24h },
+                    modifier = Modifier.widthIn(max = 120.dp),
+                )
+            }
+
+            HorizontalDivider()
+            Text(Strings.get("output", lang), style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Icon(AppIcons.Logseq, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.width(12.dp))
+                Text(Strings.get("logseq_label", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                Switch(checked = logseqEnabled, onCheckedChange = { onLogseqEnabledChange(it); config.logseqEnabled = it })
+            }
+            if (logseqEnabled) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Icon(AppIcons.Folder, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.width(8.dp))
+                    OutlinedTextField(value = logseqPath, onValueChange = { onLogseqPathChange(it); config.logseqPath = it },
+                        singleLine = true, modifier = Modifier.weight(1f))
+                    Spacer(Modifier.width(8.dp))
+                    Button(onClick = { browseDirectory(logseqPath)?.let { onLogseqPathChange(it); config.logseqPath = it } }) {
+                        Text(Strings.get("browse", lang))
+                    }
+                }
+            }
+
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Icon(AppIcons.Obsidian, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.width(12.dp))
+                Text(Strings.get("obsidian_label", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                Switch(checked = obsidianEnabled, onCheckedChange = { onObsidianEnabledChange(it); config.obsidianEnabled = it })
+            }
+            if (obsidianEnabled) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Icon(AppIcons.Folder, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.width(8.dp))
+                    OutlinedTextField(value = obsidianPath, onValueChange = { onObsidianPathChange(it); config.obsidianPath = it },
+                        singleLine = true, modifier = Modifier.weight(1f))
+                    Spacer(Modifier.width(8.dp))
+                    Button(onClick = { browseDirectory(obsidianPath)?.let { onObsidianPathChange(it); config.obsidianPath = it } }) {
+                        Text(Strings.get("browse", lang))
+                    }
+                }
+            }
+
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Icon(AppIcons.Folder, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.width(12.dp))
+                Text(Strings.get("tasks_path", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                Switch(checked = tasksEnabled, onCheckedChange = { onTasksEnabledChange(it); config.tasksEnabled = it })
+            }
+            if (tasksEnabled) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Icon(AppIcons.Folder, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.width(8.dp))
+                    OutlinedTextField(value = tasksOutputPath, onValueChange = { onTasksOutputPathChange(it); config.tasksOutputPath = it },
+                        singleLine = true, modifier = Modifier.weight(1f))
+                    Spacer(Modifier.width(8.dp))
+                    Button(onClick = { browseFile(tasksOutputPath)?.let { onTasksOutputPathChange(it); config.tasksOutputPath = it } }) {
+                        Text(Strings.get("browse", lang))
+                    }
+                }
+            }
+
+            HorizontalDivider()
+            Text(Strings.get("advanced", lang), style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(Strings.get("fetch_days", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                OutlinedTextField(value = daysBackText, onValueChange = { onDaysBackTextChange(it); config.fetchDaysBack = it.toIntOrNull() ?: 7 },
+                    singleLine = true, modifier = Modifier.widthIn(max = 100.dp))
+            }
+
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(Strings.get("fetch_limit", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                OutlinedTextField(value = limitText, onValueChange = { onLimitTextChange(it); config.fetchLimit = it.toIntOrNull() ?: 100 },
+                    singleLine = true, modifier = Modifier.widthIn(max = 100.dp))
+            }
+
+            HorizontalDivider()
+            TextButton(onClick = onClearCredsClick) {
+                Text(Strings.get("clear_creds", lang), color = MaterialTheme.colorScheme.error)
+            }
+        }
+    }
+}
+
+private fun applySyncMerge(
+    merged: MergeResult,
+    config: DesktopConfigStore,
+    onStateUpdate: (List<Event>, Map<String, Boolean>, Set<String>) -> Unit,
+    persistMergedEvents: () -> Unit,
+) {
+    onStateUpdate(merged.manualEvents, merged.taskCompletion, merged.deletedEventIds)
+    config.manualEventCache = Json.encodeToString(merged.manualEvents)
+    config.taskCompletionState = Json.encodeToString(merged.taskCompletion)
+    config.deletedEventIds = Json.encodeToString(merged.deletedEventIds)
+    persistMergedEvents()
+}
+
+@Composable
+private fun SyncDialog(
+    onDismiss: () -> Unit,
+    config: DesktopConfigStore,
+    manualEvents: List<Event>,
+    taskCompletionMap: Map<String, Boolean>,
+    deletedEventIds: Set<String>,
+    onStateUpdate: (List<Event>, Map<String, Boolean>, Set<String>) -> Unit,
+    persistMergedEvents: () -> Unit,
+    localIp: String?,
+    lang: String,
+    scope: kotlinx.coroutines.CoroutineScope,
+) {
+    var syncMergeMsg by remember { mutableStateOf<String?>(null) }
+    val syncPayload = remember(manualEvents, taskCompletionMap, deletedEventIds) {
+        SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId)
+    }
+    val cs = MaterialTheme.colorScheme
+
+    val qrContent = remember(syncPayload, localIp) {
+        if (localIp != null) SyncManager.encodeQrContent("http://$localIp:$SYNC_PORT", syncPayload)
+        else SyncManager.serializePayload(syncPayload)
+    }
+    val qrImage: ImageBitmap? = remember(qrContent) {
+        try {
+            val writer = QRCodeWriter()
+            val matrix: BitMatrix = writer.encode(qrContent, BarcodeFormat.QR_CODE, 400, 400)
+            val buffered = BufferedImage(400, 400, BufferedImage.TYPE_INT_RGB)
+            for (x in 0 until 400) for (y in 0 until 400)
+                buffered.setRGB(x, y, if (matrix.get(x, y)) 0xFF000000.toInt() else 0xFFFFFFFF.toInt())
+            buffered.toComposeImageBitmap()
+        } catch (_: Exception) { null }
+    }
+
+    val applyAndMerge: (MergeResult) -> Unit = { merged ->
+        applySyncMerge(merged, config, onStateUpdate, persistMergedEvents)
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = cs.surface, titleContentColor = cs.onSurface, textContentColor = cs.onSurface,
+        title = { Text(Strings.get("sync_qr_title", lang)) },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(440.dp)) {
+                if (qrImage != null) {
+                    Image(qrImage, contentDescription = "QR Code",
+                        modifier = Modifier.size(300.dp).clip(RoundedCornerShape(8.dp)))
+                } else {
+                    Text(Strings.get("sync_error", lang), color = cs.error)
+                }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    if (localIp != null) "http://$localIp:$SYNC_PORT" else Strings.get("sync_no_network", lang),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (localIp != null) cs.onSurface.copy(alpha = 0.5f) else cs.error
+                )
+                if (syncMergeMsg != null) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(syncMergeMsg!!, color = cs.primary, style = MaterialTheme.typography.bodyMedium)
+                }
+                Spacer(Modifier.height(16.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = {
+                        try {
+                            val fc = JFileChooser()
+                            fc.dialogTitle = Strings.get("sync_export", lang)
+                            fc.fileFilter = FileNameExtensionFilter("JSON files", "json")
+                            fc.selectedFile = File("duenest-sync.json")
+                            if (fc.showSaveDialog(null) == JFileChooser.APPROVE_OPTION) {
+                                var file = fc.selectedFile
+                                if (!file.name.endsWith(".json")) file = File(file.absolutePath + ".json")
+                                file.writeText(SyncManager.serializePayload(syncPayload))
+                                onDismiss()
+                            }
+                        } catch (_: Exception) {}
+                    }, modifier = Modifier.weight(1f)) {
+                        Text(Strings.get("sync_export", lang))
+                    }
+                    OutlinedButton(onClick = {
+                        try {
+                            val fc = JFileChooser()
+                            fc.dialogTitle = Strings.get("sync_import", lang)
+                            fc.fileFilter = FileNameExtensionFilter("JSON files", "json")
+                            if (fc.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
+                                val remote = SyncManager.deserializePayload(fc.selectedFile.readText())
+                                if (remote != null) {
+                                    applyAndMerge(SyncManager.mergePayload(syncPayload, remote))
+                                    syncMergeMsg = Strings.get("sync_merged", lang)
+                                } else {
+                                    syncMergeMsg = Strings.get("sync_no_data", lang)
+                                }
+                            }
+                        } catch (_: Exception) {}
+                    }, modifier = Modifier.weight(1f)) {
+                        Text(Strings.get("sync_import", lang))
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = {
+                        try {
+                            val fc = JFileChooser()
+                            fc.dialogTitle = Strings.get("sync_import_qr", lang)
+                            fc.fileFilter = FileNameExtensionFilter("Image files", "png", "jpg", "jpeg", "bmp")
+                            if (fc.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
+                                val image = ImageIO.read(fc.selectedFile) ?: run {
+                                    syncMergeMsg = Strings.get("sync_no_data", lang)
+                                    return@OutlinedButton
+                                }
+                                val qrResult = QRCodeReader().decode(
+                                    BinaryBitmap(HybridBinarizer(BufferedImageLuminanceSource(image)))
+                                )
+                                val (url, payload) = SyncManager.decodeQrContent(qrResult.text)
+                                if (url != null) {
+                                    syncMergeMsg = Strings.get("sync_syncing", lang)
+                                    scope.launch(Dispatchers.IO) {
+                                        try {
+                                            val client = OkHttpClient.Builder()
+                                                .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                                                .build()
+                                            val reqBody = SyncManager.serializePayload(syncPayload)
+                                                .toRequestBody("text/plain".toMediaType())
+                                            val resp = client.newCall(
+                                                Request.Builder().url("$url/sync").post(reqBody).build()
+                                            ).execute()
+                                            val respBody = resp.body?.string()
+                                            val remote = if (resp.isSuccessful && respBody != null)
+                                                SyncManager.deserializePayload(respBody) else null
+                                            if (remote != null) {
+                                                withContext(Dispatchers.Main) {
+                                                    applyAndMerge(SyncManager.mergePayload(syncPayload, remote))
+                                                    syncMergeMsg = Strings.get("sync_merged", lang)
+                                                }
+                                            } else if (payload != null) {
+                                                withContext(Dispatchers.Main) {
+                                                    applyAndMerge(SyncManager.mergePayload(syncPayload, payload))
+                                                    syncMergeMsg = Strings.get("sync_merged", lang)
+                                                }
+                                            }
+                                        } catch (_: Exception) {
+                                            if (payload != null) withContext(Dispatchers.Main) {
+                                                applyAndMerge(SyncManager.mergePayload(syncPayload, payload))
+                                                syncMergeMsg = Strings.get("sync_merged", lang)
+                                            } else withContext(Dispatchers.Main) {
+                                                syncMergeMsg = Strings.get("sync_connection_failed", lang)
+                                            }
+                                        }
+                                    }
+                                } else if (payload != null) {
+                                    applyAndMerge(SyncManager.mergePayload(syncPayload, payload))
+                                    syncMergeMsg = Strings.get("sync_merged", lang)
+                                } else {
+                                    syncMergeMsg = Strings.get("sync_no_data", lang)
+                                }
+                            }
+                        } catch (_: Exception) { syncMergeMsg = Strings.get("sync_no_data", lang) }
+                    }, modifier = Modifier.weight(1f)) {
+                        Text(Strings.get("sync_import_qr", lang))
+                    }
+                    OutlinedButton(onClick = {
+                        try {
+                            val fc = JFileChooser()
+                            fc.dialogTitle = Strings.get("sync_export_qr", lang)
+                            fc.fileFilter = FileNameExtensionFilter("PNG images", "png")
+                            fc.selectedFile = File("duenest-qr.png")
+                            if (fc.showSaveDialog(null) == JFileChooser.APPROVE_OPTION) {
+                                var file = fc.selectedFile
+                                if (!file.name.endsWith(".png")) file = File(file.absolutePath + ".png")
+                                val writer = QRCodeWriter()
+                                val matrix = writer.encode(qrContent, BarcodeFormat.QR_CODE, 400, 400)
+                                val img = BufferedImage(400, 400, BufferedImage.TYPE_INT_RGB)
+                                for (x in 0 until 400) for (y in 0 until 400)
+                                    img.setRGB(x, y, if (matrix.get(x, y)) 0xFF000000.toInt() else 0xFFFFFFFF.toInt())
+                                ImageIO.write(img, "png", file)
+                                onDismiss()
+                            }
+                        } catch (_: Exception) {}
+                    }, modifier = Modifier.weight(1f)) {
+                        Text(Strings.get("sync_export_qr", lang))
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text(Strings.get("cancel", lang)) } })
 }

@@ -76,8 +76,6 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
@@ -449,9 +447,14 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
         isWorking = true; logLines.clear(); statusText = ""
         scope.launch {
             val manual = manualEvents.toList()
-            doFetch(context, config, url, username, pw, tz, savePw,
-                icsEnabled, logseqEnabled, obsidianEnabled, icsPath, logseqPath, obsidianPath,
-                daysBackText, limitText, lang, tasksEnabled, tasksOutputPath, manual,
+            val params = FetchParams(
+                url = url, username = username, password = pw, tz = tz, savePw = savePw,
+                icsEnabled = icsEnabled, logseqEnabled = logseqEnabled, obsidianEnabled = obsidianEnabled,
+                icsPath = icsPath, logseqPath = logseqPath, obsidianPath = obsidianPath,
+                daysBackText = daysBackText, limitText = limitText, lang = lang,
+                tasksEnabled = tasksEnabled, tasksOutputPath = tasksOutputPath, manualEvents = manual,
+            )
+            doFetch(context, config, params,
                 { addLog(it) }, { statusText = it }, { errorDialogMsg = it },
                 { isWorking = false },
                 { events ->
@@ -1576,17 +1579,35 @@ private fun SettingsPage(
     }
 }
 
+data class FetchParams(
+    val url: String,
+    val username: String,
+    val password: String,
+    val tz: String,
+    val savePw: Boolean,
+    val icsEnabled: Boolean,
+    val logseqEnabled: Boolean,
+    val obsidianEnabled: Boolean,
+    val icsPath: String,
+    val logseqPath: String,
+    val obsidianPath: String,
+    val daysBackText: String,
+    val limitText: String,
+    val lang: String,
+    val tasksEnabled: Boolean,
+    val tasksOutputPath: String,
+    val manualEvents: List<Event> = emptyList(),
+)
+
 private suspend fun doFetch(
-    context: Context, config: ConfigStore,
-    url: String, username: String, password: String, tz: String, savePw: Boolean,
-    icsEnabled: Boolean, logseqEnabled: Boolean, obsidianEnabled: Boolean,
-    icsPath: String, logseqPath: String, obsidianPath: String,
-    daysBackText: String, limitText: String, lang: String,
-    tasksEnabled: Boolean, tasksOutputPath: String,
-    manualEvents: List<Event> = emptyList(),
+    context: Context, config: ConfigStore, params: FetchParams,
     onLog: (String) -> Unit, onStatus: (String) -> Unit, onError: (String) -> Unit, onDone: () -> Unit,
     onEventsFetched: (List<Event>) -> Unit = {},
 ) {
+    val (url, username, password, tz, savePw, icsEnabled, logseqEnabled, obsidianEnabled,
+         icsPath, logseqPath, obsidianPath, daysBackText, limitText, lang,
+         tasksEnabled, tasksOutputPath, manualEvents) = params
+
     try {
         config.moodleUrl = url.trimEnd('/'); config.username = username.trim(); config.timezone = tz.trim()
         config.savePassword = savePw; if (savePw) config.password = password else config.password = ""

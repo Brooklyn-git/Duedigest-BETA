@@ -3,7 +3,6 @@ package com.moodlebridge.widget
 import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
@@ -37,21 +36,6 @@ import com.moodlebridge.data.Event
 import com.moodlebridge.data.Strings
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.decodeFromString
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Date
-import java.util.Locale
-
-private val BrandIndigo = Color(0xFF818CF8)
-private val AccentTeal = Color(0xFF2DD4BF)
-private val RedOverdue = Color(0xFFF87171)
-private val AmberSoon = Color(0xFFFBBF24)
-private val GreenFuture = Color(0xFF22C55E)
-private val WidgetBg = Color(0xFF1C1C1E)
-private val WidgetBgAmoled = Color.Black
-private val TextPrimary = Color(0xFFFFFFFF)
-private val TextSecondary = Color(0xFF9CA3AF)
-private val TextDim = Color(0xFF6B7280)
 
 class TaskWidget : GlanceAppWidget() {
 
@@ -172,7 +156,7 @@ private fun TaskWidgetContent(context: Context, config: ConfigStore, widgetId: S
                 val shown = unchecked.take(5)
                 val remaining = unchecked.size - shown.size
                 for (ev in shown) {
-                    TaskWidgetRow(ev, lang, config.notification24hFormat)
+                    WidgetTaskRow(ev, lang, config.notification24hFormat)
                 }
                 if (remaining > 0) {
                     Text(
@@ -188,73 +172,5 @@ private fun TaskWidgetContent(context: Context, config: ConfigStore, widgetId: S
             }
         }
 
-    }
-}
-
-@Composable
-private fun TaskWidgetRow(event: Event, lang: String = "en", format24h: Boolean = true) {
-    val cal = Calendar.getInstance().apply { timeInMillis = event.timestart * 1000 }
-    val nowSeconds = System.currentTimeMillis() / 1000
-    val isOverdue = event.timestart <= nowSeconds
-    val diffDays = {
-        val c = Calendar.getInstance().apply { timeInMillis = cal.timeInMillis }
-        val n = Calendar.getInstance()
-        c.set(Calendar.HOUR_OF_DAY, 0); c.set(Calendar.MINUTE, 0); c.set(Calendar.SECOND, 0); c.set(Calendar.MILLISECOND, 0)
-        n.set(Calendar.HOUR_OF_DAY, 0); n.set(Calendar.MINUTE, 0); n.set(Calendar.SECOND, 0); n.set(Calendar.MILLISECOND, 0)
-        ((c.timeInMillis - n.timeInMillis) / (1000 * 60 * 60 * 24)).toInt()
-    }()
-    val dateLabel = when {
-        isOverdue -> Strings.get("tasks_overdue", lang)
-        diffDays == 0 -> "${Strings.get("tasks_today", lang)} ${Strings.formatTimestamp(event.timestart, format24h)}"
-        diffDays == 1 -> "${Strings.get("tasks_tomorrow", lang)} ${Strings.formatTimestamp(event.timestart, format24h)}"
-        diffDays <= 7 -> Strings.get("tasks_in_days", lang).replace("{n}", diffDays.toString())
-        else -> {
-            val locale = Locale(lang)
-            val sdf = SimpleDateFormat("MMMM dd", locale)
-            sdf.format(Date(event.timestart * 1000))
-        }
-    }
-    val dotColor = when {
-        isOverdue -> RedOverdue
-        diffDays <= 2 -> AmberSoon
-        else -> GreenFuture
-    }
-    val dateColor = when {
-        isOverdue -> RedOverdue
-        diffDays <= 2 -> AmberSoon
-        else -> GreenFuture
-    }
-
-    Row(
-        modifier = GlanceModifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = GlanceModifier
-                .size(8.dp, 8.dp)
-                .background(ColorProvider(dotColor)),
-            content = {},
-        )
-        Spacer(GlanceModifier.width(8.dp))
-        Text(
-            text = event.name,
-            style = TextStyle(
-                color = ColorProvider(TextPrimary),
-                fontSize = 13.sp,
-            ),
-            modifier = GlanceModifier.defaultWeight(),
-            maxLines = 1,
-        )
-        Spacer(GlanceModifier.width(6.dp))
-        Text(
-            text = dateLabel,
-            style = TextStyle(
-                color = ColorProvider(dateColor),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium,
-            ),
-        )
     }
 }

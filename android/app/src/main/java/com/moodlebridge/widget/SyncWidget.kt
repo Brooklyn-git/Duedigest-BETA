@@ -3,7 +3,6 @@ package com.moodlebridge.widget
 import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
@@ -38,12 +37,6 @@ import com.moodlebridge.worker.SyncWorker
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-
-private val BrandIndigo = Color(0xFF818CF8)
-private val WidgetBg = Color(0xFF1C1C1E)
-private val WidgetBgAmoled = Color.Black
-private val TextPrimary = Color(0xFFFFFFFF)
-private val TextSecondary = Color(0xFF9CA3AF)
 
 class SyncWidget : GlanceAppWidget() {
 

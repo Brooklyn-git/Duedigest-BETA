@@ -37,10 +37,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.moodlebridge.data.ConfigStore
 
-private val BrandIndigo = Color(0xFF818CF8)
-private val AccentTeal = Color(0xFF2DD4BF)
-private val WidgetBg = Color(0xFF1C1C1E)
-private val WidgetBgAmoled = Color.Black
 private val RowBg = Color(0xFF2C2C2E)
 private val PanelBg = Color(0xEE1C1C1E)
 private val PanelBgAmoled = Color(0xEE000000)
