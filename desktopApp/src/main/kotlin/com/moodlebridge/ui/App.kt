@@ -486,9 +486,15 @@ fun DesktopApp(config: DesktopConfigStore) {
 
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             val themeIcon = when (themeMode) {
-                                "light", "solarized_light", "high_contrast" -> AppIcons.Sun
+                                "light" -> AppIcons.Sun
+                                "solarized_light" -> AppIcons.SolarizedLight
+                                "high_contrast" -> AppIcons.HighContrast
                                 "amoled_dark" -> AppIcons.MoonAmoled
                                 "sakura" -> AppIcons.Sakura
+                                "solarized_dark" -> AppIcons.SolarizedDark
+                                "nord" -> AppIcons.Nord
+                                "dracula" -> AppIcons.Dracula
+                                "catppuccin" -> AppIcons.Catppuccin
                                 else -> AppIcons.MoonDark
                             }
                             Icon(themeIcon, null, modifier = Modifier.size(20.dp),
@@ -519,9 +525,15 @@ fun DesktopApp(config: DesktopConfigStore) {
                                 ExposedDropdownMenu(expanded = themeExpanded, onDismissRequest = { themeExpanded = false }) {
                                     themeOptions.forEach { (value, label) ->
                                         val icon = when (value) {
-                                            "light", "solarized_light", "high_contrast" -> AppIcons.Sun
+                                            "light" -> AppIcons.Sun
+                                            "solarized_light" -> AppIcons.SolarizedLight
+                                            "high_contrast" -> AppIcons.HighContrast
                                             "amoled_dark" -> AppIcons.MoonAmoled
                                             "sakura" -> AppIcons.Sakura
+                                            "solarized_dark" -> AppIcons.SolarizedDark
+                                            "nord" -> AppIcons.Nord
+                                            "dracula" -> AppIcons.Dracula
+                                            "catppuccin" -> AppIcons.Catppuccin
                                             else -> AppIcons.MoonDark
                                         }
                                         DropdownMenuItem(

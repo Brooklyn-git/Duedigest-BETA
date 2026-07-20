@@ -1344,9 +1344,15 @@ private fun SettingsPage(
                 // Theme
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     val themeIcon: Painter = when (themeMode) {
-                        "light", "solarized_light", "high_contrast" -> painterResource(R.drawable.ic_sun)
+                        "light" -> painterResource(R.drawable.ic_sun)
+                        "solarized_light" -> painterResource(R.drawable.ic_solarized_light)
+                        "high_contrast" -> painterResource(R.drawable.ic_high_contrast)
                         "amoled_dark" -> painterResource(R.drawable.ic_moon_amoled)
                         "sakura" -> painterResource(R.drawable.ic_sakura)
+                        "solarized_dark" -> painterResource(R.drawable.ic_solarized_dark)
+                        "nord" -> painterResource(R.drawable.ic_nord)
+                        "dracula" -> painterResource(R.drawable.ic_dracula)
+                        "catppuccin" -> painterResource(R.drawable.ic_catppuccin)
                         else -> painterResource(R.drawable.ic_moon_dark)
                     }
                     Icon(themeIcon, null, modifier = Modifier.size(20.dp),
@@ -1377,9 +1383,15 @@ private fun SettingsPage(
                         ExposedDropdownMenu(expanded = themeExpanded, onDismissRequest = { themeExpanded = false }) {
                                     themeOptions.forEach { (value, label) ->
                                         val icon: Painter = when (value) {
-                                            "light", "solarized_light", "high_contrast" -> painterResource(R.drawable.ic_sun)
+                                            "light" -> painterResource(R.drawable.ic_sun)
+                                            "solarized_light" -> painterResource(R.drawable.ic_solarized_light)
+                                            "high_contrast" -> painterResource(R.drawable.ic_high_contrast)
                                             "amoled_dark" -> painterResource(R.drawable.ic_moon_amoled)
                                             "sakura" -> painterResource(R.drawable.ic_sakura)
+                                            "solarized_dark" -> painterResource(R.drawable.ic_solarized_dark)
+                                            "nord" -> painterResource(R.drawable.ic_nord)
+                                            "dracula" -> painterResource(R.drawable.ic_dracula)
+                                            "catppuccin" -> painterResource(R.drawable.ic_catppuccin)
                                             else -> painterResource(R.drawable.ic_moon_dark)
                                         }
                                 DropdownMenuItem(
