@@ -883,13 +883,18 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
             text = { Text(Strings.get("clear_creds_confirm", lang)) },
             confirmButton = {
                 TextButton(onClick = {
-                    config.token = ""
-                    config.password = ""
-                    config.moodleUrl = ""
-                    config.username = ""
+                    config.clear()
                     password = ""
                     url = ""
                     username = ""
+                    manualEvents = emptyList()
+                    taskCompletionMap = emptyMap()
+                    deletedEventIds = emptySet()
+                    fetchedEvents = emptyList()
+                    isWorking = false
+                    statusText = ""
+                    tasksEnabled = true
+                    tasksOutputPath = ""
                     showSettingsPage = false
                     showClearCredsConfirm = false
                 }) { Text(Strings.get("clear_creds", lang), color = MaterialTheme.colorScheme.error) }
