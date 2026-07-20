@@ -1040,9 +1040,9 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
         AlertDialog(
             onDismissRequest = { showSyncDialog = false },
             containerColor = cs.surface, titleContentColor = cs.onSurface, textContentColor = cs.onSurface,
-            title = { Text(Strings.get("sync_qr_title", lang)) },
+            title = { Text(Strings.get("sync_qr_title", lang), modifier = Modifier.width(250.dp)) },
             text = {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(250.dp)) {
                     if (syncScanMode) {
                         Box(
                             modifier = Modifier.size(250.dp).clip(RoundedCornerShape(8.dp))
