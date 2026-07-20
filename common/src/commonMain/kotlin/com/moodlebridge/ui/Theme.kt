@@ -100,6 +100,168 @@ private val DarkColorScheme = darkColorScheme(
     onBackground = Color(0xFFF1F5F9),
 )
 
+private val SolarizedLightColorScheme = lightColorScheme(
+    primary = Color(0xFF268BD2),
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFD4E6F1),
+    onPrimaryContainer = Color(0xFF1A5276),
+    secondary = Color(0xFF2AA198),
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFFD1F2EB),
+    onSecondaryContainer = Color(0xFF0E6655),
+    tertiary = Color(0xFFCB4B16),
+    onTertiary = Color.White,
+    tertiaryContainer = Color(0xFFFDEBD0),
+    onTertiaryContainer = Color(0xFF935116),
+    error = Color(0xFFDC322F),
+    onError = Color.White,
+    errorContainer = Color(0xFFFADBD8),
+    onErrorContainer = Color(0xFF922B21),
+    surface = Color(0xFFFDF6E3),
+    onSurface = Color(0xFF586E75),
+    surfaceVariant = Color(0xFFEEE8D5),
+    onSurfaceVariant = Color(0xFF93A1A1),
+    outline = Color(0xFFD3CFC4),
+    outlineVariant = Color(0xFFE8E2D0),
+    background = Color(0xFFFDF6E3),
+    onBackground = Color(0xFF586E75),
+)
+
+private val SolarizedDarkColorScheme = darkColorScheme(
+    primary = Color(0xFF268BD2),
+    onPrimary = Color(0xFF002B36),
+    primaryContainer = Color(0xFF073642),
+    onPrimaryContainer = Color(0xFF839496),
+    secondary = Color(0xFF2AA198),
+    onSecondary = Color(0xFF002B36),
+    secondaryContainer = Color(0xFF073642),
+    onSecondaryContainer = Color(0xFF93A1A1),
+    tertiary = Color(0xFFCB4B16),
+    onTertiary = Color(0xFF002B36),
+    tertiaryContainer = Color(0xFF586E75),
+    onTertiaryContainer = Color(0xFFFDF6E3),
+    error = Color(0xFFDC322F),
+    onError = Color(0xFF002B36),
+    errorContainer = Color(0xFF586E75),
+    onErrorContainer = Color(0xFFFDF6E3),
+    surface = Color(0xFF002B36),
+    onSurface = Color(0xFF839496),
+    surfaceVariant = Color(0xFF073642),
+    onSurfaceVariant = Color(0xFF93A1A1),
+    outline = Color(0xFF586E75),
+    outlineVariant = Color(0xFF073642),
+    background = Color(0xFF002B36),
+    onBackground = Color(0xFF839496),
+)
+
+private val NordColorScheme = darkColorScheme(
+    primary = Color(0xFF88C0D0),
+    onPrimary = Color(0xFF2E3440),
+    primaryContainer = Color(0xFF3B4252),
+    onPrimaryContainer = Color(0xFFD8DEE9),
+    secondary = Color(0xFFA3BE8C),
+    onSecondary = Color(0xFF2E3440),
+    secondaryContainer = Color(0xFF3B4252),
+    onSecondaryContainer = Color(0xFFECEFF4),
+    tertiary = Color(0xFFEBCB8B),
+    onTertiary = Color(0xFF2E3440),
+    tertiaryContainer = Color(0xFF434C5E),
+    onTertiaryContainer = Color(0xFFECEFF4),
+    error = Color(0xFFBF616A),
+    onError = Color(0xFF2E3440),
+    errorContainer = Color(0xFF434C5E),
+    onErrorContainer = Color(0xFFECEFF4),
+    surface = Color(0xFF2E3440),
+    onSurface = Color(0xFFD8DEE9),
+    surfaceVariant = Color(0xFF3B4252),
+    onSurfaceVariant = Color(0xFFA5ADCB),
+    outline = Color(0xFF4C566A),
+    outlineVariant = Color(0xFF3B4252),
+    background = Color(0xFF2E3440),
+    onBackground = Color(0xFFECEFF4),
+)
+
+private val DraculaColorScheme = darkColorScheme(
+    primary = Color(0xFFF8F8F2),
+    onPrimary = Color(0xFF282A36),
+    primaryContainer = Color(0xFF44475A),
+    onPrimaryContainer = Color(0xFFF8F8F2),
+    secondary = Color(0xFFF1FA8C),
+    onSecondary = Color(0xFF282A36),
+    secondaryContainer = Color(0xFF44475A),
+    onSecondaryContainer = Color(0xFF282A36),
+    tertiary = Color(0xFFFFB86C),
+    onTertiary = Color(0xFF282A36),
+    tertiaryContainer = Color(0xFF44475A),
+    onTertiaryContainer = Color(0xFF282A36),
+    error = Color(0xFFFF5555),
+    onError = Color(0xFF282A36),
+    errorContainer = Color(0xFF44475A),
+    onErrorContainer = Color(0xFFF8F8F2),
+    surface = Color(0xFF282A36),
+    onSurface = Color(0xFFF8F8F2),
+    surfaceVariant = Color(0xFF44475A),
+    onSurfaceVariant = Color(0xFF6272A4),
+    outline = Color(0xFF6272A4),
+    outlineVariant = Color(0xFF44475A),
+    background = Color(0xFF282A36),
+    onBackground = Color(0xFFF8F8F2),
+)
+
+private val CatppuccinColorScheme = darkColorScheme(
+    primary = Color(0xFFCBA6F7),
+    onPrimary = Color(0xFF1E1E2E),
+    primaryContainer = Color(0xFF313244),
+    onPrimaryContainer = Color(0xFFF5C2E7),
+    secondary = Color(0xFF94E2D5),
+    onSecondary = Color(0xFF1E1E2E),
+    secondaryContainer = Color(0xFF313244),
+    onSecondaryContainer = Color(0xFFA6E3A1),
+    tertiary = Color(0xFFF9E2AF),
+    onTertiary = Color(0xFF1E1E2E),
+    tertiaryContainer = Color(0xFF313244),
+    onTertiaryContainer = Color(0xFFFAB387),
+    error = Color(0xFFF38BA8),
+    onError = Color(0xFF1E1E2E),
+    errorContainer = Color(0xFF313244),
+    onErrorContainer = Color(0xFFF5C2E7),
+    surface = Color(0xFF1E1E2E),
+    onSurface = Color(0xFFCDD6F4),
+    surfaceVariant = Color(0xFF313244),
+    onSurfaceVariant = Color(0xFFA6ADC8),
+    outline = Color(0xFF45475A),
+    outlineVariant = Color(0xFF313244),
+    background = Color(0xFF1E1E2E),
+    onBackground = Color(0xFFCDD6F4),
+)
+
+private val HighContrastLightColorScheme = lightColorScheme(
+    primary = Color(0xFF000000),
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFF1A1A1A),
+    onPrimaryContainer = Color.White,
+    secondary = Color(0xFF000000),
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFF1A1A1A),
+    onSecondaryContainer = Color.White,
+    tertiary = Color(0xFF000000),
+    onTertiary = Color.White,
+    tertiaryContainer = Color(0xFF1A1A1A),
+    onTertiaryContainer = Color.White,
+    error = Color(0xFFB00020),
+    onError = Color.White,
+    errorContainer = Color(0xFFB00020),
+    onErrorContainer = Color.White,
+    surface = Color.White,
+    onSurface = Color.Black,
+    surfaceVariant = Color(0xFFF0F0F0),
+    onSurfaceVariant = Color.Black,
+    outline = Color.Black,
+    outlineVariant = Color(0xFF1A1A1A),
+    background = Color.White,
+    onBackground = Color.Black,
+)
+
 private val AppTypography = Typography(
     displayLarge = TextStyle(fontWeight = FontWeight.Bold, fontSize = 36.sp, lineHeight = 44.sp),
     displayMedium = TextStyle(fontWeight = FontWeight.Bold, fontSize = 28.sp, lineHeight = 36.sp),
@@ -122,15 +284,20 @@ fun DueNestTheme(
     content: @Composable () -> Unit,
 ) {
     val isDark = when (themeMode) {
-        "amoled_dark" -> true
-        "dark" -> true
-        "light" -> false
+        "amoled_dark", "dark", "solarized_dark", "nord", "dracula", "catppuccin" -> true
+        "light", "solarized_light", "high_contrast" -> false
         else -> isSystemInDarkTheme()
     }
     val colorScheme = when (themeMode) {
         "amoled_dark" -> AmoledDarkColorScheme
         "dark" -> DarkColorScheme
         "light" -> LightColorScheme
+        "solarized_light" -> SolarizedLightColorScheme
+        "solarized_dark" -> SolarizedDarkColorScheme
+        "nord" -> NordColorScheme
+        "dracula" -> DraculaColorScheme
+        "catppuccin" -> CatppuccinColorScheme
+        "high_contrast" -> HighContrastLightColorScheme
         else -> if (isSystemInDarkTheme()) DarkColorScheme else LightColorScheme
     }
 

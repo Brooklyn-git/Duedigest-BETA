@@ -486,7 +486,7 @@ fun DesktopApp(config: DesktopConfigStore) {
 
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             val themeIcon = when (themeMode) {
-                                "light" -> AppIcons.Sun
+                                "light", "solarized_light", "high_contrast" -> AppIcons.Sun
                                 "amoled_dark" -> AppIcons.MoonAmoled
                                 else -> AppIcons.MoonDark
                             }
@@ -500,6 +500,12 @@ fun DesktopApp(config: DesktopConfigStore) {
                                 "light" to Strings.get("theme_light", lang),
                                 "dark" to Strings.get("theme_dark", lang),
                                 "amoled_dark" to Strings.get("theme_amoled", lang),
+                                "solarized_light" to Strings.get("theme_solarized_light", lang),
+                                "solarized_dark" to Strings.get("theme_solarized_dark", lang),
+                                "nord" to Strings.get("theme_nord", lang),
+                                "dracula" to Strings.get("theme_dracula", lang),
+                                "catppuccin" to Strings.get("theme_catppuccin", lang),
+                                "high_contrast" to Strings.get("theme_high_contrast", lang),
                             )
                             ExposedDropdownMenuBox(expanded = themeExpanded, onExpandedChange = { themeExpanded = it }) {
                                 OutlinedTextField(
@@ -511,7 +517,7 @@ fun DesktopApp(config: DesktopConfigStore) {
                                 ExposedDropdownMenu(expanded = themeExpanded, onDismissRequest = { themeExpanded = false }) {
                                     themeOptions.forEach { (value, label) ->
                                         val icon = when (value) {
-                                            "light" -> AppIcons.Sun
+                                            "light", "solarized_light", "high_contrast" -> AppIcons.Sun
                                             "amoled_dark" -> AppIcons.MoonAmoled
                                             else -> AppIcons.MoonDark
                                         }

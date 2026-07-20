@@ -1344,7 +1344,7 @@ private fun SettingsPage(
                 // Theme
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     val themeIcon: Painter = when (themeMode) {
-                        "light" -> painterResource(R.drawable.ic_sun)
+                        "light", "solarized_light", "high_contrast" -> painterResource(R.drawable.ic_sun)
                         "amoled_dark" -> painterResource(R.drawable.ic_moon_amoled)
                         else -> painterResource(R.drawable.ic_moon_dark)
                     }
@@ -1358,6 +1358,12 @@ private fun SettingsPage(
                         "light" to Strings.get("theme_light", lang),
                         "dark" to Strings.get("theme_dark", lang),
                         "amoled_dark" to Strings.get("theme_amoled", lang),
+                        "solarized_light" to Strings.get("theme_solarized_light", lang),
+                        "solarized_dark" to Strings.get("theme_solarized_dark", lang),
+                        "nord" to Strings.get("theme_nord", lang),
+                        "dracula" to Strings.get("theme_dracula", lang),
+                        "catppuccin" to Strings.get("theme_catppuccin", lang),
+                        "high_contrast" to Strings.get("theme_high_contrast", lang),
                     )
                     ExposedDropdownMenuBox(expanded = themeExpanded, onExpandedChange = { themeExpanded = it }) {
                         OutlinedTextField(
