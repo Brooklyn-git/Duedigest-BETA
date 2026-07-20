@@ -208,8 +208,8 @@ fun DesktopApp(config: DesktopConfigStore) {
     }
 
     fun getMergedEvents(): List<Event> {
-        val a: List<Event> = fetchedEvents
-        val b: List<Event> = manualEvents
+        val a: List<Event> = fetchedEvents.filter { it.id !in deletedEventIds }
+        val b: List<Event> = manualEvents.filter { it.id !in deletedEventIds }
         return (a + b).sortedBy { it.timestart }
     }
 
@@ -588,6 +588,17 @@ fun DesktopApp(config: DesktopConfigStore) {
                     TextButton(onClick = {
                         config.clear()
                         url = ""; username = ""; password = ""
+                        themeMode = "system"; selectedLang = "en"
+                        tz = "UTC"; passwordVisible = false
+                        logseqEnabled = false; obsidianEnabled = false
+                        logseqPath = "logseq/"; obsidianPath = "obsidian/"
+                        daysBackText = "7"; limitText = "100"
+                        savePw = false; use24h = true
+                        statusText = ""; logLines.clear()
+                        fetchedEvents = emptyList(); manualEvents = emptyList()
+                        taskCompletionMap = emptyMap(); deletedEventIds = emptySet()
+                        tasksEnabled = true; tasksOutputPath = ""
+                        expandedTaskId = null; isWorking = false
                         showClearCredsConfirm = false
                     }) { Text(Strings.get("clear_creds", lang), color = MaterialTheme.colorScheme.error) }
                 },
