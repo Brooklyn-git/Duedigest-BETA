@@ -95,6 +95,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextDecoration
@@ -606,7 +608,8 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                     },
                     actions = {
                         IconButton(onClick = { showSyncDialog = true; syncScanMode = true; syncMergeMsg = null }) {
-                            Icon(Icons.Default.Share, contentDescription = Strings.get("sync", lang))
+                            Icon(painterResource(R.drawable.ic_qr), contentDescription = Strings.get("sync", lang),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         IconButton(onClick = { showSettingsPage = true }) {
                             Icon(Icons.Default.Settings, contentDescription = "Settings")
@@ -1320,7 +1323,8 @@ private fun SettingsPage(
 
                 // Language
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Home, null, modifier = Modifier.size(20.dp))
+                    Icon(painterResource(R.drawable.ic_language), null, modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.width(12.dp))
                     Text(Strings.get("language", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                     var langExpanded by remember { mutableStateOf(false) }
@@ -1339,11 +1343,13 @@ private fun SettingsPage(
 
                 // Theme
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    val themeIcon = when (themeMode) {
-                        "light" -> Icons.Default.DateRange
-                        else -> Icons.Default.Warning
+                    val themeIcon: Painter = when (themeMode) {
+                        "light" -> painterResource(R.drawable.ic_sun)
+                        "amoled_dark" -> painterResource(R.drawable.ic_moon_amoled)
+                        else -> painterResource(R.drawable.ic_moon_dark)
                     }
-                    Icon(themeIcon, null, modifier = Modifier.size(20.dp))
+                    Icon(themeIcon, null, modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.width(12.dp))
                     Text(Strings.get("theme", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                     var themeExpanded by remember { mutableStateOf(false) }
@@ -1362,14 +1368,16 @@ private fun SettingsPage(
                             modifier = Modifier.widthIn(max = 160.dp).menuAnchor(MenuAnchorType.PrimaryNotEditable))
                         ExposedDropdownMenu(expanded = themeExpanded, onDismissRequest = { themeExpanded = false }) {
                             themeOptions.forEach { (value, label) ->
-                                val icon = when (value) {
-                                    "light" -> Icons.Default.DateRange
-                                    else -> Icons.Default.Warning
+                                val icon: Painter = when (value) {
+                                    "light" -> painterResource(R.drawable.ic_sun)
+                                    "amoled_dark" -> painterResource(R.drawable.ic_moon_amoled)
+                                    else -> painterResource(R.drawable.ic_moon_dark)
                                 }
                                 DropdownMenuItem(
                                     text = {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(icon, null, modifier = Modifier.size(18.dp))
+                                            Icon(icon, null, modifier = Modifier.size(18.dp),
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                             Spacer(Modifier.width(8.dp))
                                             Text(label)
                                         }
@@ -1383,7 +1391,8 @@ private fun SettingsPage(
 
                 // Time Format
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.DateRange, null, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.DateRange, null, modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.width(12.dp))
                     Text(Strings.get("time_format", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                     var timeExpanded by remember { mutableStateOf(false) }
@@ -1458,7 +1467,7 @@ private fun SettingsPage(
                 }
                 if (icsEnabled) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.Default.DateRange, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Icon(painterResource(R.drawable.ic_folder), null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.width(8.dp))
                         OutlinedTextField(value = icsPath, onValueChange = onIcsPathChange, singleLine = true, modifier = Modifier.weight(1f))
                         Spacer(Modifier.width(8.dp))
@@ -1468,14 +1477,14 @@ private fun SettingsPage(
 
                 // Logseq
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.DateRange, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icon(painterResource(R.drawable.ic_logseq), null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.width(12.dp))
                     Text(Strings.get("logseq_label", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                     Switch(checked = logseqEnabled, onCheckedChange = onLogseqEnabledChange)
                 }
                 if (logseqEnabled) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.Default.DateRange, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Icon(painterResource(R.drawable.ic_folder), null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.width(8.dp))
                         OutlinedTextField(value = logseqPath, onValueChange = onLogseqPathChange, singleLine = true, modifier = Modifier.weight(1f))
                         Spacer(Modifier.width(8.dp))
@@ -1485,14 +1494,14 @@ private fun SettingsPage(
 
                 // Obsidian
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.DateRange, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icon(painterResource(R.drawable.ic_obsidian), null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.width(12.dp))
                     Text(Strings.get("obsidian_label", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                     Switch(checked = obsidianEnabled, onCheckedChange = onObsidianEnabledChange)
                 }
                 if (obsidianEnabled) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.Default.DateRange, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Icon(painterResource(R.drawable.ic_folder), null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.width(8.dp))
                         OutlinedTextField(value = obsidianPath, onValueChange = onObsidianPathChange, singleLine = true, modifier = Modifier.weight(1f))
                         Spacer(Modifier.width(8.dp))
@@ -1502,14 +1511,14 @@ private fun SettingsPage(
 
                 // DueNest
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.DateRange, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icon(painterResource(R.drawable.ic_folder), null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.width(12.dp))
                     Text(Strings.get("tasks_path", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                     Switch(checked = tasksEnabled, onCheckedChange = onTasksEnabledChange)
                 }
                 if (tasksEnabled) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.Default.DateRange, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Icon(painterResource(R.drawable.ic_folder), null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.width(8.dp))
                         OutlinedTextField(value = tasksOutputPath, onValueChange = onTasksPathChange, singleLine = true, modifier = Modifier.weight(1f))
                         Spacer(Modifier.width(8.dp))

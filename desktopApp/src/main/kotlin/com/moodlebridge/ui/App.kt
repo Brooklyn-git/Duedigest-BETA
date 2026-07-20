@@ -37,11 +37,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.LightMode
+
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -410,7 +406,8 @@ fun DesktopApp(config: DesktopConfigStore) {
                 },
                 actions = {
                     IconButton(onClick = { showSyncDialog = true }) {
-                        Icon(Icons.Default.Share, contentDescription = Strings.get("sync", lang))
+                        Icon(AppIcons.Qr, contentDescription = Strings.get("sync", lang),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -469,7 +466,8 @@ fun DesktopApp(config: DesktopConfigStore) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
 
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Language, null, modifier = Modifier.size(20.dp))
+                            Icon(AppIcons.Language, null, modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(Modifier.width(12.dp))
                             Text(Strings.get("language", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                             var langExpanded by remember { mutableStateOf(false) }
@@ -488,10 +486,12 @@ fun DesktopApp(config: DesktopConfigStore) {
 
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             val themeIcon = when (themeMode) {
-                                "light" -> Icons.Default.LightMode
-                                else -> Icons.Default.DarkMode
+                                "light" -> AppIcons.Sun
+                                "amoled_dark" -> AppIcons.MoonAmoled
+                                else -> AppIcons.MoonDark
                             }
-                            Icon(themeIcon, null, modifier = Modifier.size(20.dp))
+                            Icon(themeIcon, null, modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(Modifier.width(12.dp))
                             Text(Strings.get("theme", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                             var themeExpanded by remember { mutableStateOf(false) }
@@ -511,13 +511,15 @@ fun DesktopApp(config: DesktopConfigStore) {
                                 ExposedDropdownMenu(expanded = themeExpanded, onDismissRequest = { themeExpanded = false }) {
                                     themeOptions.forEach { (value, label) ->
                                         val icon = when (value) {
-                                            "light" -> Icons.Default.LightMode
-                                            else -> Icons.Default.DarkMode
+                                            "light" -> AppIcons.Sun
+                                            "amoled_dark" -> AppIcons.MoonAmoled
+                                            else -> AppIcons.MoonDark
                                         }
                                         DropdownMenuItem(
                                             text = {
                                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    Icon(icon, null, modifier = Modifier.size(18.dp))
+                                                    Icon(icon, null, modifier = Modifier.size(18.dp),
+                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                                     Spacer(Modifier.width(8.dp))
                                                     Text(label)
                                                 }
@@ -530,7 +532,7 @@ fun DesktopApp(config: DesktopConfigStore) {
                         }
 
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.DateRange, null, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Default.DateRange, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(Modifier.width(12.dp))
                             Text(Strings.get("time_format", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                             SimpleDropdown(
@@ -547,14 +549,14 @@ fun DesktopApp(config: DesktopConfigStore) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
 
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.DateRange, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Icon(AppIcons.Logseq, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(Modifier.width(12.dp))
                             Text(Strings.get("logseq_label", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                             Switch(checked = logseqEnabled, onCheckedChange = { logseqEnabled = it; config.logseqEnabled = it })
                         }
                         if (logseqEnabled) {
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                                Icon(Icons.Default.Folder, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(AppIcons.Folder, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Spacer(Modifier.width(8.dp))
                                 OutlinedTextField(value = logseqPath, onValueChange = { logseqPath = it; config.logseqPath = it },
                                     singleLine = true, modifier = Modifier.weight(1f))
@@ -566,14 +568,14 @@ fun DesktopApp(config: DesktopConfigStore) {
                         }
 
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.DateRange, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Icon(AppIcons.Obsidian, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(Modifier.width(12.dp))
                             Text(Strings.get("obsidian_label", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                             Switch(checked = obsidianEnabled, onCheckedChange = { obsidianEnabled = it; config.obsidianEnabled = it })
                         }
                         if (obsidianEnabled) {
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                                Icon(Icons.Default.Folder, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(AppIcons.Folder, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Spacer(Modifier.width(8.dp))
                                 OutlinedTextField(value = obsidianPath, onValueChange = { obsidianPath = it; config.obsidianPath = it },
                                     singleLine = true, modifier = Modifier.weight(1f))
@@ -585,14 +587,14 @@ fun DesktopApp(config: DesktopConfigStore) {
                         }
 
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.DateRange, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Icon(AppIcons.Folder, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(Modifier.width(12.dp))
                             Text(Strings.get("tasks_path", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                             Switch(checked = tasksEnabled, onCheckedChange = { tasksEnabled = it; config.tasksEnabled = it })
                         }
                         if (tasksEnabled) {
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                                Icon(Icons.Default.Folder, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(AppIcons.Folder, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Spacer(Modifier.width(8.dp))
                                 OutlinedTextField(value = tasksOutputPath, onValueChange = { tasksOutputPath = it; config.tasksOutputPath = it },
                                     singleLine = true, modifier = Modifier.weight(1f))
