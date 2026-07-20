@@ -128,6 +128,12 @@ object Strings {
         "sync_export_qr" to "Export QR",
         "sync_import_qr" to "Import QR",
         "sync_no_network" to "No network connection",
+        "data_management" to "Data management",
+        "export_format" to "Export format",
+        "export_as_json" to "Export as JSON",
+        "export_as_qr" to "Export as QR image",
+        "import_success" to "Data imported successfully",
+        "import_error" to "Could not import data",
     )
 
     private val es = mapOf(
@@ -256,6 +262,12 @@ object Strings {
         "sync_export_qr" to "Exportar QR",
         "sync_import_qr" to "Importar QR",
         "sync_no_network" to "Sin conexi\u00f3n de red",
+        "data_management" to "Gesti\u00f3n de datos",
+        "export_format" to "Formato de exportaci\u00f3n",
+        "export_as_json" to "Exportar como JSON",
+        "export_as_qr" to "Exportar como imagen QR",
+        "import_success" to "Datos importados correctamente",
+        "import_error" to "No se pudieron importar los datos",
     )
 
     fun get(key: String, lang: String = "en"): String {

@@ -191,6 +191,7 @@ fun DesktopApp(config: DesktopConfigStore) {
     var showNewCourseDialog by remember { mutableStateOf(false) }
     var newCourseName by remember { mutableStateOf("") }
     var showSyncDialog by remember { mutableStateOf(false) }
+    var showExportFormatDialog by remember { mutableStateOf(false) }
 
     val courseOptions: List<String> by remember {
         derivedStateOf {
@@ -242,6 +243,124 @@ fun DesktopApp(config: DesktopConfigStore) {
         deletedEventIds = deletedEventIds + id
         config.deletedEventIds = Json.encodeToString(deletedEventIds)
         persistMergedEvents()
+    }
+
+    val syncPayload = remember(manualEvents, taskCompletionMap, deletedEventIds) {
+        SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId)
+    }
+    val localIp = remember {
+        try {
+            NetworkInterface.getNetworkInterfaces().toList().asSequence()
+                .filter { it.isUp && !it.isLoopback && !it.isVirtual && it.name != "docker0" }
+                .filter { it.name.startsWith("eth") || it.name.startsWith("wlan") || it.name.startsWith("en") || it.name.startsWith("wl") || it.name.startsWith("wlp") }
+                .flatMap { it.inetAddresses.toList().asSequence() }
+                .firstOrNull { !it.isLoopbackAddress && it is Inet4Address }
+                ?.hostAddress
+                ?: run {
+                    NetworkInterface.getNetworkInterfaces().toList().asSequence()
+                        .filter { it.isUp && !it.isLoopback && !it.isVirtual }
+                        .flatMap { it.inetAddresses.toList().asSequence() }
+                        .firstOrNull { !it.isLoopbackAddress && it is Inet4Address }
+                        ?.hostAddress
+                }
+        } catch (e: Exception) { com.moodlebridge.Log.w("Network", "Failed to detect local IP", e); null }
+    }
+
+    fun applySyncMergeLocal(merged: MergeResult) {
+        applySyncMerge(merged, config, { me, tc, de -> manualEvents = me; taskCompletionMap = tc; deletedEventIds = de }) { persistMergedEvents() }
+    }
+
+    fun importFromFile() {
+        try {
+            val fc = JFileChooser()
+            fc.dialogTitle = Strings.get("sync_import", lang)
+            fc.fileFilter = javax.swing.filechooser.FileNameExtensionFilter("All supported", "json", "png", "jpg", "jpeg", "bmp")
+            if (fc.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
+                val file = fc.selectedFile
+                val ext = file.extension.lowercase()
+                if (ext == "json") {
+                    val remote = SyncManager.deserializePayload(file.readText())
+                    if (remote != null) {
+                        applySyncMergeLocal(SyncManager.mergePayload(syncPayload, remote))
+                    }
+                } else {
+                    val image = ImageIO.read(file) ?: return
+                    val qrResult = QRCodeReader().decode(
+                        BinaryBitmap(HybridBinarizer(BufferedImageLuminanceSource(image)))
+                    )
+                    val (url, payload) = SyncManager.decodeQrContent(qrResult.text)
+                    if (payload != null) {
+                        if (url != null) {
+                            scope.launch(Dispatchers.IO) {
+                                try {
+                                    val client = OkHttpClient.Builder()
+                                        .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                                        .build()
+                                    val reqBody = SyncManager.serializePayload(syncPayload)
+                                        .toRequestBody("text/plain".toMediaType())
+                                    val resp = client.newCall(
+                                        Request.Builder().url("$url/sync").post(reqBody).build()
+                                    ).execute()
+                                    val respBody = resp.body?.string()
+                                    val remote = if (resp.isSuccessful && respBody != null)
+                                        SyncManager.deserializePayload(respBody) else null
+                                    withContext(Dispatchers.Main) {
+                                        val base = SyncManager.mergePayload(syncPayload, payload)
+                                        val final = if (remote != null)
+                                            SyncManager.mergePayload(
+                                                SyncManager.generatePayload(base.manualEvents, base.taskCompletion, base.deletedEventIds, config.deviceId),
+                                                remote
+                                            ) else base
+                                        applySyncMergeLocal(final)
+                                    }
+                                } catch (_: Exception) {
+                                    withContext(Dispatchers.Main) {
+                                        applySyncMergeLocal(SyncManager.mergePayload(syncPayload, payload))
+                                    }
+                                }
+                            }
+                        } else {
+                            applySyncMergeLocal(SyncManager.mergePayload(syncPayload, payload))
+                        }
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+    }
+
+    fun exportAsJson() {
+        try {
+            val fc = JFileChooser()
+            fc.dialogTitle = Strings.get("sync_export", lang)
+            fc.fileFilter = javax.swing.filechooser.FileNameExtensionFilter("JSON files", "json")
+            fc.selectedFile = File("duenest-sync.json")
+            if (fc.showSaveDialog(null) == JFileChooser.APPROVE_OPTION) {
+                var file = fc.selectedFile
+                if (!file.name.endsWith(".json")) file = File(file.absolutePath + ".json")
+                file.writeText(SyncManager.serializePayload(syncPayload))
+            }
+        } catch (_: Exception) {}
+    }
+
+    fun exportAsQr() {
+        try {
+            val fc = JFileChooser()
+            fc.dialogTitle = Strings.get("sync_export_qr", lang)
+            fc.fileFilter = javax.swing.filechooser.FileNameExtensionFilter("PNG images", "png")
+            fc.selectedFile = File("duenest-qr.png")
+            if (fc.showSaveDialog(null) == JFileChooser.APPROVE_OPTION) {
+                var file = fc.selectedFile
+                if (!file.name.endsWith(".png")) file = File(file.absolutePath + ".png")
+                val qrContent = if (localIp != null) SyncManager.encodeQrContent("http://$localIp:$SYNC_PORT", syncPayload)
+                    else SyncManager.serializePayload(syncPayload)
+                val writer = QRCodeWriter()
+                val matrix = writer.encode(qrContent, BarcodeFormat.QR_CODE, 400, 400)
+                val img = BufferedImage(400, 400, BufferedImage.TYPE_INT_RGB)
+                for (x in 0 until 400) for (y in 0 until 400)
+                    img.setRGB(x, y, if (matrix.get(x, y)) 0xFF000000.toInt() else 0xFFFFFFFF.toInt())
+                ImageIO.write(img, "png", file)
+            }
+        } catch (_: Exception) {}
     }
 
     fun openTaskDialog(task: Event? = null) {
@@ -473,6 +592,8 @@ fun DesktopApp(config: DesktopConfigStore) {
                     daysBackText = daysBackText, onDaysBackTextChange = { daysBackText = it },
                     limitText = limitText, onLimitTextChange = { limitText = it },
                     onClearCredsClick = { showClearCredsConfirm = true },
+                    onImportFromFile = ::importFromFile,
+                    onExportToFile = { showExportFormatDialog = true },
                     lang = lang,
                 )
             }
@@ -605,6 +726,26 @@ fun DesktopApp(config: DesktopConfigStore) {
                 dismissButton = { TextButton(onClick = { showClearCredsConfirm = false }) { Text(Strings.get("cancel", lang)) } })
         }
 
+        if (showExportFormatDialog) {
+            AlertDialog(onDismissRequest = { showExportFormatDialog = false },
+                containerColor = cs.surface, titleContentColor = cs.onSurface, textContentColor = cs.onSurface,
+                title = { Text(Strings.get("export_format", lang)) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { showExportFormatDialog = false; exportAsJson() },
+                            modifier = Modifier.fillMaxWidth()) {
+                            Text(Strings.get("export_as_json", lang))
+                        }
+                        OutlinedButton(onClick = { showExportFormatDialog = false; exportAsQr() },
+                            modifier = Modifier.fillMaxWidth()) {
+                            Text(Strings.get("export_as_qr", lang))
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = { TextButton(onClick = { showExportFormatDialog = false }) { Text(Strings.get("cancel", lang)) } })
+        }
+
         if (errorDialogMsg != null) {
             AlertDialog(onDismissRequest = { errorDialogMsg = null },
                 containerColor = cs.surface, titleContentColor = cs.onSurface, textContentColor = cs.onSurface,
@@ -614,24 +755,6 @@ fun DesktopApp(config: DesktopConfigStore) {
         }
 
         val syncChannel = remember { Channel<MergeResult>(Channel.CONFLATED) }
-
-        val localIp = remember {
-            try {
-                NetworkInterface.getNetworkInterfaces().toList().asSequence()
-                    .filter { it.isUp && !it.isLoopback && !it.isVirtual && it.name != "docker0" }
-                    .filter { it.name.startsWith("eth") || it.name.startsWith("wlan") || it.name.startsWith("en") || it.name.startsWith("wl") || it.name.startsWith("wlp") }
-                    .flatMap { it.inetAddresses.toList().asSequence() }
-                    .firstOrNull { !it.isLoopbackAddress && it is Inet4Address }
-                    ?.hostAddress
-                    ?: run {
-                        NetworkInterface.getNetworkInterfaces().toList().asSequence()
-                            .filter { it.isUp && !it.isLoopback && !it.isVirtual }
-                            .flatMap { it.inetAddresses.toList().asSequence() }
-                            .firstOrNull { !it.isLoopbackAddress && it is Inet4Address }
-                            ?.hostAddress
-                    }
-            } catch (e: Exception) { com.moodlebridge.Log.w("Network", "Failed to detect local IP", e); null }
-        }
 
         LaunchedEffect(Unit) {
             val server = try {
@@ -1250,6 +1373,8 @@ private fun DesktopSettingsPage(
     daysBackText: String, onDaysBackTextChange: (String) -> Unit,
     limitText: String, onLimitTextChange: (String) -> Unit,
     onClearCredsClick: () -> Unit,
+    onImportFromFile: () -> Unit,
+    onExportToFile: () -> Unit,
     lang: String,
 ) {
     Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.TopStart) {
@@ -1438,8 +1563,19 @@ private fun DesktopSettingsPage(
             }
 
             HorizontalDivider()
-            TextButton(onClick = onClearCredsClick) {
-                Text(Strings.get("clear_creds", lang), color = MaterialTheme.colorScheme.error)
+            Text(Strings.get("data_management", lang), style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                TextButton(onClick = onImportFromFile) {
+                    Text(Strings.get("sync_import", lang))
+                }
+                TextButton(onClick = onExportToFile) {
+                    Text(Strings.get("sync_export", lang))
+                }
+                TextButton(onClick = onClearCredsClick) {
+                    Text(Strings.get("clear_creds", lang), color = MaterialTheme.colorScheme.error)
+                }
             }
         }
     }
@@ -1517,126 +1653,6 @@ private fun SyncDialog(
                 if (syncMergeMsg != null) {
                     Spacer(Modifier.height(8.dp))
                     Text(syncMergeMsg!!, color = cs.primary, style = MaterialTheme.typography.bodyMedium)
-                }
-                Spacer(Modifier.height(16.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = {
-                        try {
-                            val fc = JFileChooser()
-                            fc.dialogTitle = Strings.get("sync_export", lang)
-                            fc.fileFilter = FileNameExtensionFilter("JSON files", "json")
-                            fc.selectedFile = File("duenest-sync.json")
-                            if (fc.showSaveDialog(null) == JFileChooser.APPROVE_OPTION) {
-                                var file = fc.selectedFile
-                                if (!file.name.endsWith(".json")) file = File(file.absolutePath + ".json")
-                                file.writeText(SyncManager.serializePayload(syncPayload))
-                                onDismiss()
-                            }
-                        } catch (_: Exception) {}
-                    }, modifier = Modifier.weight(1f)) {
-                        Text(Strings.get("sync_export", lang))
-                    }
-                    OutlinedButton(onClick = {
-                        try {
-                            val fc = JFileChooser()
-                            fc.dialogTitle = Strings.get("sync_import", lang)
-                            fc.fileFilter = FileNameExtensionFilter("JSON files", "json")
-                            if (fc.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
-                                val remote = SyncManager.deserializePayload(fc.selectedFile.readText())
-                                if (remote != null) {
-                                    applyAndMerge(SyncManager.mergePayload(syncPayload, remote))
-                                    syncMergeMsg = Strings.get("sync_merged", lang)
-                                } else {
-                                    syncMergeMsg = Strings.get("sync_no_data", lang)
-                                }
-                            }
-                        } catch (_: Exception) {}
-                    }, modifier = Modifier.weight(1f)) {
-                        Text(Strings.get("sync_import", lang))
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = {
-                        try {
-                            val fc = JFileChooser()
-                            fc.dialogTitle = Strings.get("sync_import_qr", lang)
-                            fc.fileFilter = FileNameExtensionFilter("Image files", "png", "jpg", "jpeg", "bmp")
-                            if (fc.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
-                                val image = ImageIO.read(fc.selectedFile) ?: run {
-                                    syncMergeMsg = Strings.get("sync_no_data", lang)
-                                    return@OutlinedButton
-                                }
-                                val qrResult = QRCodeReader().decode(
-                                    BinaryBitmap(HybridBinarizer(BufferedImageLuminanceSource(image)))
-                                )
-                                val (url, payload) = SyncManager.decodeQrContent(qrResult.text)
-                                if (payload != null) {
-                                    syncMergeMsg = Strings.get("sync_syncing", lang)
-                                    if (url != null) {
-                                        scope.launch(Dispatchers.IO) {
-                                            try {
-                                                val client = OkHttpClient.Builder()
-                                                    .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
-                                                    .build()
-                                                val reqBody = SyncManager.serializePayload(syncPayload)
-                                                    .toRequestBody("text/plain".toMediaType())
-                                                val resp = client.newCall(
-                                                    Request.Builder().url("$url/sync").post(reqBody).build()
-                                                ).execute()
-                                                val respBody = resp.body?.string()
-                                                val remote = if (resp.isSuccessful && respBody != null)
-                                                    SyncManager.deserializePayload(respBody) else null
-                                                withContext(Dispatchers.Main) {
-                                                    val base = SyncManager.mergePayload(syncPayload, payload)
-                                                    val final = if (remote != null)
-                                                        SyncManager.mergePayload(
-                                                            SyncManager.generatePayload(base.manualEvents, base.taskCompletion, base.deletedEventIds, config.deviceId),
-                                                            remote
-                                                        ) else base
-                                                    applyAndMerge(final)
-                                                    syncMergeMsg = Strings.get("sync_merged", lang)
-                                                }
-                                            } catch (_: Exception) {
-                                                withContext(Dispatchers.Main) {
-                                                    applyAndMerge(SyncManager.mergePayload(syncPayload, payload))
-                                                    syncMergeMsg = Strings.get("sync_merged", lang)
-                                                }
-                                            }
-                                        }
-                                    } else {
-                                        applyAndMerge(SyncManager.mergePayload(syncPayload, payload))
-                                        syncMergeMsg = Strings.get("sync_merged", lang)
-                                    }
-                                } else {
-                                    syncMergeMsg = Strings.get("sync_no_data", lang)
-                                }
-                            }
-                        } catch (_: Exception) { syncMergeMsg = Strings.get("sync_no_data", lang) }
-                    }, modifier = Modifier.weight(1f)) {
-                        Text(Strings.get("sync_import_qr", lang))
-                    }
-                    OutlinedButton(onClick = {
-                        try {
-                            val fc = JFileChooser()
-                            fc.dialogTitle = Strings.get("sync_export_qr", lang)
-                            fc.fileFilter = FileNameExtensionFilter("PNG images", "png")
-                            fc.selectedFile = File("duenest-qr.png")
-                            if (fc.showSaveDialog(null) == JFileChooser.APPROVE_OPTION) {
-                                var file = fc.selectedFile
-                                if (!file.name.endsWith(".png")) file = File(file.absolutePath + ".png")
-                                val writer = QRCodeWriter()
-                                val matrix = writer.encode(qrContent, BarcodeFormat.QR_CODE, 400, 400)
-                                val img = BufferedImage(400, 400, BufferedImage.TYPE_INT_RGB)
-                                for (x in 0 until 400) for (y in 0 until 400)
-                                    img.setRGB(x, y, if (matrix.get(x, y)) 0xFF000000.toInt() else 0xFFFFFFFF.toInt())
-                                ImageIO.write(img, "png", file)
-                                onDismiss()
-                            }
-                        } catch (_: Exception) {}
-                    }, modifier = Modifier.weight(1f)) {
-                        Text(Strings.get("sync_export_qr", lang))
-                    }
                 }
             }
         },

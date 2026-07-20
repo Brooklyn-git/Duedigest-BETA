@@ -160,6 +160,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import com.google.zxing.BinaryBitmap
+import com.google.zxing.RGBLuminanceSource
 import com.google.zxing.common.HybridBinarizer
 import com.google.zxing.PlanarYUVLuminanceSource
 import com.google.zxing.qrcode.QRCodeReader
@@ -293,6 +294,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     var syncScanMode by remember { mutableStateOf(true) }
     var syncMergeMsg by remember { mutableStateOf<String?>(null) }
     var persistMergeRef by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var showExportFormatDialog by remember { mutableStateOf(false) }
 
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -301,6 +303,53 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
             syncScanMode = false
             syncMergeMsg = Strings.get("sync_error", lang)
         }
+    }
+
+    val importFileLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        try {
+            val mimeType = context.contentResolver.getType(uri) ?: ""
+            val inputStream = context.contentResolver.openInputStream(uri) ?: return@rememberLauncherForActivityResult
+            val bytes = inputStream.readBytes()
+            inputStream.close()
+            val payload = if (mimeType == "application/json" || uri.lastPathSegment?.endsWith(".json") == true) {
+                SyncManager.deserializePayload(bytes.decodeToString())
+            } else {
+                val bmp = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return@rememberLauncherForActivityResult
+                val w = bmp.width; val h = bmp.height
+                val pixels = IntArray(w * h)
+                bmp.getPixels(pixels, 0, w, 0, 0, w, h)
+                val source = RGBLuminanceSource(w, h, pixels)
+                val qrResult = QRCodeReader().decode(BinaryBitmap(HybridBinarizer(source)))
+                val (_, payload) = SyncManager.decodeQrContent(qrResult.text)
+                payload
+            }
+            if (payload != null) {
+                val syncPayload = SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId)
+                val merged = SyncManager.mergePayload(syncPayload, payload)
+                manualEvents = merged.manualEvents
+                taskCompletionMap = merged.taskCompletion
+                deletedEventIds = merged.deletedEventIds
+                config.manualEventCache = Json.encodeToString(manualEvents)
+                config.taskCompletionState = Json.encodeToString(taskCompletionMap)
+                config.deletedEventIds = Json.encodeToString(deletedEventIds)
+                persistMergeRef?.invoke()
+            }
+        } catch (_: Exception) {}
+    }
+
+    val exportJsonLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        try {
+            val syncPayload = SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId)
+            context.contentResolver.openOutputStream(uri)?.use { out ->
+                out.write(SyncManager.serializePayload(syncPayload).toByteArray())
+            }
+        } catch (_: Exception) {}
     }
 
     val courseOptions by remember {
@@ -596,6 +645,8 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                 lang = lang,
                 onBack = { showSettingsPage = false },
                 onClearCreds = { showClearCredsConfirm = true },
+                onImportFromFile = { importFileLauncher.launch(arrayOf("application/json", "image/*")) },
+                onExportToFile = { showExportFormatDialog = true },
                 formatTime = formatTimeFn,
                 context = context,
             )
@@ -904,6 +955,51 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
             })
     }
 
+    // ── Export format dialog ──────────────────────────────
+    if (showExportFormatDialog) {
+        AlertDialog(onDismissRequest = { showExportFormatDialog = false },
+            containerColor = cs.surface, titleContentColor = cs.onSurface, textContentColor = cs.onSurface,
+            title = { Text(Strings.get("export_format", lang)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = {
+                        showExportFormatDialog = false
+                        exportJsonLauncher.launch("duenest-sync.json")
+                    }, modifier = Modifier.fillMaxWidth()) {
+                        Text(Strings.get("export_as_json", lang))
+                    }
+                    OutlinedButton(onClick = {
+                        showExportFormatDialog = false
+                        try {
+                            val syncPayload = SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId)
+                            val ms = SyncManager.serializePayload(syncPayload)
+                            val writer = QRCodeWriter()
+                            val matrix = writer.encode(ms, BarcodeFormat.QR_CODE, 400, 400)
+                            val bmp = Bitmap.createBitmap(400, 400, Bitmap.Config.RGB_565)
+                            for (x in 0 until 400) for (y in 0 until 400)
+                                bmp.setPixel(x, y, if (matrix.get(x, y)) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+                            val file = File(context.cacheDir, "ics/duenest-qr.png")
+                            file.parentFile?.mkdirs()
+                            java.io.FileOutputStream(file).use { out ->
+                                bmp.compress(Bitmap.CompressFormat.PNG, 100, out)
+                            }
+                            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                            val share = Intent(Intent.ACTION_SEND).apply {
+                                type = "image/png"
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(Intent.createChooser(share, Strings.get("sync_export_qr", lang)))
+                        } catch (_: Exception) {}
+                    }, modifier = Modifier.fillMaxWidth()) {
+                        Text(Strings.get("export_as_qr", lang))
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { showExportFormatDialog = false }) { Text(Strings.get("cancel", lang)) } })
+    }
+
     // ── Sync dialog ──────────────────────────────────────
     if (showSyncDialog) {
         val syncPayload = remember(manualEvents, taskCompletionMap, deletedEventIds) {
@@ -1006,31 +1102,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                     }
                 }
             },
-            confirmButton = {
-                if (!syncScanMode) {
-                    TextButton(onClick = {
-                        try {
-                            val ms = SyncManager.serializePayload(syncPayload)
-                            val writer = QRCodeWriter()
-                            val matrix = writer.encode(ms, BarcodeFormat.QR_CODE, 400, 400)
-                            val bmp = Bitmap.createBitmap(400, 400, Bitmap.Config.RGB_565)
-                            for (x in 0 until 400) for (y in 0 until 400)
-                                bmp.setPixel(x, y, if (matrix.get(x, y)) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
-                            val file = File(context.cacheDir, "duenest-qr.png")
-                            java.io.FileOutputStream(file).use { out ->
-                                bmp.compress(Bitmap.CompressFormat.PNG, 100, out)
-                            }
-                            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-                            val share = Intent(Intent.ACTION_SEND).apply {
-                                type = "image/png"
-                                putExtra(Intent.EXTRA_STREAM, uri)
-                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                            context.startActivity(Intent.createChooser(share, Strings.get("sync_export_qr", lang)))
-                        } catch (_: Exception) {}
-                    }) { Text(Strings.get("sync_export_qr", lang)) }
-                }
-            },
+            confirmButton = {},
             dismissButton = { TextButton(onClick = { showSyncDialog = false }) { Text(Strings.get("cancel", lang)) } })
 
         LaunchedEffect(Unit) {
@@ -1282,6 +1354,8 @@ private fun SettingsPage(
     lang: String,
     onBack: () -> Unit,
     onClearCreds: () -> Unit,
+    onImportFromFile: () -> Unit,
+    onExportToFile: () -> Unit,
     formatTime: (String) -> String,
     context: Context,
 ) {
@@ -1576,8 +1650,20 @@ private fun SettingsPage(
 
                 Spacer(Modifier.height(8.dp))
 
-                TextButton(onClick = onClearCreds) {
-                    Text(Strings.get("clear_creds", lang), color = MaterialTheme.colorScheme.error)
+                HorizontalDivider()
+                Text(Strings.get("data_management", lang), style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    TextButton(onClick = onImportFromFile) {
+                        Text(Strings.get("sync_import", lang))
+                    }
+                    TextButton(onClick = onExportToFile) {
+                        Text(Strings.get("sync_export", lang))
+                    }
+                    TextButton(onClick = onClearCreds) {
+                        Text(Strings.get("clear_creds", lang), color = MaterialTheme.colorScheme.error)
+                    }
                 }
             }
         }
