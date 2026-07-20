@@ -38,6 +38,10 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -393,8 +397,6 @@ fun DesktopApp(config: DesktopConfigStore) {
                 HorizontalDivider()
                 NavItem(Icons.Default.Settings, Strings.get("settings", lang), selectedSection == 2, sidebarExpanded) { selectedSection = 2 }
                 HorizontalDivider()
-                NavItem(Icons.Default.Settings, "Output", selectedSection == 3, sidebarExpanded) { selectedSection = 3 }
-                HorizontalDivider()
             }
         }
 
@@ -458,124 +460,168 @@ fun DesktopApp(config: DesktopConfigStore) {
                         Icon(Icons.Default.Add, contentDescription = Strings.get("add_task", lang))
                     }
                 }
-                2 -> Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+                2 -> Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.TopStart) {
                     Column(Modifier.widthIn(max = 640.dp).verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                        verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         Text(Strings.get("settings", lang), style = MaterialTheme.typography.headlineMedium)
+
+                        Text(Strings.get("general", lang), style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Language, null, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(12.dp))
+                            Text(Strings.get("language", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                            var langExpanded by remember { mutableStateOf(false) }
+                            ExposedDropdownMenuBox(expanded = langExpanded, onExpandedChange = { langExpanded = it }) {
+                                OutlinedTextField(value = Strings.langLabel(selectedLang), onValueChange = {}, readOnly = true,
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = langExpanded) },
+                                    singleLine = true,
+                                    modifier = Modifier.widthIn(max = 160.dp).menuAnchor(MenuAnchorType.PrimaryNotEditable))
+                                ExposedDropdownMenu(expanded = langExpanded, onDismissRequest = { langExpanded = false }) {
+                                    listOf("en" to "English", "es" to "Espa\u00f1ol").forEach { (code, name) ->
+                                        DropdownMenuItem(text = { Text(name) }, onClick = { selectedLang = code; config.language = code; langExpanded = false })
+                                    }
+                                }
+                            }
+                        }
+
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            val themeIcon = when (themeMode) {
+                                "light" -> Icons.Default.LightMode
+                                else -> Icons.Default.DarkMode
+                            }
+                            Icon(themeIcon, null, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(12.dp))
+                            Text(Strings.get("theme", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                            var themeExpanded by remember { mutableStateOf(false) }
+                            val themeOptions = listOf(
+                                "system" to Strings.get("theme_system", lang),
+                                "light" to Strings.get("theme_light", lang),
+                                "dark" to Strings.get("theme_dark", lang),
+                                "amoled_dark" to Strings.get("theme_amoled", lang),
+                            )
+                            ExposedDropdownMenuBox(expanded = themeExpanded, onExpandedChange = { themeExpanded = it }) {
+                                OutlinedTextField(
+                                    value = themeOptions.firstOrNull { it.first == themeMode }?.second ?: "",
+                                    onValueChange = {}, readOnly = true,
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = themeExpanded) },
+                                    singleLine = true,
+                                    modifier = Modifier.widthIn(max = 160.dp).menuAnchor(MenuAnchorType.PrimaryNotEditable))
+                                ExposedDropdownMenu(expanded = themeExpanded, onDismissRequest = { themeExpanded = false }) {
+                                    themeOptions.forEach { (value, label) ->
+                                        val icon = when (value) {
+                                            "light" -> Icons.Default.LightMode
+                                            else -> Icons.Default.DarkMode
+                                        }
+                                        DropdownMenuItem(
+                                            text = {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Icon(icon, null, modifier = Modifier.size(18.dp))
+                                                    Spacer(Modifier.width(8.dp))
+                                                    Text(label)
+                                                }
+                                            },
+                                            onClick = { themeMode = value; config.themeMode = value; themeExpanded = false }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.DateRange, null, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(12.dp))
+                            Text(Strings.get("time_format", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                            SimpleDropdown(
+                                label = Strings.get("time_format", lang),
+                                selected = if (use24h) Strings.get("time_24h", lang) else Strings.get("time_12h", lang),
+                                options = listOf(Strings.get("time_12h", lang), Strings.get("time_24h", lang)),
+                                onSelect = { v -> use24h = v == Strings.get("time_24h", lang); config.use24h = use24h },
+                                modifier = Modifier.widthIn(max = 120.dp),
+                            )
+                        }
+
                         HorizontalDivider()
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(Strings.get("theme", lang), style = MaterialTheme.typography.titleLarge)
-                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                listOf(
-                                    "system" to Strings.get("theme_system", lang),
-                                    "light" to Strings.get("theme_light", lang),
-                                    "dark" to Strings.get("theme_dark", lang),
-                                    "amoled_dark" to Strings.get("theme_amoled", lang),
-                                ).forEach { (v, lbl) ->
-                                    Row(Modifier.clickable { themeMode = v; config.themeMode = v },
-                                        verticalAlignment = Alignment.CenterVertically) {
-                                        RadioButton(selected = themeMode == v, onClick = { themeMode = v; config.themeMode = v })
-                                        Text(lbl, style = MaterialTheme.typography.bodyMedium)
-                                    }
+                        Text(Strings.get("output", lang), style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.DateRange, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(Modifier.width(12.dp))
+                            Text(Strings.get("logseq_label", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                            Switch(checked = logseqEnabled, onCheckedChange = { logseqEnabled = it; config.logseqEnabled = it })
+                        }
+                        if (logseqEnabled) {
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                                Icon(Icons.Default.Folder, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Spacer(Modifier.width(8.dp))
+                                OutlinedTextField(value = logseqPath, onValueChange = { logseqPath = it; config.logseqPath = it },
+                                    singleLine = true, modifier = Modifier.weight(1f))
+                                Spacer(Modifier.width(8.dp))
+                                Button(onClick = { browseDirectory(logseqPath)?.let { logseqPath = it; config.logseqPath = it } }) {
+                                    Text(Strings.get("browse", lang))
                                 }
                             }
                         }
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(Strings.get("language", lang), style = MaterialTheme.typography.titleLarge)
-                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                listOf("en" to "English", "es" to "Español").forEach { (v, lbl) ->
-                                    Row(Modifier.clickable { selectedLang = v; config.language = v },
-                                        verticalAlignment = Alignment.CenterVertically) {
-                                        RadioButton(selected = selectedLang == v, onClick = { selectedLang = v; config.language = v })
-                                        Text(lbl, style = MaterialTheme.typography.bodyMedium)
-                                    }
+
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.DateRange, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(Modifier.width(12.dp))
+                            Text(Strings.get("obsidian_label", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                            Switch(checked = obsidianEnabled, onCheckedChange = { obsidianEnabled = it; config.obsidianEnabled = it })
+                        }
+                        if (obsidianEnabled) {
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                                Icon(Icons.Default.Folder, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Spacer(Modifier.width(8.dp))
+                                OutlinedTextField(value = obsidianPath, onValueChange = { obsidianPath = it; config.obsidianPath = it },
+                                    singleLine = true, modifier = Modifier.weight(1f))
+                                Spacer(Modifier.width(8.dp))
+                                Button(onClick = { browseDirectory(obsidianPath)?.let { obsidianPath = it; config.obsidianPath = it } }) {
+                                    Text(Strings.get("browse", lang))
                                 }
                             }
                         }
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(Strings.get("time_format", lang), style = MaterialTheme.typography.titleLarge)
-                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                Row(Modifier.clickable { use24h = false; config.use24h = false },
-                                    verticalAlignment = Alignment.CenterVertically) {
-                                    RadioButton(selected = !use24h, onClick = { use24h = false; config.use24h = false })
-                                    Text(Strings.get("time_12h", lang), style = MaterialTheme.typography.bodyMedium)
-                                }
-                                Row(Modifier.clickable { use24h = true; config.use24h = true },
-                                    verticalAlignment = Alignment.CenterVertically) {
-                                    RadioButton(selected = use24h, onClick = { use24h = true; config.use24h = true })
-                                    Text(Strings.get("time_24h", lang), style = MaterialTheme.typography.bodyMedium)
+
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.DateRange, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(Modifier.width(12.dp))
+                            Text(Strings.get("tasks_path", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                            Switch(checked = tasksEnabled, onCheckedChange = { tasksEnabled = it; config.tasksEnabled = it })
+                        }
+                        if (tasksEnabled) {
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                                Icon(Icons.Default.Folder, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Spacer(Modifier.width(8.dp))
+                                OutlinedTextField(value = tasksOutputPath, onValueChange = { tasksOutputPath = it; config.tasksOutputPath = it },
+                                    singleLine = true, modifier = Modifier.weight(1f))
+                                Spacer(Modifier.width(8.dp))
+                                Button(onClick = { browseFile(tasksOutputPath)?.let { tasksOutputPath = it; config.tasksOutputPath = it } }) {
+                                    Text(Strings.get("browse", lang))
                                 }
                             }
                         }
+
+                        HorizontalDivider()
+                        Text(Strings.get("advanced", lang), style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text(Strings.get("fetch_days", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                            OutlinedTextField(value = daysBackText, onValueChange = { daysBackText = it; config.fetchDaysBack = it.toIntOrNull() ?: 7 },
+                                singleLine = true, modifier = Modifier.widthIn(max = 100.dp))
+                        }
+
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text(Strings.get("fetch_limit", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                            OutlinedTextField(value = limitText, onValueChange = { limitText = it; config.fetchLimit = it.toIntOrNull() ?: 100 },
+                                singleLine = true, modifier = Modifier.widthIn(max = 100.dp))
+                        }
+
                         HorizontalDivider()
                         TextButton(onClick = { showClearCredsConfirm = true }) {
                             Text(Strings.get("clear_creds", lang), color = MaterialTheme.colorScheme.error)
-                        }
-                    }
-                }
-                3 -> Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
-                    Column(Modifier.widthIn(max = 640.dp).verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        Text("Output Settings", style = MaterialTheme.typography.headlineMedium)
-                        HorizontalDivider()
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Switch(checked = logseqEnabled, onCheckedChange = { logseqEnabled = it; config.logseqEnabled = it })
-                                Spacer(Modifier.width(8.dp))
-                                Text(Strings.get("logseq_label", lang), style = MaterialTheme.typography.bodyMedium)
-                            }
-                            if (logseqEnabled) {
-                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                                    OutlinedTextField(value = logseqPath, onValueChange = { logseqPath = it; config.logseqPath = it },
-                                        singleLine = true, modifier = Modifier.weight(1f))
-                                    Spacer(Modifier.width(8.dp))
-                                    Button(onClick = { browseDirectory(logseqPath)?.let { logseqPath = it; config.logseqPath = it } }) {
-                                        Text(Strings.get("browse", lang))
-                                    }
-                                }
-                            }
-                        }
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Switch(checked = obsidianEnabled, onCheckedChange = { obsidianEnabled = it; config.obsidianEnabled = it })
-                                Spacer(Modifier.width(8.dp))
-                                Text(Strings.get("obsidian_label", lang), style = MaterialTheme.typography.bodyMedium)
-                            }
-                            if (obsidianEnabled) {
-                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                                    OutlinedTextField(value = obsidianPath, onValueChange = { obsidianPath = it; config.obsidianPath = it },
-                                        singleLine = true, modifier = Modifier.weight(1f))
-                                    Spacer(Modifier.width(8.dp))
-                                    Button(onClick = { browseDirectory(obsidianPath)?.let { obsidianPath = it; config.obsidianPath = it } }) {
-                                        Text(Strings.get("browse", lang))
-                                    }
-                                }
-                            }
-                        }
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Switch(checked = tasksEnabled, onCheckedChange = { tasksEnabled = it; config.tasksEnabled = it })
-                                Spacer(Modifier.width(8.dp))
-                                Text(Strings.get("tasks_path", lang), style = MaterialTheme.typography.bodyMedium)
-                            }
-                            if (tasksEnabled) {
-                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                                    OutlinedTextField(value = tasksOutputPath, onValueChange = { tasksOutputPath = it; config.tasksOutputPath = it },
-                                        singleLine = true, modifier = Modifier.weight(1f))
-                                    Spacer(Modifier.width(8.dp))
-                                    Button(onClick = { browseFile(tasksOutputPath)?.let { tasksOutputPath = it; config.tasksOutputPath = it } }) {
-                                        Text(Strings.get("browse", lang))
-                                    }
-                                }
-                            }
-                        }
-                        HorizontalDivider()
-                        Text(Strings.get("fetch_params", lang), style = MaterialTheme.typography.titleLarge)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                            OutlinedTextField(value = daysBackText, onValueChange = { daysBackText = it; config.fetchDaysBack = it.toIntOrNull() ?: 7 },
-                                label = { Text(Strings.get("fetch_days", lang)) }, singleLine = true, modifier = Modifier.weight(1f))
-                            OutlinedTextField(value = limitText, onValueChange = { limitText = it; config.fetchLimit = it.toIntOrNull() ?: 100 },
-                                label = { Text(Strings.get("fetch_limit", lang)) }, singleLine = true, modifier = Modifier.weight(1f))
                         }
                     }
                 }
