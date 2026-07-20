@@ -75,6 +75,9 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
@@ -110,6 +113,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -236,8 +240,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     var savePw by remember { mutableStateOf(config.savePassword) }
 
     val pagerState = rememberPagerState(pageCount = { 2 })
-    var showSettings by remember { mutableStateOf(false) }
-    var showOutputSettings by remember { mutableStateOf(false) }
+    var showSettingsPage by remember { mutableStateOf(false) }
     var isWorking by remember { mutableStateOf(false) }
     var errorDialogMsg by remember { mutableStateOf<String?>(null) }
     var statusText by remember { mutableStateOf(config.lastSyncMessage) }
@@ -540,21 +543,56 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                 kotlinx.coroutines.delay(30_000)
             }
         }
-        if (showOutputSettings) {
-            OutputSettingsPage(
+        if (showSettingsPage) {
+            SettingsPage(
+                themeMode = themeMode, onThemeModeChange = { themeMode = it; config.themeMode = it },
+                selectedLang = selectedLang, onLangChange = { selectedLang = it; config.language = it },
+                notif24hFormat = notif24hFormat, onNotif24hFormatChange = { notif24hFormat = it; config.notification24hFormat = it },
                 icsEnabled = icsEnabled, onIcsEnabledChange = { icsEnabled = it; config.icsEnabled = it },
                 logseqEnabled = logseqEnabled, onLogseqEnabledChange = { logseqEnabled = it; config.logseqEnabled = it },
                 obsidianEnabled = obsidianEnabled, onObsidianEnabledChange = { obsidianEnabled = it; config.obsidianEnabled = it },
                 icsPath = icsPath, onIcsPathChange = { icsPath = it; config.icsPath = it },
                 logseqPath = logseqPath, onLogseqPathChange = { logseqPath = it; config.logseqPath = it },
                 obsidianPath = obsidianPath, onObsidianPathChange = { obsidianPath = it; config.obsidianPath = it },
-                daysBackText = daysBackText, onDaysBackChange = { daysBackText = it; config.fetchDaysBack = it.toIntOrNull() ?: 7 },
-                limitText = limitText, onLimitChange = { limitText = it; config.fetchLimit = it.toIntOrNull() ?: 100 },
                 tasksEnabled = tasksEnabled, onTasksEnabledChange = { tasksEnabled = it; config.tasksEnabled = it; regenerateTasksFile() },
                 tasksOutputPath = tasksOutputPath, onTasksPathChange = { tasksOutputPath = it; config.tasksOutputPath = it; regenerateTasksFile() },
+                daysBackText = daysBackText, onDaysBackChange = { daysBackText = it; config.fetchDaysBack = it.toIntOrNull() ?: 7 },
+                limitText = limitText, onLimitChange = { limitText = it; config.fetchLimit = it.toIntOrNull() ?: 100 },
+                notifEnabled = notifEnabled, onNotifEnabledChange = { enabled ->
+                    notifEnabled = enabled; config.notificationsEnabled = enabled
+                    if (enabled) NotificationWorker.schedule(context) else NotificationWorker.cancel(context)
+                },
+                notifScheduleType = notifScheduleType, onNotifScheduleTypeChange = { key ->
+                    notifScheduleType = key; config.notificationScheduleType = key; NotificationWorker.schedule(context)
+                },
+                notifCustomDaysList = notifCustomDaysList, onNotifCustomDaysListChange = { list ->
+                    notifCustomDaysList = list; config.notificationCustomDays = list.sorted().joinToString(",")
+                    NotificationWorker.schedule(context)
+                },
+                notifCustomHoursList = notifCustomHoursList, onNotifCustomHoursListChange = { list ->
+                    notifCustomHoursList = list; config.notificationCustomHours = list.joinToString(",")
+                    NotificationWorker.schedule(context)
+                },
+                taskRemindEnabled = taskRemindEnabled, onTaskRemindEnabledChange = { enabled ->
+                    taskRemindEnabled = enabled; config.taskRemindersEnabled = enabled
+                    if (enabled) TaskReminderWorker.schedule(context) else TaskReminderWorker.cancel(context)
+                },
+                taskRemindScheduleType = taskRemindScheduleType, onTaskRemindScheduleTypeChange = { key ->
+                    taskRemindScheduleType = key; config.taskReminderScheduleType = key; TaskReminderWorker.schedule(context)
+                },
+                taskRemindCustomDaysList = taskRemindCustomDaysList, onTaskRemindCustomDaysListChange = { list ->
+                    taskRemindCustomDaysList = list; config.taskReminderCustomDays = list.sorted().joinToString(",")
+                    TaskReminderWorker.schedule(context)
+                },
+                taskRemindCustomHoursList = taskRemindCustomHoursList, onTaskRemindCustomHoursListChange = { list ->
+                    taskRemindCustomHoursList = list; config.taskReminderCustomHours = list.joinToString(",")
+                    TaskReminderWorker.schedule(context)
+                },
                 lang = lang,
-                onBack = { showOutputSettings = false },
-                onSettings = { showSettings = true },
+                onBack = { showSettingsPage = false },
+                onClearCreds = { showClearCredsConfirm = true },
+                formatTime = formatTimeFn,
+                context = context,
             )
         } else {
             Scaffold(
@@ -570,7 +608,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                         IconButton(onClick = { showSyncDialog = true; syncScanMode = true; syncMergeMsg = null }) {
                             Icon(Icons.Default.Share, contentDescription = Strings.get("sync", lang))
                         }
-                        IconButton(onClick = { showSettings = !showSettings }) {
+                        IconButton(onClick = { showSettingsPage = true }) {
                             Icon(Icons.Default.Settings, contentDescription = "Settings")
                         }
                     },
@@ -808,154 +846,6 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                 text = { Text(errorDialogMsg ?: "") },
                 confirmButton = { TextButton(onClick = { errorDialogMsg = null }) { Text("OK") } })
         }
-        if (showSettings) {
-            AlertDialog(onDismissRequest = { showSettings = false },
-                containerColor = cs.surface, titleContentColor = cs.onSurface, textContentColor = cs.onSurface,
-                title = { Text(Strings.get("settings", lang)) },
-                text = {
-                    Column(Modifier.verticalScroll(rememberScrollState())) {
-                        Text(Strings.get("theme", lang), style = MaterialTheme.typography.labelMedium)
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(0.dp),
-                            verticalArrangement = Arrangement.spacedBy(0.dp),
-                        ) {
-                            listOf("system" to Strings.get("theme_system", lang), "light" to Strings.get("theme_light", lang), "dark" to Strings.get("theme_dark", lang), "amoled_dark" to Strings.get("theme_amoled", lang)).forEach { (v, lbl) ->
-                                Row(Modifier.clickable { themeMode = v; config.themeMode = v }.padding(end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    RadioButton(selected = themeMode == v, onClick = { themeMode = v; config.themeMode = v })
-                                    Text(lbl, style = MaterialTheme.typography.bodySmall)
-                                }
-                            }
-                        }
-                        Spacer(Modifier.height(12.dp))
-                        Text(Strings.get("language", lang), style = MaterialTheme.typography.labelMedium)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            listOf("en" to "English", "es" to "Espa\u00f1ol").forEach { (v, lbl) ->
-                                Row(Modifier.clickable { selectedLang = v; config.language = v }.padding(end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    RadioButton(selected = selectedLang == v, onClick = { selectedLang = v; config.language = v })
-                                    Text(lbl, style = MaterialTheme.typography.bodySmall)
-                                }
-                            }
-                        }
-                        Spacer(Modifier.height(12.dp))
-                        Text(Strings.get("notifications", lang), style = MaterialTheme.typography.labelMedium)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = notifEnabled, onCheckedChange = { enabled ->
-                                notifEnabled = enabled
-                                config.notificationsEnabled = enabled
-                                if (enabled) {
-                                    NotificationWorker.schedule(context)
-                                } else {
-                                    NotificationWorker.cancel(context)
-                                }
-                            })
-                            Spacer(Modifier.width(4.dp))
-                            Text(Strings.get("notif_enable", lang), style = MaterialTheme.typography.bodySmall)
-                        }
-                        AnimatedVisibility(visible = notifEnabled) {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                            ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
-                                    ReminderScheduleSection(
-                                        scheduleType = notifScheduleType,
-                                        onScheduleTypeChange = { key ->
-                                            notifScheduleType = key
-                                            config.notificationScheduleType = key
-                                            NotificationWorker.schedule(context)
-                                        },
-                                        customDaysList = notifCustomDaysList,
-                                        onCustomDaysListChange = { list ->
-                                            notifCustomDaysList = list
-                                            config.notificationCustomDays = list.sorted().joinToString(",")
-                                            NotificationWorker.schedule(context)
-                                        },
-                                        customHoursList = notifCustomHoursList,
-                                        onCustomHoursListChange = { list ->
-                                            notifCustomHoursList = list
-                                            config.notificationCustomHours = list.joinToString(",")
-                                            NotificationWorker.schedule(context)
-                                        },
-                                        lang = lang,
-                                        context = context,
-                                        formatTime = formatTimeFn,
-                                    )
-                                }
-                            }
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = taskRemindEnabled, onCheckedChange = { enabled ->
-                                taskRemindEnabled = enabled
-                                config.taskRemindersEnabled = enabled
-                                if (enabled) {
-                                    TaskReminderWorker.schedule(context)
-                                } else {
-                                    TaskReminderWorker.cancel(context)
-                                }
-                            })
-                            Spacer(Modifier.width(4.dp))
-                            Text(Strings.get("notif_task_enable", lang), style = MaterialTheme.typography.bodySmall)
-                        }
-                        AnimatedVisibility(visible = taskRemindEnabled) {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                            ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
-                                    ReminderScheduleSection(
-                                        scheduleType = taskRemindScheduleType,
-                                        onScheduleTypeChange = { key ->
-                                            taskRemindScheduleType = key
-                                            config.taskReminderScheduleType = key
-                                            TaskReminderWorker.schedule(context)
-                                        },
-                                        customDaysList = taskRemindCustomDaysList,
-                                        onCustomDaysListChange = { list ->
-                                            taskRemindCustomDaysList = list
-                                            config.taskReminderCustomDays = list.sorted().joinToString(",")
-                                            TaskReminderWorker.schedule(context)
-                                        },
-                                        customHoursList = taskRemindCustomHoursList,
-                                        onCustomHoursListChange = { list ->
-                                            taskRemindCustomHoursList = list
-                                            config.taskReminderCustomHours = list.joinToString(",")
-                                            TaskReminderWorker.schedule(context)
-                                        },
-                                        lang = lang,
-                                        context = context,
-                                        formatTime = formatTimeFn,
-                                    )
-                                }
-                            }
-                        }
-                        Column {
-                            Spacer(Modifier.height(4.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                RadioButton(selected = !notif24hFormat, onClick = { notif24hFormat = false; config.notification24hFormat = false })
-                                Spacer(Modifier.width(2.dp))
-                                Text("12h", style = MaterialTheme.typography.bodySmall)
-                                Spacer(Modifier.width(12.dp))
-                                RadioButton(selected = notif24hFormat, onClick = { notif24hFormat = true; config.notification24hFormat = true })
-                                Spacer(Modifier.width(2.dp))
-                                Text("24h", style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
-                        Spacer(Modifier.height(12.dp))
-                        Button(
-                            onClick = { showSettings = false; showOutputSettings = true },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text("Output Settings")
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        TextButton(onClick = { showClearCredsConfirm = true }) {
-                            Text(Strings.get("clear_creds", lang), color = MaterialTheme.colorScheme.error)
-                        }
-                    }
-                },
-                confirmButton = { TextButton(onClick = { showSettings = false }) { Text("OK") } })
-        }
 
     // ── Clear completed confirmation ────────────────────────
     if (showClearCompletedConfirm) {
@@ -994,7 +884,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                     password = ""
                     url = ""
                     username = ""
-                    showSettings = false
+                    showSettingsPage = false
                     showClearCredsConfirm = false
                 }) { Text(Strings.get("clear_creds", lang), color = MaterialTheme.colorScheme.error) }
             },
@@ -1354,35 +1244,68 @@ private fun ReminderScheduleSection(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-private fun OutputSettingsPage(
+private fun SettingsPage(
+    themeMode: String, onThemeModeChange: (String) -> Unit,
+    selectedLang: String, onLangChange: (String) -> Unit,
+    notif24hFormat: Boolean, onNotif24hFormatChange: (Boolean) -> Unit,
     icsEnabled: Boolean, onIcsEnabledChange: (Boolean) -> Unit,
     logseqEnabled: Boolean, onLogseqEnabledChange: (Boolean) -> Unit,
     obsidianEnabled: Boolean, onObsidianEnabledChange: (Boolean) -> Unit,
     icsPath: String, onIcsPathChange: (String) -> Unit,
     logseqPath: String, onLogseqPathChange: (String) -> Unit,
     obsidianPath: String, onObsidianPathChange: (String) -> Unit,
-    daysBackText: String, onDaysBackChange: (String) -> Unit,
-    limitText: String, onLimitChange: (String) -> Unit,
     tasksEnabled: Boolean, onTasksEnabledChange: (Boolean) -> Unit,
     tasksOutputPath: String, onTasksPathChange: (String) -> Unit,
+    daysBackText: String, onDaysBackChange: (String) -> Unit,
+    limitText: String, onLimitChange: (String) -> Unit,
+    notifEnabled: Boolean, onNotifEnabledChange: (Boolean) -> Unit,
+    notifScheduleType: String, onNotifScheduleTypeChange: (String) -> Unit,
+    notifCustomDaysList: List<Int>, onNotifCustomDaysListChange: (List<Int>) -> Unit,
+    notifCustomHoursList: List<String>, onNotifCustomHoursListChange: (List<String>) -> Unit,
+    taskRemindEnabled: Boolean, onTaskRemindEnabledChange: (Boolean) -> Unit,
+    taskRemindScheduleType: String, onTaskRemindScheduleTypeChange: (String) -> Unit,
+    taskRemindCustomDaysList: List<Int>, onTaskRemindCustomDaysListChange: (List<Int>) -> Unit,
+    taskRemindCustomHoursList: List<String>, onTaskRemindCustomHoursListChange: (List<String>) -> Unit,
     lang: String,
     onBack: () -> Unit,
-    onSettings: () -> Unit,
+    onClearCreds: () -> Unit,
+    formatTime: (String) -> String,
+    context: Context,
 ) {
+    val icsPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/calendar")) { uri ->
+        uri?.let {
+            context.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            onIcsPathChange(it.toString())
+        }
+    }
+    val logseqPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        uri?.let {
+            context.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            onLogseqPathChange(it.toString())
+        }
+    }
+    val obsidianPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        uri?.let {
+            context.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            onObsidianPathChange(it.toString())
+        }
+    }
+    val tasksPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/markdown")) { uri ->
+        uri?.let {
+            context.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            onTasksPathChange(it.toString())
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Output Settings") },
+                title = { Text(Strings.get("settings", lang)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = onSettings) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -1390,19 +1313,235 @@ private fun OutputSettingsPage(
         },
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState())) {
-            OutputTabContent(
-                icsEnabled = icsEnabled, onIcsEnabledChange = onIcsEnabledChange,
-                logseqEnabled = logseqEnabled, onLogseqEnabledChange = onLogseqEnabledChange,
-                obsidianEnabled = obsidianEnabled, onObsidianEnabledChange = onObsidianEnabledChange,
-                icsPath = icsPath, onIcsPathChange = onIcsPathChange,
-                logseqPath = logseqPath, onLogseqPathChange = onLogseqPathChange,
-                obsidianPath = obsidianPath, onObsidianPathChange = onObsidianPathChange,
-                daysBackText = daysBackText, onDaysBackChange = onDaysBackChange,
-                limitText = limitText, onLimitChange = onLimitChange,
-                tasksEnabled = tasksEnabled, onTasksEnabledChange = onTasksEnabledChange,
-                tasksOutputPath = tasksOutputPath, onTasksPathChange = onTasksPathChange,
-                lang = lang,
-            )
+            Column(Modifier.padding(horizontal = 32.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+
+                // ── General ──
+                Text(Strings.get("general", lang), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                // Language
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Home, null, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Text(Strings.get("language", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                    var langExpanded by remember { mutableStateOf(false) }
+                    ExposedDropdownMenuBox(expanded = langExpanded, onExpandedChange = { langExpanded = it }) {
+                        OutlinedTextField(value = Strings.langLabel(selectedLang), onValueChange = {}, readOnly = true,
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = langExpanded) },
+                            singleLine = true,
+                            modifier = Modifier.widthIn(max = 160.dp).menuAnchor(MenuAnchorType.PrimaryNotEditable))
+                        ExposedDropdownMenu(expanded = langExpanded, onDismissRequest = { langExpanded = false }) {
+                            listOf("en" to "English", "es" to "Espa\u00f1ol").forEach { (code, name) ->
+                                DropdownMenuItem(text = { Text(name) }, onClick = { onLangChange(code); langExpanded = false })
+                            }
+                        }
+                    }
+                }
+
+                // Theme
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    val themeIcon = when (themeMode) {
+                        "light" -> Icons.Default.DateRange
+                        else -> Icons.Default.Warning
+                    }
+                    Icon(themeIcon, null, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Text(Strings.get("theme", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                    var themeExpanded by remember { mutableStateOf(false) }
+                    val themeOptions = listOf(
+                        "system" to Strings.get("theme_system", lang),
+                        "light" to Strings.get("theme_light", lang),
+                        "dark" to Strings.get("theme_dark", lang),
+                        "amoled_dark" to Strings.get("theme_amoled", lang),
+                    )
+                    ExposedDropdownMenuBox(expanded = themeExpanded, onExpandedChange = { themeExpanded = it }) {
+                        OutlinedTextField(
+                            value = themeOptions.firstOrNull { it.first == themeMode }?.second ?: "",
+                            onValueChange = {}, readOnly = true,
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = themeExpanded) },
+                            singleLine = true,
+                            modifier = Modifier.widthIn(max = 160.dp).menuAnchor(MenuAnchorType.PrimaryNotEditable))
+                        ExposedDropdownMenu(expanded = themeExpanded, onDismissRequest = { themeExpanded = false }) {
+                            themeOptions.forEach { (value, label) ->
+                                val icon = when (value) {
+                                    "light" -> Icons.Default.DateRange
+                                    else -> Icons.Default.Warning
+                                }
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(icon, null, modifier = Modifier.size(18.dp))
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(label)
+                                        }
+                                    },
+                                    onClick = { onThemeModeChange(value); themeExpanded = false }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Time Format
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.DateRange, null, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Text(Strings.get("time_format", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                    var timeExpanded by remember { mutableStateOf(false) }
+                    val timeOptions = listOf(Strings.get("time_12h", lang), Strings.get("time_24h", lang))
+                    ExposedDropdownMenuBox(expanded = timeExpanded, onExpandedChange = { timeExpanded = it }) {
+                        OutlinedTextField(
+                            value = if (notif24hFormat) Strings.get("time_24h", lang) else Strings.get("time_12h", lang),
+                            onValueChange = {}, readOnly = true,
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = timeExpanded) },
+                            singleLine = true,
+                            modifier = Modifier.widthIn(max = 120.dp).menuAnchor(MenuAnchorType.PrimaryNotEditable))
+                        ExposedDropdownMenu(expanded = timeExpanded, onDismissRequest = { timeExpanded = false }) {
+                            timeOptions.forEach { opt ->
+                                DropdownMenuItem(text = { Text(opt) }, onClick = { onNotif24hFormatChange(opt == Strings.get("time_24h", lang)); timeExpanded = false })
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                // ── Notifications (Android only) ──
+                Text(Strings.get("notifications", lang), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = notifEnabled, onCheckedChange = onNotifEnabledChange)
+                    Spacer(Modifier.width(4.dp))
+                    Text(Strings.get("notif_enable", lang), style = MaterialTheme.typography.bodySmall)
+                }
+                AnimatedVisibility(visible = notifEnabled) {
+                    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            ReminderScheduleSection(
+                                scheduleType = notifScheduleType, onScheduleTypeChange = onNotifScheduleTypeChange,
+                                customDaysList = notifCustomDaysList, onCustomDaysListChange = onNotifCustomDaysListChange,
+                                customHoursList = notifCustomHoursList, onCustomHoursListChange = onNotifCustomHoursListChange,
+                                lang = lang, context = context, formatTime = formatTime,
+                            )
+                        }
+                    }
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = taskRemindEnabled, onCheckedChange = onTaskRemindEnabledChange)
+                    Spacer(Modifier.width(4.dp))
+                    Text(Strings.get("notif_task_enable", lang), style = MaterialTheme.typography.bodySmall)
+                }
+                AnimatedVisibility(visible = taskRemindEnabled) {
+                    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            ReminderScheduleSection(
+                                scheduleType = taskRemindScheduleType, onScheduleTypeChange = onTaskRemindScheduleTypeChange,
+                                customDaysList = taskRemindCustomDaysList, onCustomDaysListChange = onTaskRemindCustomDaysListChange,
+                                customHoursList = taskRemindCustomHoursList, onCustomHoursListChange = onTaskRemindCustomHoursListChange,
+                                lang = lang, context = context, formatTime = formatTime,
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                // ── Output ──
+                Text(Strings.get("output", lang), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                // ICS
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.DateRange, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.width(12.dp))
+                    Text(Strings.get("ics_label", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                    Switch(checked = icsEnabled, onCheckedChange = onIcsEnabledChange)
+                }
+                if (icsEnabled) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Default.DateRange, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.width(8.dp))
+                        OutlinedTextField(value = icsPath, onValueChange = onIcsPathChange, singleLine = true, modifier = Modifier.weight(1f))
+                        Spacer(Modifier.width(8.dp))
+                        Button(onClick = { icsPicker.launch("calendar.ics") }) { Text(Strings.get("browse", lang)) }
+                    }
+                }
+
+                // Logseq
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.DateRange, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.width(12.dp))
+                    Text(Strings.get("logseq_label", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                    Switch(checked = logseqEnabled, onCheckedChange = onLogseqEnabledChange)
+                }
+                if (logseqEnabled) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Default.DateRange, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.width(8.dp))
+                        OutlinedTextField(value = logseqPath, onValueChange = onLogseqPathChange, singleLine = true, modifier = Modifier.weight(1f))
+                        Spacer(Modifier.width(8.dp))
+                        Button(onClick = { logseqPicker.launch(null) }) { Text(Strings.get("browse", lang)) }
+                    }
+                }
+
+                // Obsidian
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.DateRange, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.width(12.dp))
+                    Text(Strings.get("obsidian_label", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                    Switch(checked = obsidianEnabled, onCheckedChange = onObsidianEnabledChange)
+                }
+                if (obsidianEnabled) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Default.DateRange, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.width(8.dp))
+                        OutlinedTextField(value = obsidianPath, onValueChange = onObsidianPathChange, singleLine = true, modifier = Modifier.weight(1f))
+                        Spacer(Modifier.width(8.dp))
+                        Button(onClick = { obsidianPicker.launch(null) }) { Text(Strings.get("browse", lang)) }
+                    }
+                }
+
+                // DueNest
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.DateRange, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.width(12.dp))
+                    Text(Strings.get("tasks_path", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                    Switch(checked = tasksEnabled, onCheckedChange = onTasksEnabledChange)
+                }
+                if (tasksEnabled) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Default.DateRange, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.width(8.dp))
+                        OutlinedTextField(value = tasksOutputPath, onValueChange = onTasksPathChange, singleLine = true, modifier = Modifier.weight(1f))
+                        Spacer(Modifier.width(8.dp))
+                        Button(onClick = { tasksPicker.launch("tasks.md") }) { Text(Strings.get("browse", lang)) }
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                // ── Advanced ──
+                Text(Strings.get("advanced", lang), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(Strings.get("fetch_days", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                    OutlinedTextField(value = daysBackText, onValueChange = { onDaysBackChange(it.filter { c -> c.isDigit() }) },
+                        singleLine = true, modifier = Modifier.widthIn(max = 100.dp),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next))
+                }
+
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(Strings.get("fetch_limit", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                    OutlinedTextField(value = limitText, onValueChange = { onLimitChange(it.filter { c -> c.isDigit() }) },
+                        singleLine = true, modifier = Modifier.widthIn(max = 100.dp),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done))
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                TextButton(onClick = onClearCreds) {
+                    Text(Strings.get("clear_creds", lang), color = MaterialTheme.colorScheme.error)
+                }
+            }
         }
     }
 }
@@ -1826,91 +1965,6 @@ private fun ConnectionTabContent(
                         Strings.timezones.forEach { zone -> DropdownMenuItem(text = { Text(zone) }, onClick = { onTzChange(zone); onTzExpandedChange(false) }) }
                     }
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun OutputTabContent(
-    icsEnabled: Boolean, onIcsEnabledChange: (Boolean) -> Unit, logseqEnabled: Boolean, onLogseqEnabledChange: (Boolean) -> Unit,
-    obsidianEnabled: Boolean, onObsidianEnabledChange: (Boolean) -> Unit,
-    icsPath: String, onIcsPathChange: (String) -> Unit, logseqPath: String, onLogseqPathChange: (String) -> Unit,
-    obsidianPath: String, onObsidianPathChange: (String) -> Unit,
-    daysBackText: String, onDaysBackChange: (String) -> Unit, limitText: String, onLimitChange: (String) -> Unit,
-    tasksEnabled: Boolean = true, onTasksEnabledChange: (Boolean) -> Unit = {},
-    tasksOutputPath: String = "", onTasksPathChange: (String) -> Unit = {},
-    lang: String,
-) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val icsPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/calendar")) { uri ->
-        uri?.let {
-            context.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-            onIcsPathChange(it.toString())
-        }
-    }
-    val logseqPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-        uri?.let {
-            context.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-            onLogseqPathChange(it.toString())
-        }
-    }
-    val obsidianPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-        uri?.let {
-            context.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-            onObsidianPathChange(it.toString())
-        }
-    }
-    val tasksPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/markdown")) { uri ->
-        uri?.let {
-            context.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-            onTasksPathChange(it.toString())
-        }
-    }
-    Column(Modifier.fillMaxWidth().padding(16.dp)) {
-        Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
-            Column(Modifier.padding(16.dp)) {
-                Text(Strings.get("formats", lang), style = MaterialTheme.typography.titleMedium); Spacer(Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(checked = icsEnabled, onCheckedChange = onIcsEnabledChange); Spacer(Modifier.width(4.dp)); Text(Strings.get("ics_label", lang)) }
-                Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(checked = logseqEnabled, onCheckedChange = onLogseqEnabledChange); Spacer(Modifier.width(4.dp)); Text(Strings.get("logseq_label", lang)) }
-                Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(checked = obsidianEnabled, onCheckedChange = onObsidianEnabledChange); Spacer(Modifier.width(4.dp)); Text(Strings.get("obsidian_label", lang)) }
-                Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(checked = tasksEnabled, onCheckedChange = onTasksEnabledChange); Spacer(Modifier.width(4.dp)); Text(Strings.get("tasks_path", lang)) }
-            }
-        }
-        Spacer(Modifier.height(12.dp))
-        Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
-            Column(Modifier.padding(16.dp)) {
-                Text(Strings.get("paths", lang), style = MaterialTheme.typography.titleMedium); Spacer(Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(value = icsPath, onValueChange = onIcsPathChange, label = { Text(Strings.get("ics_file", lang)) }, singleLine = true, modifier = Modifier.weight(1f), enabled = icsEnabled)
-                    TextButton(onClick = { icsPicker.launch("calendar.ics") }, enabled = icsEnabled) { Text("\u2026") }
-                }
-                Spacer(Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(value = logseqPath, onValueChange = onLogseqPathChange, label = { Text(Strings.get("logseq_dir", lang)) }, singleLine = true, modifier = Modifier.weight(1f), enabled = logseqEnabled)
-                    TextButton(onClick = { logseqPicker.launch(null) }, enabled = logseqEnabled) { Text("\u2026") }
-                }
-                Spacer(Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(value = obsidianPath, onValueChange = onObsidianPathChange, label = { Text(Strings.get("obsidian_dir", lang)) }, singleLine = true, modifier = Modifier.weight(1f), enabled = obsidianEnabled)
-                    TextButton(onClick = { obsidianPicker.launch(null) }, enabled = obsidianEnabled) { Text("\u2026") }
-                }
-                Spacer(Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(value = tasksOutputPath, onValueChange = onTasksPathChange, label = { Text(Strings.get("tasks_path", lang)) }, singleLine = true, modifier = Modifier.weight(1f), enabled = tasksEnabled)
-                    TextButton(onClick = { tasksPicker.launch("tasks.md") }, enabled = tasksEnabled) { Text("\u2026") }
-                }
-            }
-        }
-        Spacer(Modifier.height(12.dp))
-        Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
-            Column(Modifier.padding(16.dp)) {
-                Text(Strings.get("fetch_params", lang), style = MaterialTheme.typography.titleMedium); Spacer(Modifier.height(8.dp))
-                OutlinedTextField(value = daysBackText, onValueChange = { onDaysBackChange(it.filter { c -> c.isDigit() }) },
-                    label = { Text(Strings.get("fetch_days", lang)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next), singleLine = true, modifier = Modifier.fillMaxWidth())
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(value = limitText, onValueChange = { onLimitChange(it.filter { c -> c.isDigit() }) },
-                    label = { Text(Strings.get("fetch_limit", lang)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done), singleLine = true, modifier = Modifier.fillMaxWidth())
             }
         }
     }
