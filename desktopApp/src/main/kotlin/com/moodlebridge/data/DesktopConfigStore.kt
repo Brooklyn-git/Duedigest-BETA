@@ -25,10 +25,6 @@ class DesktopConfigStore {
         get() = prefs.getBoolean(KEY_SAVE_PW, false)
         set(value) = prefs.putBoolean(KEY_SAVE_PW, value)
 
-    var timezone: String
-        get() = prefs.get(KEY_TZ, "")
-        set(value) = prefs.put(KEY_TZ, value)
-
     var logseqEnabled: Boolean
         get() = prefs.getBoolean(KEY_LOGSEQ, false)
         set(value) = prefs.putBoolean(KEY_LOGSEQ, value)
@@ -128,7 +124,6 @@ class DesktopConfigStore {
         const val KEY_USERNAME = "username"
         const val KEY_PASSWORD = "password"
         const val KEY_SAVE_PW = "save_password"
-        const val KEY_TZ = "timezone"
         const val KEY_LOGSEQ = "logseq_enabled"
         const val KEY_OBSIDIAN = "obsidian_enabled"
         const val KEY_LOGSEQ_PATH = "logseq_path"

@@ -139,7 +139,6 @@ fun DesktopApp(config: DesktopConfigStore) {
     var url by remember { mutableStateOf(config.moodleUrl) }
     var username by remember { mutableStateOf(config.username) }
     var password by remember { mutableStateOf(config.password) }
-    var tz by remember { mutableStateOf(config.timezone.ifBlank { "UTC" }) }
     var passwordVisible by remember { mutableStateOf(false) }
     var logseqEnabled by remember { mutableStateOf(config.logseqEnabled) }
     var obsidianEnabled by remember { mutableStateOf(config.obsidianEnabled) }
@@ -154,7 +153,6 @@ fun DesktopApp(config: DesktopConfigStore) {
     var errorDialogMsg by remember { mutableStateOf<String?>(null) }
     var statusText by remember { mutableStateOf(config.lastSyncMessage) }
     val logLines = remember { mutableStateListOf<String>() }
-    var tzExpanded by remember { mutableStateOf(false) }
 
     var fetchedEvents by remember { mutableStateOf<List<Event>>(emptyList()) }
     var manualEvents by remember {
@@ -540,8 +538,6 @@ fun DesktopApp(config: DesktopConfigStore) {
                     username = username, onUsernameChange = { username = it },
                     password = password, onPasswordChange = { password = it },
                     passwordVisible = passwordVisible, onPasswordVisibleChange = { passwordVisible = it },
-                    tz = tz, onTzChange = { tz = it },
-                    tzExpanded = tzExpanded, onTzExpandedChange = { tzExpanded = it },
                     savePw = savePw, onSavePwChange = { savePw = it },
                     isWorking = isWorking, statusText = statusText,
                     logLines = logLines.toList(),
@@ -710,7 +706,7 @@ fun DesktopApp(config: DesktopConfigStore) {
                         config.clear()
                         url = ""; username = ""; password = ""
                         themeMode = "system"; selectedLang = "en"
-                        tz = "UTC"; passwordVisible = false
+                        passwordVisible = false
                         logseqEnabled = false; obsidianEnabled = false
                         logseqPath = "logseq/"; obsidianPath = "obsidian/"
                         daysBackText = "7"; limitText = "100"
@@ -1166,8 +1162,6 @@ private fun ConnectionTabContent(
     username: String, onUsernameChange: (String) -> Unit,
     password: String, onPasswordChange: (String) -> Unit,
     passwordVisible: Boolean, onPasswordVisibleChange: (Boolean) -> Unit,
-    tz: String, onTzChange: (String) -> Unit,
-    tzExpanded: Boolean, onTzExpandedChange: (Boolean) -> Unit,
     savePw: Boolean, onSavePwChange: (Boolean) -> Unit,
     isWorking: Boolean, statusText: String,
     logLines: List<String>,

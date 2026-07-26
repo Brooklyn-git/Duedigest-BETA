@@ -228,7 +228,6 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     var url by remember { mutableStateOf(config.moodleUrl) }
     var username by remember { mutableStateOf(config.username) }
     var password by remember { mutableStateOf(config.password) }
-    var tz by remember { mutableStateOf(config.timezone.ifBlank { "UTC" }) }
     var passwordVisible by remember { mutableStateOf(false) }
     var icsEnabled by remember { mutableStateOf(config.icsEnabled) }
     var logseqEnabled by remember { mutableStateOf(config.logseqEnabled) }
@@ -246,7 +245,6 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     var errorDialogMsg by remember { mutableStateOf<String?>(null) }
     var statusText by remember { mutableStateOf(config.lastSyncMessage) }
     val logLines = remember { mutableStateListOf<String>() }
-    var tzExpanded by remember { mutableStateOf(false) }
     var notifEnabled by remember { mutableStateOf(config.notificationsEnabled) }
     var notifScheduleType by remember { mutableStateOf(config.notificationScheduleType) }
     var notif24hFormat by remember { mutableStateOf(config.notification24hFormat) }
@@ -497,7 +495,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
         scope.launch {
             val manual = manualEvents.toList()
             val params = FetchParams(
-                url = url, username = username, password = pw, tz = tz, savePw = savePw,
+                url = url, username = username, password = pw, savePw = savePw,
                 icsEnabled = icsEnabled, logseqEnabled = logseqEnabled, obsidianEnabled = obsidianEnabled,
                 icsPath = icsPath, logseqPath = logseqPath, obsidianPath = obsidianPath,
                 daysBackText = daysBackText, limitText = limitText, lang = lang,
@@ -742,8 +740,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                                 username = username, onUsernameChange = { username = it },
                                 password = password, onPasswordChange = { password = it },
                                 passwordVisible = passwordVisible, onPasswordVisibleChange = { passwordVisible = it },
-                                tz = tz, onTzChange = { tz = it }, tzExpanded = tzExpanded,
-                                onTzExpandedChange = { tzExpanded = it }, lang = lang)
+                                lang = lang)
 
                             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Checkbox(checked = savePw, onCheckedChange = { savePw = it })
@@ -1674,7 +1671,6 @@ data class FetchParams(
     val url: String,
     val username: String,
     val password: String,
-    val tz: String,
     val savePw: Boolean,
     val icsEnabled: Boolean,
     val logseqEnabled: Boolean,
@@ -1695,12 +1691,12 @@ private suspend fun doFetch(
     onLog: (String) -> Unit, onStatus: (String) -> Unit, onError: (String) -> Unit, onDone: () -> Unit,
     onEventsFetched: (List<Event>) -> Unit = {},
 ) {
-    val (url, username, password, tz, savePw, icsEnabled, logseqEnabled, obsidianEnabled,
+    val (url, username, password, savePw, icsEnabled, logseqEnabled, obsidianEnabled,
          icsPath, logseqPath, obsidianPath, daysBackText, limitText, lang,
          tasksEnabled, tasksOutputPath, manualEvents) = params
 
     try {
-        config.moodleUrl = url.trimEnd('/'); config.username = username.trim(); config.timezone = tz.trim()
+        config.moodleUrl = url.trimEnd('/'); config.username = username.trim()
         config.savePassword = savePw; if (savePw) config.password = password else config.password = ""
         config.icsEnabled = icsEnabled; config.logseqEnabled = logseqEnabled; config.obsidianEnabled = obsidianEnabled
         config.icsPath = icsPath; config.logseqPath = logseqPath; config.obsidianPath = obsidianPath
@@ -2084,7 +2080,7 @@ private fun TaskCard(
 private fun ConnectionTabContent(
     url: String, onUrlChange: (String) -> Unit, username: String, onUsernameChange: (String) -> Unit,
     password: String, onPasswordChange: (String) -> Unit, passwordVisible: Boolean, onPasswordVisibleChange: (Boolean) -> Unit,
-    tz: String, onTzChange: (String) -> Unit, tzExpanded: Boolean, onTzExpandedChange: (Boolean) -> Unit, lang: String,
+    lang: String,
 ) {
     Column(Modifier.fillMaxWidth().padding(16.dp)) {
         Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))) {
@@ -2098,15 +2094,6 @@ private fun ConnectionTabContent(
                 OutlinedTextField(value = password, onValueChange = onPasswordChange, label = { Text(Strings.get("password", lang)) },
                     visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done), singleLine = true, modifier = Modifier.fillMaxWidth())
-                Spacer(Modifier.height(12.dp))
-                ExposedDropdownMenuBox(expanded = tzExpanded, onExpandedChange = onTzExpandedChange) {
-                    OutlinedTextField(value = tz, onValueChange = {}, readOnly = true, label = { Text(Strings.get("timezone", lang)) },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = tzExpanded) },
-                        modifier = Modifier.fillMaxWidth().menuAnchor(androidx.compose.material3.MenuAnchorType.PrimaryNotEditable), singleLine = true)
-                    ExposedDropdownMenu(expanded = tzExpanded, onDismissRequest = { onTzExpandedChange(false) }) {
-                        Strings.timezones.forEach { zone -> DropdownMenuItem(text = { Text(zone) }, onClick = { onTzChange(zone); onTzExpandedChange(false) }) }
-                    }
-                }
             }
         }
     }

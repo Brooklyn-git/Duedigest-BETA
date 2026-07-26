@@ -36,10 +36,6 @@ class ConfigStore(context: Context) {
         get() = prefs.getBoolean(KEY_SAVE_PW, false)
         set(value) = prefs.edit().putBoolean(KEY_SAVE_PW, value).apply()
 
-    var timezone: String
-        get() = prefs.getString(KEY_TZ, "") ?: ""
-        set(value) = prefs.edit().putString(KEY_TZ, value).apply()
-
     var icsEnabled: Boolean
         get() = prefs.getBoolean(KEY_ICS, true)
         set(value) = prefs.edit().putBoolean(KEY_ICS, value).apply()
@@ -194,7 +190,6 @@ class ConfigStore(context: Context) {
         const val KEY_USERNAME = "username"
         const val KEY_PASSWORD = "password"
         const val KEY_SAVE_PW = "save_password"
-        const val KEY_TZ = "timezone"
         const val KEY_ICS = "ics_enabled"
         const val KEY_LOGSEQ = "logseq_enabled"
         const val KEY_OBSIDIAN = "obsidian_enabled"

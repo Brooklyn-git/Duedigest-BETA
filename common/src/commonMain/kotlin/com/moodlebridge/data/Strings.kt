@@ -11,7 +11,6 @@ object Strings {
         "moodle_url" to "Moodle URL",
         "username" to "Username",
         "password" to "Password",
-        "timezone" to "Timezone",
         "store_pw" to "Store password",
         "fetch" to "Fetch",
         "working" to "Working\u2026",
@@ -145,7 +144,6 @@ object Strings {
         "moodle_url" to "URL de Moodle",
         "username" to "Usuario",
         "password" to "Contrase\u00f1a",
-        "timezone" to "Zona horaria",
         "store_pw" to "Guardar contrase\u00f1a",
         "fetch" to "Obtener",
         "working" to "Trabajando\u2026",
@@ -293,32 +291,4 @@ object Strings {
         "es" -> "Espa\u00f1ol"
         else -> "English"
     }
-
-    val timezones: List<String> = listOf(
-        "",
-        "UTC",
-        "America/New_York",
-        "America/Chicago",
-        "America/Denver",
-        "America/Los_Angeles",
-        "America/Hermosillo",
-        "America/Mexico_City",
-        "America/Sao_Paulo",
-        "America/Argentina/Buenos_Aires",
-        "America/Santiago",
-        "Europe/London",
-        "Europe/Paris",
-        "Europe/Berlin",
-        "Europe/Madrid",
-        "Europe/Moscow",
-        "Africa/Cairo",
-        "Africa/Casablanca",
-        "Asia/Dubai",
-        "Asia/Kolkata",
-        "Asia/Shanghai",
-        "Asia/Tokyo",
-        "Asia/Seoul",
-        "Australia/Sydney",
-        "Pacific/Auckland",
-    )
 }
