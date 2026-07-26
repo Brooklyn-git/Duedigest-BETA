@@ -589,6 +589,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                     ?.hostAddress
             } catch (_: Exception) { null }
 
+            Log.d("DueNest", "Android periodic sync loop started. interval=${config.syncIntervalSeconds}s, lastSyncUrl='${config.lastSyncUrl}', androidIp=$androidIp")
             var firstRun = true
             while (true) {
                 val interval = config.syncIntervalSeconds
@@ -600,15 +601,19 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                                 val sp = SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId, config.syncIntervalSeconds)
                                 val client = OkHttpClient.Builder()
                                     .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                                    .readTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
                                     .build()
                                 val reqBody = SyncManager.serializePayload(sp)
-                                    .toRequestBody("text/plain".toMediaType())
+                                    .toRequestBody("application/json; charset=utf-8".toMediaType())
                                 val reqBuilder = OkHttpRequest.Builder().url("$savedUrl/sync").post(reqBody)
                                 if (androidIp != null) reqBuilder.addHeader("X-Sync-Server-URL", "http://$androidIp:8766")
+                                Log.d("DueNest", "Android periodic POST to $savedUrl, events=${sp.manualEvents.size}")
                                 val resp = client.newCall(reqBuilder.build()).execute()
                                 val respBody = resp.body?.string()
+                                Log.d("DueNest", "Android periodic response: code=${resp.code}, bodyLen=${respBody?.length}")
                                 if (resp.isSuccessful && respBody != null) {
                                     val peerUrl = resp.header("X-Sync-Server-URL")
+                                    Log.d("DueNest", "Android periodic peerUrl from header: $peerUrl")
                                     if (!peerUrl.isNullOrBlank()) config.lastSyncUrl = peerUrl
                                     val remote = SyncManager.deserializePayload(respBody)
                                     if (remote != null) {
@@ -623,21 +628,32 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                                                 config.deletedEventIds = Json.encodeToString(deletedEventIds)
                                                 persistMergeRef?.invoke()
                                                 Log.d("DueNest", "Auto-sync applied: ${merged.manualEvents.size} events")
+                                            } else {
+                                                Log.d("DueNest", "Auto-sync: no changes to apply")
                                             }
                                             if (merged.syncIntervalSeconds != config.syncIntervalSeconds) {
                                                 config.syncIntervalSeconds = merged.syncIntervalSeconds
                                                 syncIntervalLbl = syncIntervalLabel(merged.syncIntervalSeconds, lang)
                                             }
                                         }
+                                    } else {
+                                        Log.d("DueNest", "Auto-sync: deserialization returned null")
                                     }
+                                } else {
+                                    Log.d("DueNest", "Auto-sync: response not successful, code=${resp.code}")
                                 }
                             } catch (e: Exception) {
-                                Log.d("DueNest", "Auto-sync skipped: ${e.message}")
+                                Log.d("DueNest", "Auto-sync FAILED: ${e.message}")
                             }
                         }
+                    } else {
+                        Log.d("DueNest", "Android periodic sync: lastSyncUrl is empty, skipping")
                     }
+                } else {
+                    Log.d("DueNest", "Android periodic sync: interval=0 (manual), skipping")
                 }
                 val delayMs = if (firstRun) { firstRun = false; 1_000 } else (interval * 1000L).coerceAtLeast(1_000)
+                Log.d("DueNest", "Android periodic sync: sleeping ${delayMs}ms")
                 if (interval > 0) kotlinx.coroutines.delay(delayMs) else kotlinx.coroutines.delay(60_000)
             }
         }
@@ -655,9 +671,11 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                             val files = HashMap<String, String>()
                             session.parseBody(files)
                             val body = files["postData"] ?: ""
+                            android.util.Log.d("DueNest", "NanoHTTPD POST received, bodyLen=${body.length}")
                             val remote = SyncManager.deserializePayload(body)
                             if (remote != null) {
                                 val peerUrl = session.headers["x-sync-server-url"]
+                                Log.d("DueNest", "NanoHTTPD peerUrl=$peerUrl")
                                 if (!peerUrl.isNullOrBlank() && config.lastSyncUrl != peerUrl) {
                                     config.lastSyncUrl = peerUrl
                                 }
@@ -676,21 +694,28 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                                         .firstOrNull { !it.isLoopbackAddress && it is java.net.Inet4Address }
                                         ?.hostAddress
                                 } catch (_: Exception) { null }
-                                val resp = newFixedLengthResponse(fi.iki.elonen.NanoHTTPD.Response.Status.OK, MIME_PLAINTEXT, respBody)
+                                val resp = newFixedLengthResponse(fi.iki.elonen.NanoHTTPD.Response.Status.OK, "application/json; charset=utf-8", respBody)
                                 if (androidIp != null) resp.addHeader("X-Sync-Server-URL", "http://$androidIp:8766")
+                                Log.d("DueNest", "NanoHTTPD responding OK, androidIp=$androidIp, events=${merged.manualEvents.size}")
                                 syncServerChannel.trySend(merged)
                                 return resp
                             } else {
-                                return newFixedLengthResponse(fi.iki.elonen.NanoHTTPD.Response.Status.BAD_REQUEST, MIME_PLAINTEXT, "")
+                                Log.e("DueNest", "NanoHTTPD deserialize returned null, body starts with: ${body.take(80)}")
+                                return newFixedLengthResponse(fi.iki.elonen.NanoHTTPD.Response.Status.BAD_REQUEST, "application/json; charset=utf-8", "bad payload")
                             }
-                        } catch (_: Exception) {
-                            return newFixedLengthResponse(fi.iki.elonen.NanoHTTPD.Response.Status.INTERNAL_ERROR, MIME_PLAINTEXT, "")
+                        } catch (e: Exception) {
+                            Log.e("DueNest", "NanoHTTPD serve error: ${e.message}", e)
+                            return newFixedLengthResponse(fi.iki.elonen.NanoHTTPD.Response.Status.INTERNAL_ERROR, MIME_PLAINTEXT, "error")
                         }
                     }
                 }
                 s.start()
+                Log.d("DueNest", "NanoHTTPD server started on port 8766")
                 s
-            } catch (_: Exception) { null }
+            } catch (e: Exception) {
+                Log.e("DueNest", "NanoHTTPD server failed to start: ${e.message}", e)
+                null
+            }
 
             try {
                 for (merged in syncServerChannel) {
@@ -1269,7 +1294,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                                 .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
                                 .build()
                             val reqBody = SyncManager.serializePayload(syncPayload)
-                                .toRequestBody("text/plain".toMediaType())
+                                .toRequestBody("application/json; charset=utf-8".toMediaType())
                             val reqBuilder = OkHttpRequest.Builder().url("$url/sync").post(reqBody)
                             if (androidIp != null) reqBuilder.addHeader("X-Sync-Server-URL", "http://$androidIp:8766")
                             val resp = client.newCall(reqBuilder.build()).execute()

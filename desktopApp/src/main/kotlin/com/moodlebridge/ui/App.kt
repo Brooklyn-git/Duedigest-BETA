@@ -273,20 +273,16 @@ fun DesktopApp(config: DesktopConfigStore) {
     }
     val localIp = remember {
         try {
-            NetworkInterface.getNetworkInterfaces().toList().asSequence()
-                .filter { it.isUp && !it.isLoopback && !it.isVirtual && it.name != "docker0" }
-                .filter { it.name.startsWith("eth") || it.name.startsWith("wlan") || it.name.startsWith("en") || it.name.startsWith("wl") || it.name.startsWith("wlp") }
+            val candidates = NetworkInterface.getNetworkInterfaces().toList().asSequence()
+                .filter { it.isUp && !it.isLoopback }
                 .flatMap { it.inetAddresses.toList().asSequence() }
-                .firstOrNull { !it.isLoopbackAddress && it is Inet4Address }
-                ?.hostAddress
-                ?: run {
-                    NetworkInterface.getNetworkInterfaces().toList().asSequence()
-                        .filter { it.isUp && !it.isLoopback && !it.isVirtual }
-                        .flatMap { it.inetAddresses.toList().asSequence() }
-                        .firstOrNull { !it.isLoopbackAddress && it is Inet4Address }
-                        ?.hostAddress
-                }
-        } catch (e: Exception) { com.moodlebridge.Log.w("Network", "Failed to detect local IP", e); null }
+                .filter { !it.isLoopbackAddress && it is Inet4Address }
+                .map { it.hostAddress ?: "" }
+                .filter { it.isNotBlank() && it != "0.0.0.0" }
+                .toList()
+            println("[Sync] Local IP candidates: $candidates")
+            candidates.firstOrNull()
+        } catch (e: Exception) { println("[Sync] Failed to detect local IP: ${e.message}"); null }
     }
 
     fun applySyncMergeLocal(merged: MergeResult) {
@@ -320,7 +316,7 @@ fun DesktopApp(config: DesktopConfigStore) {
                                         .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
                                         .build()
                                     val reqBody = SyncManager.serializePayload(syncPayload)
-                                        .toRequestBody("text/plain".toMediaType())
+                                        .toRequestBody("application/json; charset=utf-8".toMediaType())
                                     val reqBuilder = Request.Builder().url("$url/sync").post(reqBody)
                                     if (localIp != null) reqBuilder.addHeader("X-Sync-Server-URL", "http://$localIp:$SYNC_PORT")
                                     val resp = client.newCall(reqBuilder.build()).execute()
@@ -789,12 +785,15 @@ fun DesktopApp(config: DesktopConfigStore) {
             val server = try {
                 val s = com.sun.net.httpserver.HttpServer.create(InetSocketAddress(SYNC_PORT), 0)
                 s.createContext("/sync") { exchange ->
+                    println("[Sync] Desktop server: received ${exchange.requestMethod} from ${exchange.remoteAddress}")
                     if (exchange.requestMethod == "POST") {
                         try {
                             val body = exchange.requestBody.readBytes().decodeToString()
+                            println("[Sync] Desktop server: POST body length=${body.length}")
                             val remote = SyncManager.deserializePayload(body)
                             if (remote != null) {
                                 val peerUrl = exchange.requestHeaders.getFirst("X-Sync-Server-URL")
+                                println("[Sync] Desktop server: peerUrl=$peerUrl, remoteEvents=${remote.manualEvents.size}")
                                 if (!peerUrl.isNullOrBlank() && config.lastSyncUrl != peerUrl) {
                                     config.lastSyncUrl = peerUrl
                                 }
@@ -806,17 +805,20 @@ fun DesktopApp(config: DesktopConfigStore) {
                                 val response = SyncManager.serializePayload(
                                     SyncManager.generatePayload(merged.manualEvents, merged.taskCompletion, merged.deletedEventIds, config.deviceId, merged.syncIntervalSeconds)
                                 )
-                                exchange.responseHeaders.add("Content-Type", "text/plain")
+                                println("[Sync] Desktop server: responding 200 with ${merged.manualEvents.size} events, localIp=$localIp")
+                                exchange.responseHeaders.add("Content-Type", "application/json; charset=utf-8")
                                 if (localIp != null) exchange.responseHeaders.add("X-Sync-Server-URL", "http://$localIp:$SYNC_PORT")
                                 exchange.sendResponseHeaders(200, response.toByteArray().size.toLong())
                                 exchange.responseBody.write(response.toByteArray())
                                 exchange.close()
                                 syncChannel.trySend(merged)
                             } else {
+                                println("[Sync] Desktop server: deserialization returned null, sending 400")
                                 exchange.sendResponseHeaders(400, 0)
                                 exchange.close()
                             }
                         } catch (e: Exception) {
+                            println("[Sync] Desktop server: exception: ${e.message}")
                             try { exchange.sendResponseHeaders(500, 0); exchange.close() } catch (_: Exception) {}
                         }
                     } else {
@@ -826,8 +828,10 @@ fun DesktopApp(config: DesktopConfigStore) {
                 }
                 s.executor = Executors.newSingleThreadExecutor()
                 s.start()
+                println("[Sync] Desktop HTTP server started on port $SYNC_PORT")
                 s
             } catch (e: Exception) {
+                println("[Sync] Desktop HTTP server FAILED to start on port $SYNC_PORT: ${e.message}")
                 null
             }
 
@@ -863,9 +867,11 @@ fun DesktopApp(config: DesktopConfigStore) {
             } catch (_: Exception) { "" }
             val lastSig = config.lastNetworkSignature
             if (lastSig.isNotBlank() && currentSig != lastSig && config.lastSyncUrl.isNotBlank()) {
+                println("[Sync] Network changed, clearing lastSyncUrl")
                 config.lastSyncUrl = ""
             }
             config.lastNetworkSignature = currentSig
+            println("[Sync] Desktop periodic sync loop started. interval=${config.syncIntervalSeconds}s, lastSyncUrl='${config.lastSyncUrl}', localIp=$localIp")
 
             var firstRun = true
             while (true) {
@@ -874,45 +880,64 @@ fun DesktopApp(config: DesktopConfigStore) {
                     val savedUrl = config.lastSyncUrl
                     if (savedUrl.isNotBlank()) {
                         try {
-                            val sp = SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId, config.syncIntervalSeconds)
-                            val client = OkHttpClient.Builder()
-                                .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
-                                .build()
-                            val reqBody = SyncManager.serializePayload(sp)
-                                .toRequestBody("text/plain".toMediaType())
-                            val request = Request.Builder()
-                                .url("$savedUrl/sync")
-                                .post(reqBody)
-                                .apply { if (localIp != null) addHeader("X-Sync-Server-URL", "http://$localIp:$SYNC_PORT") }
-                                .build()
-                            val resp = client.newCall(request).execute()
-                            val respBody = resp.body?.string()
-                            if (resp.isSuccessful && respBody != null) {
-                                val peerUrl = resp.header("X-Sync-Server-URL")
-                                if (!peerUrl.isNullOrBlank() && config.lastSyncUrl != peerUrl) {
-                                    config.lastSyncUrl = peerUrl
-                                }
-                                val remote = SyncManager.deserializePayload(respBody)
-                                if (remote != null) {
-                                    val merged = SyncManager.mergePayload(sp, remote)
-                                    if (merged.manualEvents != manualEvents || merged.taskCompletion != taskCompletionMap || merged.deletedEventIds != deletedEventIds) {
-                                        manualEvents = merged.manualEvents
-                                        taskCompletionMap = merged.taskCompletion
-                                        deletedEventIds = merged.deletedEventIds
-                                        config.manualEventCache = Json.encodeToString(manualEvents)
-                                        config.taskCompletionState = Json.encodeToString(taskCompletionMap)
-                                        config.deletedEventIds = Json.encodeToString(deletedEventIds)
-                                        persistMergedEvents()
+                            println("[Sync] Desktop periodic sync: POSTing to $savedUrl/sync")
+                            val merged = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                val sp = SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId, config.syncIntervalSeconds)
+                                val client = OkHttpClient.Builder()
+                                    .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                                    .readTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                                    .build()
+                                val reqBody = SyncManager.serializePayload(sp)
+                                    .toRequestBody("application/json; charset=utf-8".toMediaType())
+                                val request = Request.Builder()
+                                    .url("$savedUrl/sync")
+                                    .post(reqBody)
+                                    .apply { if (localIp != null) addHeader("X-Sync-Server-URL", "http://$localIp:$SYNC_PORT") }
+                                    .build()
+                                val resp = client.newCall(request).execute()
+                                val respBody = resp.body?.string()
+                                println("[Sync] Desktop periodic response: code=${resp.code}, bodyLen=${respBody?.length}")
+                                if (resp.isSuccessful && respBody != null) {
+                                    val peerUrl = resp.header("X-Sync-Server-URL")
+                                    println("[Sync] Desktop periodic peerUrl from header: $peerUrl")
+                                    if (!peerUrl.isNullOrBlank() && config.lastSyncUrl != peerUrl) {
+                                        config.lastSyncUrl = peerUrl
                                     }
-                                    if (merged.syncIntervalSeconds != config.syncIntervalSeconds) {
-                                        config.syncIntervalSeconds = merged.syncIntervalSeconds
+                                    SyncManager.deserializePayload(respBody)?.let { remote ->
+                                        SyncManager.mergePayload(sp, remote)
                                     }
-                                }
+                                } else null
                             }
-                        } catch (_: Exception) {}
+                            if (merged != null) {
+                                if (merged.manualEvents != manualEvents || merged.taskCompletion != taskCompletionMap || merged.deletedEventIds != deletedEventIds) {
+                                    println("[Sync] Desktop periodic sync: applying ${merged.manualEvents.size} events, ${merged.taskCompletion.size} completions")
+                                    manualEvents = merged.manualEvents
+                                    taskCompletionMap = merged.taskCompletion
+                                    deletedEventIds = merged.deletedEventIds
+                                    config.manualEventCache = Json.encodeToString(manualEvents)
+                                    config.taskCompletionState = Json.encodeToString(taskCompletionMap)
+                                    config.deletedEventIds = Json.encodeToString(deletedEventIds)
+                                    persistMergedEvents()
+                                } else {
+                                    println("[Sync] Desktop periodic sync: no changes to apply")
+                                }
+                                if (merged.syncIntervalSeconds != config.syncIntervalSeconds) {
+                                    config.syncIntervalSeconds = merged.syncIntervalSeconds
+                                }
+                            } else {
+                                println("[Sync] Desktop periodic sync: merge result was null")
+                            }
+                        } catch (e: Exception) {
+                            println("[Sync] Desktop periodic sync FAILED: ${e.message}")
+                        }
+                    } else {
+                        println("[Sync] Desktop periodic sync: lastSyncUrl is empty, skipping")
                     }
+                } else {
+                    println("[Sync] Desktop periodic sync: interval=0 (manual), skipping")
                 }
                 val delayMs = if (firstRun) { firstRun = false; 1_000 } else (interval * 1000L).coerceAtLeast(1_000)
+                println("[Sync] Desktop periodic sync: sleeping ${delayMs}ms")
                 if (interval > 0) kotlinx.coroutines.delay(delayMs) else kotlinx.coroutines.delay(60_000)
             }
         }

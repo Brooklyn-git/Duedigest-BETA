@@ -7,6 +7,10 @@ object Log {
         enabled = debug
     }
 
+    fun d(tag: String, msg: String) {
+        if (enabled) println("[$tag] $msg")
+    }
+
     fun w(tag: String, msg: String) {
         if (enabled) System.err.println("[$tag] WARN: $msg")
     }

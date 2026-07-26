@@ -9,6 +9,7 @@ import com.moodlebridge.data.DesktopConfigStore
 import com.moodlebridge.ui.DesktopApp
 
 fun main() = application {
+    com.moodlebridge.Log.init(true)
     val config = DesktopConfigStore()
     Window(
         onCloseRequest = ::exitApplication,
