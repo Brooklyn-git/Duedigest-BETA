@@ -15,12 +15,14 @@ data class SyncPayload(
     val deletedEventIds: Set<String>,
     val deviceId: String,
     val timestamp: Long,
+    val syncIntervalSeconds: Int = 30,
 )
 
 data class MergeResult(
     val manualEvents: List<Event>,
     val taskCompletion: Map<String, Boolean>,
     val deletedEventIds: Set<String>,
+    val syncIntervalSeconds: Int = 30,
 )
 
 object SyncManager {
@@ -35,12 +37,14 @@ object SyncManager {
         taskCompletion: Map<String, Boolean>,
         deletedEventIds: Set<String>,
         deviceId: String,
+        syncIntervalSeconds: Int = 30,
     ): SyncPayload = SyncPayload(
         manualEvents = manualEvents,
         taskCompletion = taskCompletion,
         deletedEventIds = deletedEventIds,
         deviceId = deviceId,
         timestamp = System.currentTimeMillis(),
+        syncIntervalSeconds = syncIntervalSeconds,
     )
 
     fun mergePayload(local: SyncPayload, remote: SyncPayload): MergeResult {
@@ -76,6 +80,7 @@ object SyncManager {
             manualEvents = mergedEvents.values.sortedBy { it.timestart },
             taskCompletion = mergedCompletion,
             deletedEventIds = mergedDeleted,
+            syncIntervalSeconds = if (remote.timestamp > local.timestamp) remote.syncIntervalSeconds else local.syncIntervalSeconds,
         )
     }
 

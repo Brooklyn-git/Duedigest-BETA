@@ -128,6 +128,30 @@ import com.google.zxing.qrcode.QRCodeWriter
 
 private const val SYNC_PORT = 8765
 
+private val SYNC_INTERVAL_OPTIONS = listOf(0, 15, 30, 60, 300, 600, 1800)
+
+private fun syncIntervalLabel(seconds: Int, lang: String): String = when (seconds) {
+    0 -> Strings.get("sync_manual", lang)
+    15 -> Strings.get("sync_15s", lang)
+    30 -> Strings.get("sync_30s", lang)
+    60 -> Strings.get("sync_1m", lang)
+    300 -> Strings.get("sync_5m", lang)
+    600 -> Strings.get("sync_10m", lang)
+    1800 -> Strings.get("sync_30m", lang)
+    else -> Strings.get("sync_30s", lang)
+}
+
+private fun syncIntervalFromLabel(label: String): Int = when (label) {
+    Strings.get("sync_manual", "en"), Strings.get("sync_manual", "es") -> 0
+    Strings.get("sync_15s", "en"), Strings.get("sync_15s", "es") -> 15
+    Strings.get("sync_30s", "en"), Strings.get("sync_30s", "es") -> 30
+    Strings.get("sync_1m", "en"), Strings.get("sync_1m", "es") -> 60
+    Strings.get("sync_5m", "en"), Strings.get("sync_5m", "es") -> 300
+    Strings.get("sync_10m", "en"), Strings.get("sync_10m", "es") -> 600
+    Strings.get("sync_30m", "en"), Strings.get("sync_30m", "es") -> 1800
+    else -> 30
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DesktopApp(config: DesktopConfigStore) {
@@ -173,6 +197,7 @@ fun DesktopApp(config: DesktopConfigStore) {
     var expandedTaskId by remember { mutableStateOf<String?>(null) }
     var tasksEnabled by remember { mutableStateOf(config.tasksEnabled) }
     var tasksOutputPath by remember { mutableStateOf(config.tasksOutputPath) }
+    var syncIntervalLabel by remember { mutableStateOf(syncIntervalLabel(config.syncIntervalSeconds, lang)) }
 
     var showTaskDialog by remember { mutableStateOf(false) }
     var editingTask by remember { mutableStateOf<Event?>(null) }
@@ -244,7 +269,7 @@ fun DesktopApp(config: DesktopConfigStore) {
     }
 
     val syncPayload = remember(manualEvents, taskCompletionMap, deletedEventIds) {
-        SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId)
+        SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId, config.syncIntervalSeconds)
     }
     val localIp = remember {
         try {
@@ -296,17 +321,22 @@ fun DesktopApp(config: DesktopConfigStore) {
                                         .build()
                                     val reqBody = SyncManager.serializePayload(syncPayload)
                                         .toRequestBody("text/plain".toMediaType())
-                                    val resp = client.newCall(
-                                        Request.Builder().url("$url/sync").post(reqBody).build()
-                                    ).execute()
+                                    val reqBuilder = Request.Builder().url("$url/sync").post(reqBody)
+                                    if (localIp != null) reqBuilder.addHeader("X-Sync-Server-URL", "http://$localIp:$SYNC_PORT")
+                                    val resp = client.newCall(reqBuilder.build()).execute()
                                     val respBody = resp.body?.string()
+                                    if (resp.isSuccessful) {
+                                        config.lastSyncUrl = url
+                                        val peerUrl = resp.header("X-Sync-Server-URL")
+                                        if (!peerUrl.isNullOrBlank()) config.lastSyncUrl = peerUrl
+                                    }
                                     val remote = if (resp.isSuccessful && respBody != null)
                                         SyncManager.deserializePayload(respBody) else null
                                     withContext(Dispatchers.Main) {
                                         val base = SyncManager.mergePayload(syncPayload, payload)
                                         val final = if (remote != null)
                                             SyncManager.mergePayload(
-                                                SyncManager.generatePayload(base.manualEvents, base.taskCompletion, base.deletedEventIds, config.deviceId),
+                                                SyncManager.generatePayload(base.manualEvents, base.taskCompletion, base.deletedEventIds, config.deviceId, config.syncIntervalSeconds),
                                                 remote
                                             ) else base
                                         applySyncMergeLocal(final)
@@ -587,6 +617,9 @@ fun DesktopApp(config: DesktopConfigStore) {
                     tasksOutputPath = tasksOutputPath, onTasksOutputPathChange = { tasksOutputPath = it },
                     daysBackText = daysBackText, onDaysBackTextChange = { daysBackText = it },
                     limitText = limitText, onLimitTextChange = { limitText = it },
+                    syncIntervalLabel = syncIntervalLabel, onSyncIntervalChange = {
+                        syncIntervalLabel = it; config.syncIntervalSeconds = syncIntervalFromLabel(it)
+                    },
                     onClearCredsClick = { showClearCredsConfirm = true },
                     onImportFromFile = ::importFromFile,
                     onExportToFile = { showExportFormatDialog = true },
@@ -761,15 +794,20 @@ fun DesktopApp(config: DesktopConfigStore) {
                             val body = exchange.requestBody.readBytes().decodeToString()
                             val remote = SyncManager.deserializePayload(body)
                             if (remote != null) {
+                                val peerUrl = exchange.requestHeaders.getFirst("X-Sync-Server-URL")
+                                if (!peerUrl.isNullOrBlank() && config.lastSyncUrl != peerUrl) {
+                                    config.lastSyncUrl = peerUrl
+                                }
                                 val le = try { Json.decodeFromString<List<Event>>(config.manualEventCache) } catch (e: Exception) { com.moodlebridge.Log.w("Sync", "Failed to parse manualEventCache", e); emptyList() }
                                 val lc = try { Json.decodeFromString<Map<String, Boolean>>(config.taskCompletionState) } catch (e: Exception) { com.moodlebridge.Log.w("Sync", "Failed to parse taskCompletionState", e); emptyMap() }
                                 val ld = try { Json.decodeFromString<Set<String>>(config.deletedEventIds) } catch (e: Exception) { com.moodlebridge.Log.w("Sync", "Failed to parse deletedEventIds", e); emptySet() }
-                                val local = SyncManager.generatePayload(le, lc, ld, config.deviceId)
+                                val local = SyncManager.generatePayload(le, lc, ld, config.deviceId, config.syncIntervalSeconds)
                                 val merged = SyncManager.mergePayload(local, remote)
                                 val response = SyncManager.serializePayload(
-                                    SyncManager.generatePayload(merged.manualEvents, merged.taskCompletion, merged.deletedEventIds, config.deviceId)
+                                    SyncManager.generatePayload(merged.manualEvents, merged.taskCompletion, merged.deletedEventIds, config.deviceId, merged.syncIntervalSeconds)
                                 )
                                 exchange.responseHeaders.add("Content-Type", "text/plain")
+                                if (localIp != null) exchange.responseHeaders.add("X-Sync-Server-URL", "http://$localIp:$SYNC_PORT")
                                 exchange.sendResponseHeaders(200, response.toByteArray().size.toLong())
                                 exchange.responseBody.write(response.toByteArray())
                                 exchange.close()
@@ -802,6 +840,9 @@ fun DesktopApp(config: DesktopConfigStore) {
                     config.manualEventCache = Json.encodeToString(manualEvents)
                     config.taskCompletionState = Json.encodeToString(taskCompletionMap)
                     config.deletedEventIds = Json.encodeToString(deletedEventIds)
+                    if (merged.syncIntervalSeconds != config.syncIntervalSeconds) {
+                        config.syncIntervalSeconds = merged.syncIntervalSeconds
+                    }
                     persistMergedEvents()
                     kotlinx.coroutines.delay(1500)
                     showSyncDialog = false
@@ -809,6 +850,70 @@ fun DesktopApp(config: DesktopConfigStore) {
                 awaitCancellation()
             } finally {
                 server?.stop(0)
+            }
+        }
+
+        LaunchedEffect(Unit) {
+            val currentSig = try {
+                NetworkInterface.getNetworkInterfaces().toList()
+                    .filter { it.isUp && !it.isLoopback }
+                    .flatMap { it.inetAddresses.toList() }
+                    .map { it.hostAddress ?: "" }
+                    .sorted().joinToString("|")
+            } catch (_: Exception) { "" }
+            val lastSig = config.lastNetworkSignature
+            if (lastSig.isNotBlank() && currentSig != lastSig && config.lastSyncUrl.isNotBlank()) {
+                config.lastSyncUrl = ""
+            }
+            config.lastNetworkSignature = currentSig
+
+            var firstRun = true
+            while (true) {
+                val interval = config.syncIntervalSeconds
+                if (interval > 0) {
+                    val savedUrl = config.lastSyncUrl
+                    if (savedUrl.isNotBlank()) {
+                        try {
+                            val sp = SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId, config.syncIntervalSeconds)
+                            val client = OkHttpClient.Builder()
+                                .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                                .build()
+                            val reqBody = SyncManager.serializePayload(sp)
+                                .toRequestBody("text/plain".toMediaType())
+                            val request = Request.Builder()
+                                .url("$savedUrl/sync")
+                                .post(reqBody)
+                                .apply { if (localIp != null) addHeader("X-Sync-Server-URL", "http://$localIp:$SYNC_PORT") }
+                                .build()
+                            val resp = client.newCall(request).execute()
+                            val respBody = resp.body?.string()
+                            if (resp.isSuccessful && respBody != null) {
+                                val peerUrl = resp.header("X-Sync-Server-URL")
+                                if (!peerUrl.isNullOrBlank() && config.lastSyncUrl != peerUrl) {
+                                    config.lastSyncUrl = peerUrl
+                                }
+                                val remote = SyncManager.deserializePayload(respBody)
+                                if (remote != null) {
+                                    val merged = SyncManager.mergePayload(sp, remote)
+                                    if (merged.manualEvents != manualEvents || merged.taskCompletion != taskCompletionMap || merged.deletedEventIds != deletedEventIds) {
+                                        manualEvents = merged.manualEvents
+                                        taskCompletionMap = merged.taskCompletion
+                                        deletedEventIds = merged.deletedEventIds
+                                        config.manualEventCache = Json.encodeToString(manualEvents)
+                                        config.taskCompletionState = Json.encodeToString(taskCompletionMap)
+                                        config.deletedEventIds = Json.encodeToString(deletedEventIds)
+                                        persistMergedEvents()
+                                    }
+                                    if (merged.syncIntervalSeconds != config.syncIntervalSeconds) {
+                                        config.syncIntervalSeconds = merged.syncIntervalSeconds
+                                    }
+                                }
+                            }
+                        } catch (_: Exception) {}
+                    }
+                }
+                val delayMs = if (firstRun) { firstRun = false; 1_000 } else (interval * 1000L).coerceAtLeast(1_000)
+                if (interval > 0) kotlinx.coroutines.delay(delayMs) else kotlinx.coroutines.delay(60_000)
             }
         }
 
@@ -1366,6 +1471,7 @@ private fun DesktopSettingsPage(
     tasksOutputPath: String, onTasksOutputPathChange: (String) -> Unit,
     daysBackText: String, onDaysBackTextChange: (String) -> Unit,
     limitText: String, onLimitTextChange: (String) -> Unit,
+    syncIntervalLabel: String, onSyncIntervalChange: (String) -> Unit,
     onClearCredsClick: () -> Unit,
     onImportFromFile: () -> Unit,
     onExportToFile: () -> Unit,
@@ -1556,6 +1662,16 @@ private fun DesktopSettingsPage(
                     singleLine = true, modifier = Modifier.widthIn(max = 100.dp))
             }
 
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(Strings.get("sync_interval", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                SimpleDropdown(
+                    label = "",
+                    selected = syncIntervalLabel,
+                    options = SYNC_INTERVAL_OPTIONS.map { syncIntervalLabel(it, lang) },
+                    onSelect = onSyncIntervalChange,
+                )
+            }
+
             HorizontalDivider()
             Text(Strings.get("data_management", lang), style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1603,7 +1719,7 @@ private fun SyncDialog(
 ) {
     var syncMergeMsg by remember { mutableStateOf<String?>(null) }
     val syncPayload = remember(manualEvents, taskCompletionMap, deletedEventIds) {
-        SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId)
+        SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId, config.syncIntervalSeconds)
     }
     val cs = MaterialTheme.colorScheme
 

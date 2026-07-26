@@ -173,6 +173,10 @@ class ConfigStore(context: Context) {
         get() = prefs.getString(KEY_LAST_SYNC_URL, "") ?: ""
         set(value) = prefs.edit().putString(KEY_LAST_SYNC_URL, value).apply()
 
+    var syncIntervalSeconds: Int
+        get() = prefs.getInt(KEY_SYNC_INTERVAL, 30)
+        set(value) = prefs.edit().putInt(KEY_SYNC_INTERVAL, value).apply()
+
     var lastConfiguredOpacity: Float
         get() = prefs.getFloat(KEY_LAST_OPACITY, 1.0f)
         set(value) { prefs.edit().putFloat(KEY_LAST_OPACITY, value).commit() }
@@ -222,5 +226,6 @@ class ConfigStore(context: Context) {
         const val KEY_DELETED_EVENT_IDS = "deleted_event_ids"
         const val KEY_DEVICE_ID = "device_id"
         const val KEY_LAST_SYNC_URL = "last_sync_url"
+        const val KEY_SYNC_INTERVAL = "sync_interval_seconds"
     }
 }

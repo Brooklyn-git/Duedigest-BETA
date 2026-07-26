@@ -165,6 +165,7 @@ import com.google.zxing.common.HybridBinarizer
 import com.google.zxing.PlanarYUVLuminanceSource
 import com.google.zxing.qrcode.QRCodeReader
 import java.util.concurrent.Executors
+import java.util.concurrent.ExecutorService
 import androidx.concurrent.futures.await
 
 import androidx.glance.appwidget.updateAll
@@ -214,6 +215,30 @@ private fun parseHour(s: String): Int {
 private fun parseMinute(s: String): Int {
     val parts = s.split(":")
     return if (parts.size > 1) parts[1].toIntOrNull() ?: 0 else 0
+}
+
+private val SYNC_INTERVAL_OPTIONS = listOf(0, 15, 30, 60, 300, 600, 1800)
+
+private fun syncIntervalLabel(seconds: Int, lang: String): String = when (seconds) {
+    0 -> Strings.get("sync_manual", lang)
+    15 -> Strings.get("sync_15s", lang)
+    30 -> Strings.get("sync_30s", lang)
+    60 -> Strings.get("sync_1m", lang)
+    300 -> Strings.get("sync_5m", lang)
+    600 -> Strings.get("sync_10m", lang)
+    1800 -> Strings.get("sync_30m", lang)
+    else -> Strings.get("sync_30s", lang)
+}
+
+private fun syncIntervalFromLabel(label: String): Int = when (label) {
+    Strings.get("sync_manual", "en"), Strings.get("sync_manual", "es") -> 0
+    Strings.get("sync_15s", "en"), Strings.get("sync_15s", "es") -> 15
+    Strings.get("sync_30s", "en"), Strings.get("sync_30s", "es") -> 30
+    Strings.get("sync_1m", "en"), Strings.get("sync_1m", "es") -> 60
+    Strings.get("sync_5m", "en"), Strings.get("sync_5m", "es") -> 300
+    Strings.get("sync_10m", "en"), Strings.get("sync_10m", "es") -> 600
+    Strings.get("sync_30m", "en"), Strings.get("sync_30m", "es") -> 1800
+    else -> 30
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -272,6 +297,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     var expandedTaskId by remember { mutableStateOf<String?>(null) }
     var tasksEnabled by remember { mutableStateOf(config.tasksEnabled) }
     var tasksOutputPath by remember { mutableStateOf(config.tasksOutputPath) }
+    var syncIntervalLbl by remember { mutableStateOf(syncIntervalLabel(config.syncIntervalSeconds, lang)) }
 
     var showTaskDialog by remember { mutableStateOf(false) }
     var editingTask by remember { mutableStateOf<Event?>(null) }
@@ -325,7 +351,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                 payload
             }
             if (payload != null) {
-                val syncPayload = SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId)
+                val syncPayload = SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId, config.syncIntervalSeconds)
                 val merged = SyncManager.mergePayload(syncPayload, payload)
                 manualEvents = merged.manualEvents
                 taskCompletionMap = merged.taskCompletion
@@ -343,7 +369,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     ) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         try {
-            val syncPayload = SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId)
+            val syncPayload = SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId, config.syncIntervalSeconds)
             context.contentResolver.openOutputStream(uri)?.use { out ->
                 out.write(SyncManager.serializePayload(syncPayload).toByteArray())
             }
@@ -555,46 +581,136 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
             }
         }
         LaunchedEffect(Unit) {
+            val androidIp: String? = try {
+                java.net.NetworkInterface.getNetworkInterfaces().toList().asSequence()
+                    .filter { it.isUp && !it.isLoopback && !it.isVirtual }
+                    .flatMap { it.inetAddresses.toList().asSequence() }
+                    .firstOrNull { !it.isLoopbackAddress && it is java.net.Inet4Address }
+                    ?.hostAddress
+            } catch (_: Exception) { null }
+
+            var firstRun = true
             while (true) {
-                val savedUrl = config.lastSyncUrl
-                if (savedUrl.isNotBlank()) {
-                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                        try {
-                            val sp = SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId)
-                            val client = OkHttpClient.Builder()
-                                .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
-                                .build()
-                            val reqBody = SyncManager.serializePayload(sp)
-                                .toRequestBody("text/plain".toMediaType())
-                            val request = OkHttpRequest.Builder().url("$savedUrl/sync").post(reqBody).build()
-                            val resp = client.newCall(request).execute()
-                            val respBody = resp.body?.string()
-                            if (resp.isSuccessful && respBody != null) {
-                                val remote = SyncManager.deserializePayload(respBody)
-                                if (remote != null) {
-                                    val merged = SyncManager.mergePayload(sp, remote)
-                                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                        if (merged.manualEvents != manualEvents || merged.taskCompletion != taskCompletionMap || merged.deletedEventIds != deletedEventIds) {
-                                            manualEvents = merged.manualEvents
-                                            taskCompletionMap = merged.taskCompletion
-                                            deletedEventIds = merged.deletedEventIds
-                                            config.manualEventCache = Json.encodeToString(manualEvents)
-                                            config.taskCompletionState = Json.encodeToString(taskCompletionMap)
-                                            config.deletedEventIds = Json.encodeToString(deletedEventIds)
-                                            persistMergeRef?.invoke()
-                                            Log.d("DueNest", "Auto-sync applied: ${merged.manualEvents.size} events")
+                val interval = config.syncIntervalSeconds
+                if (interval > 0) {
+                    val savedUrl = config.lastSyncUrl
+                    if (savedUrl.isNotBlank()) {
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            try {
+                                val sp = SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId, config.syncIntervalSeconds)
+                                val client = OkHttpClient.Builder()
+                                    .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                                    .build()
+                                val reqBody = SyncManager.serializePayload(sp)
+                                    .toRequestBody("text/plain".toMediaType())
+                                val reqBuilder = OkHttpRequest.Builder().url("$savedUrl/sync").post(reqBody)
+                                if (androidIp != null) reqBuilder.addHeader("X-Sync-Server-URL", "http://$androidIp:8766")
+                                val resp = client.newCall(reqBuilder.build()).execute()
+                                val respBody = resp.body?.string()
+                                if (resp.isSuccessful && respBody != null) {
+                                    val peerUrl = resp.header("X-Sync-Server-URL")
+                                    if (!peerUrl.isNullOrBlank()) config.lastSyncUrl = peerUrl
+                                    val remote = SyncManager.deserializePayload(respBody)
+                                    if (remote != null) {
+                                        val merged = SyncManager.mergePayload(sp, remote)
+                                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                            if (merged.manualEvents != manualEvents || merged.taskCompletion != taskCompletionMap || merged.deletedEventIds != deletedEventIds) {
+                                                manualEvents = merged.manualEvents
+                                                taskCompletionMap = merged.taskCompletion
+                                                deletedEventIds = merged.deletedEventIds
+                                                config.manualEventCache = Json.encodeToString(manualEvents)
+                                                config.taskCompletionState = Json.encodeToString(taskCompletionMap)
+                                                config.deletedEventIds = Json.encodeToString(deletedEventIds)
+                                                persistMergeRef?.invoke()
+                                                Log.d("DueNest", "Auto-sync applied: ${merged.manualEvents.size} events")
+                                            }
+                                            if (merged.syncIntervalSeconds != config.syncIntervalSeconds) {
+                                                config.syncIntervalSeconds = merged.syncIntervalSeconds
+                                                syncIntervalLbl = syncIntervalLabel(merged.syncIntervalSeconds, lang)
+                                            }
                                         }
                                     }
                                 }
+                            } catch (e: Exception) {
+                                Log.d("DueNest", "Auto-sync skipped: ${e.message}")
                             }
-                        } catch (e: Exception) {
-                            Log.d("DueNest", "Auto-sync skipped: ${e.message}")
                         }
                     }
                 }
-                kotlinx.coroutines.delay(30_000)
+                val delayMs = if (firstRun) { firstRun = false; 1_000 } else (interval * 1000L).coerceAtLeast(1_000)
+                if (interval > 0) kotlinx.coroutines.delay(delayMs) else kotlinx.coroutines.delay(60_000)
             }
         }
+
+        val syncServerChannel = remember { kotlinx.coroutines.channels.Channel<MergeResult>(kotlinx.coroutines.channels.Channel.CONFLATED) }
+
+        LaunchedEffect(Unit) {
+            val server = try {
+                val s = object : fi.iki.elonen.NanoHTTPD(8766) {
+                    override fun serve(session: fi.iki.elonen.NanoHTTPD.IHTTPSession): fi.iki.elonen.NanoHTTPD.Response {
+                        if (session.method != fi.iki.elonen.NanoHTTPD.Method.POST) {
+                            return newFixedLengthResponse(fi.iki.elonen.NanoHTTPD.Response.Status.METHOD_NOT_ALLOWED, MIME_PLAINTEXT, "")
+                        }
+                        try {
+                            val files = HashMap<String, String>()
+                            session.parseBody(files)
+                            val body = files["postData"] ?: ""
+                            val remote = SyncManager.deserializePayload(body)
+                            if (remote != null) {
+                                val peerUrl = session.headers["x-sync-server-url"]
+                                if (!peerUrl.isNullOrBlank() && config.lastSyncUrl != peerUrl) {
+                                    config.lastSyncUrl = peerUrl
+                                }
+                                val le = try { Json.decodeFromString<List<Event>>(config.manualEventCache) } catch (_: Exception) { emptyList() }
+                                val lc = try { Json.decodeFromString<Map<String, Boolean>>(config.taskCompletionState) } catch (_: Exception) { emptyMap() }
+                                val ld = try { Json.decodeFromString<Set<String>>(config.deletedEventIds) } catch (_: Exception) { emptySet() }
+                                val local = SyncManager.generatePayload(le, lc, ld, config.deviceId, config.syncIntervalSeconds)
+                                val merged = SyncManager.mergePayload(local, remote)
+                                val respBody = SyncManager.serializePayload(
+                                    SyncManager.generatePayload(merged.manualEvents, merged.taskCompletion, merged.deletedEventIds, config.deviceId, merged.syncIntervalSeconds)
+                                )
+                                val androidIp: String? = try {
+                                    java.net.NetworkInterface.getNetworkInterfaces().toList().asSequence()
+                                        .filter { it.isUp && !it.isLoopback && !it.isVirtual }
+                                        .flatMap { it.inetAddresses.toList().asSequence() }
+                                        .firstOrNull { !it.isLoopbackAddress && it is java.net.Inet4Address }
+                                        ?.hostAddress
+                                } catch (_: Exception) { null }
+                                val resp = newFixedLengthResponse(fi.iki.elonen.NanoHTTPD.Response.Status.OK, MIME_PLAINTEXT, respBody)
+                                if (androidIp != null) resp.addHeader("X-Sync-Server-URL", "http://$androidIp:8766")
+                                syncServerChannel.trySend(merged)
+                                return resp
+                            } else {
+                                return newFixedLengthResponse(fi.iki.elonen.NanoHTTPD.Response.Status.BAD_REQUEST, MIME_PLAINTEXT, "")
+                            }
+                        } catch (_: Exception) {
+                            return newFixedLengthResponse(fi.iki.elonen.NanoHTTPD.Response.Status.INTERNAL_ERROR, MIME_PLAINTEXT, "")
+                        }
+                    }
+                }
+                s.start()
+                s
+            } catch (_: Exception) { null }
+
+            try {
+                for (merged in syncServerChannel) {
+                    manualEvents = merged.manualEvents
+                    taskCompletionMap = merged.taskCompletion
+                    deletedEventIds = merged.deletedEventIds
+                    config.manualEventCache = Json.encodeToString(manualEvents)
+                    config.taskCompletionState = Json.encodeToString(taskCompletionMap)
+                    config.deletedEventIds = Json.encodeToString(deletedEventIds)
+                    if (merged.syncIntervalSeconds != config.syncIntervalSeconds) {
+                        config.syncIntervalSeconds = merged.syncIntervalSeconds
+                        syncIntervalLbl = syncIntervalLabel(merged.syncIntervalSeconds, lang)
+                    }
+                    persistMergeRef?.invoke()
+                }
+            } finally {
+                server?.stop()
+            }
+        }
+
         if (showSettingsPage) {
             SettingsPage(
                 themeMode = themeMode, onThemeModeChange = { themeMode = it; config.themeMode = it },
@@ -610,6 +726,9 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                 tasksOutputPath = tasksOutputPath, onTasksPathChange = { tasksOutputPath = it; config.tasksOutputPath = it; regenerateTasksFile() },
                 daysBackText = daysBackText, onDaysBackChange = { daysBackText = it; config.fetchDaysBack = it.toIntOrNull() ?: 7 },
                 limitText = limitText, onLimitChange = { limitText = it; config.fetchLimit = it.toIntOrNull() ?: 100 },
+                syncIntervalLabel = syncIntervalLbl, onSyncIntervalChange = {
+                    syncIntervalLbl = it; config.syncIntervalSeconds = syncIntervalFromLabel(it)
+                },
                 notifEnabled = notifEnabled, onNotifEnabledChange = { enabled ->
                     notifEnabled = enabled; config.notificationsEnabled = enabled
                     if (enabled) NotificationWorker.schedule(context) else NotificationWorker.cancel(context)
@@ -968,7 +1087,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                     OutlinedButton(onClick = {
                         showExportFormatDialog = false
                         try {
-                            val syncPayload = SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId)
+                            val syncPayload = SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId, config.syncIntervalSeconds)
                             val ms = SyncManager.serializePayload(syncPayload)
                             val writer = QRCodeWriter()
                             val matrix = writer.encode(ms, BarcodeFormat.QR_CODE, 400, 400)
@@ -1000,7 +1119,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     // ── Sync dialog ──────────────────────────────────────
     if (showSyncDialog) {
         val syncPayload = remember(manualEvents, taskCompletionMap, deletedEventIds) {
-            SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId)
+            SyncManager.generatePayload(manualEvents, taskCompletionMap, deletedEventIds, config.deviceId, config.syncIntervalSeconds)
         }
 
         if (syncScanMode && ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
@@ -1008,7 +1127,15 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
         }
 
         val qrContent = remember(syncPayload) {
-            SyncManager.serializePayload(syncPayload)
+            val androidIp: String? = try {
+                java.net.NetworkInterface.getNetworkInterfaces().toList().asSequence()
+                    .filter { it.isUp && !it.isLoopback && !it.isVirtual }
+                    .flatMap { it.inetAddresses.toList().asSequence() }
+                    .firstOrNull { !it.isLoopbackAddress && it is java.net.Inet4Address }
+                    ?.hostAddress
+            } catch (_: Exception) { null }
+            if (androidIp != null) SyncManager.encodeQrContent("http://$androidIp:8766", syncPayload)
+            else SyncManager.serializePayload(syncPayload)
         }
         val qrImage: ImageBitmap? = remember(qrContent) {
             try {
@@ -1114,6 +1241,10 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                     config.manualEventCache = Json.encodeToString(manualEvents)
                     config.taskCompletionState = Json.encodeToString(taskCompletionMap)
                     config.deletedEventIds = Json.encodeToString(deletedEventIds)
+                    if (merged.syncIntervalSeconds != config.syncIntervalSeconds) {
+                        config.syncIntervalSeconds = merged.syncIntervalSeconds
+                        syncIntervalLbl = syncIntervalLabel(merged.syncIntervalSeconds, lang)
+                    }
                     persistMergeRef?.invoke()
                     syncScanMode = false
                     syncMergeMsg = Strings.get("sync_merged", lang)
@@ -1127,17 +1258,27 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                     syncMergeMsg = Strings.get("sync_syncing", lang)
                     withContext(Dispatchers.IO) {
                         try {
+                            val androidIp: String? = try {
+                                java.net.NetworkInterface.getNetworkInterfaces().toList().asSequence()
+                                    .filter { it.isUp && !it.isLoopback && !it.isVirtual }
+                                    .flatMap { it.inetAddresses.toList().asSequence() }
+                                    .firstOrNull { !it.isLoopbackAddress && it is java.net.Inet4Address }
+                                    ?.hostAddress
+                            } catch (_: Exception) { null }
                             val client = OkHttpClient.Builder()
                                 .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
                                 .build()
                             val reqBody = SyncManager.serializePayload(syncPayload)
                                 .toRequestBody("text/plain".toMediaType())
-                            val request = OkHttpRequest.Builder().url("$url/sync").post(reqBody).build()
-                            val resp = client.newCall(request).execute()
+                            val reqBuilder = OkHttpRequest.Builder().url("$url/sync").post(reqBody)
+                            if (androidIp != null) reqBuilder.addHeader("X-Sync-Server-URL", "http://$androidIp:8766")
+                            val resp = client.newCall(reqBuilder.build()).execute()
                             val respBody = resp.body?.string()
                             Log.d("DueNest", "POST response: code=${resp.code}, bodyLen=${respBody?.length}")
                             if (resp.isSuccessful && respBody != null) {
-                                config.lastSyncUrl = url
+                                val peerUrl = resp.header("X-Sync-Server-URL")
+                                if (!peerUrl.isNullOrBlank()) config.lastSyncUrl = peerUrl
+                                else config.lastSyncUrl = url
                                 val remote = SyncManager.deserializePayload(respBody)
                                 if (remote != null) {
                                     val merged = SyncManager.mergePayload(syncPayload, remote)
@@ -1340,6 +1481,7 @@ private fun SettingsPage(
     tasksOutputPath: String, onTasksPathChange: (String) -> Unit,
     daysBackText: String, onDaysBackChange: (String) -> Unit,
     limitText: String, onLimitChange: (String) -> Unit,
+    syncIntervalLabel: String, onSyncIntervalChange: (String) -> Unit,
     notifEnabled: Boolean, onNotifEnabledChange: (Boolean) -> Unit,
     notifScheduleType: String, onNotifScheduleTypeChange: (String) -> Unit,
     notifCustomDaysList: List<Int>, onNotifCustomDaysListChange: (List<Int>) -> Unit,
@@ -1643,6 +1785,27 @@ private fun SettingsPage(
                     OutlinedTextField(value = limitText, onValueChange = { onLimitChange(it.filter { c -> c.isDigit() }) },
                         singleLine = true, modifier = Modifier.widthIn(max = 100.dp),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done))
+                }
+
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(Strings.get("sync_interval", lang), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                    var syncIntervalExpanded by remember { mutableStateOf(false) }
+                    ExposedDropdownMenuBox(expanded = syncIntervalExpanded, onExpandedChange = { syncIntervalExpanded = it }) {
+                        OutlinedTextField(
+                            value = syncIntervalLabel,
+                            onValueChange = {}, readOnly = true,
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = syncIntervalExpanded) },
+                            singleLine = true,
+                            modifier = Modifier.widthIn(max = 160.dp).menuAnchor(MenuAnchorType.PrimaryNotEditable))
+                        ExposedDropdownMenu(expanded = syncIntervalExpanded, onDismissRequest = { syncIntervalExpanded = false }) {
+                            SYNC_INTERVAL_OPTIONS.forEach { seconds ->
+                                val label = syncIntervalLabel(seconds, lang)
+                                DropdownMenuItem(
+                                    text = { Text(label) },
+                                    onClick = { onSyncIntervalChange(label); syncIntervalExpanded = false })
+                            }
+                        }
+                    }
                 }
 
                 Spacer(Modifier.height(8.dp))

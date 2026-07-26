@@ -111,6 +111,14 @@ class DesktopConfigStore {
         get() = prefs.get(KEY_LAST_SYNC_URL, "")
         set(value) = prefs.put(KEY_LAST_SYNC_URL, value)
 
+    var syncIntervalSeconds: Int
+        get() = prefs.getInt(KEY_SYNC_INTERVAL, 30)
+        set(value) = prefs.putInt(KEY_SYNC_INTERVAL, value)
+
+    var lastNetworkSignature: String
+        get() = prefs.get(KEY_LAST_NETWORK_SIG, "")
+        set(value) = prefs.put(KEY_LAST_NETWORK_SIG, value)
+
     val isConfigured: Boolean
         get() = moodleUrl.isNotBlank() && (token.isNotBlank() || (username.isNotBlank() && password.isNotBlank()))
 
@@ -144,5 +152,7 @@ class DesktopConfigStore {
         const val KEY_DELETED_EVENT_IDS = "deleted_event_ids"
         const val KEY_DEVICE_ID = "device_id"
         const val KEY_LAST_SYNC_URL = "last_sync_url"
+        const val KEY_SYNC_INTERVAL = "sync_interval_seconds"
+        const val KEY_LAST_NETWORK_SIG = "last_network_signature"
     }
 }
