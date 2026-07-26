@@ -560,11 +560,11 @@ fun DesktopApp(config: DesktopConfigStore) {
             )
             when (selectedSection) {
                 0 -> ConnectionTabContent(
-                    url = url, onUrlChange = { url = it },
-                    username = username, onUsernameChange = { username = it },
-                    password = password, onPasswordChange = { password = it },
+                    url = url, onUrlChange = { url = it; config.moodleUrl = it },
+                    username = username, onUsernameChange = { username = it; config.username = it },
+                    password = password, onPasswordChange = { password = it; if (savePw) config.password = it },
                     passwordVisible = passwordVisible, onPasswordVisibleChange = { passwordVisible = it },
-                    savePw = savePw, onSavePwChange = { savePw = it },
+                    savePw = savePw, onSavePwChange = { savePw = it; config.savePassword = it; if (!it) config.password = "" },
                     isWorking = isWorking, statusText = statusText,
                     logLines = logLines.toList(),
                     lang = lang,
