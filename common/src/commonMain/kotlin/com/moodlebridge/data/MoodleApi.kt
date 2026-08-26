@@ -11,6 +11,9 @@ import java.util.concurrent.TimeUnit
 class MoodleApi(
     private val moodleUrl: String,
     private val token: String,
+    private val scrapeEnabled: Boolean = false,
+    private val username: String = "",
+    private val password: String = "",
 ) {
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
@@ -29,6 +32,15 @@ class MoodleApi(
         }
 
         calendarEvents.sortBy { it.timestart }
+
+        if (calendarEvents.isEmpty() && scrapeEnabled && username.isNotBlank() && password.isNotBlank()) {
+            return try {
+                MoodleWebScraper.scrape(moodleUrl, username, password)
+            } catch (_: Exception) {
+                emptyList()
+            }
+        }
+
         return calendarEvents
     }
 
