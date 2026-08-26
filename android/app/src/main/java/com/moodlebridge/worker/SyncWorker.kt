@@ -48,7 +48,7 @@ class SyncWorker(
         }
         config.token = newToken
 
-        val api = MoodleApi(config.moodleUrl, config.token)
+        val api = MoodleApi(config.moodleUrl, config.token, config.scrapeEnabled, config.username, pw)
 
         return try {
             val events = api.fetchEvents(config.fetchDaysBack, config.fetchLimit)
