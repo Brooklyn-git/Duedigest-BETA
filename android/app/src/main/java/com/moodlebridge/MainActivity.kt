@@ -298,6 +298,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     var tasksEnabled by remember { mutableStateOf(config.tasksEnabled) }
     var tasksOutputPath by remember { mutableStateOf(config.tasksOutputPath) }
     var syncIntervalLbl by remember { mutableStateOf(syncIntervalLabel(config.syncIntervalSeconds, lang)) }
+    var scrapeEnabled by remember { mutableStateOf(config.scrapeEnabled) }
 
     var showTaskDialog by remember { mutableStateOf(false) }
     var editingTask by remember { mutableStateOf<Event?>(null) }
@@ -526,6 +527,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                 icsPath = icsPath, logseqPath = logseqPath, obsidianPath = obsidianPath,
                 daysBackText = daysBackText, limitText = limitText, lang = lang,
                 tasksEnabled = tasksEnabled, tasksOutputPath = tasksOutputPath, manualEvents = manual,
+                scrapeEnabled = scrapeEnabled,
             )
             doFetch(context, config, params,
                 { addLog(it) }, { statusText = it }, { errorDialogMsg = it },
@@ -753,6 +755,9 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                 limitText = limitText, onLimitChange = { limitText = it; config.fetchLimit = it.toIntOrNull() ?: 100 },
                 syncIntervalLabel = syncIntervalLbl, onSyncIntervalChange = {
                     syncIntervalLbl = it; config.syncIntervalSeconds = syncIntervalFromLabel(it)
+                },
+                scrapeEnabled = scrapeEnabled, onScrapeEnabledChange = {
+                    scrapeEnabled = it; config.scrapeEnabled = it
                 },
                 notifEnabled = notifEnabled, onNotifEnabledChange = { enabled ->
                     notifEnabled = enabled; config.notificationsEnabled = enabled
@@ -1507,6 +1512,7 @@ private fun SettingsPage(
     daysBackText: String, onDaysBackChange: (String) -> Unit,
     limitText: String, onLimitChange: (String) -> Unit,
     syncIntervalLabel: String, onSyncIntervalChange: (String) -> Unit,
+    scrapeEnabled: Boolean, onScrapeEnabledChange: (Boolean) -> Unit,
     notifEnabled: Boolean, onNotifEnabledChange: (Boolean) -> Unit,
     notifScheduleType: String, onNotifScheduleTypeChange: (String) -> Unit,
     notifCustomDaysList: List<Int>, onNotifCustomDaysListChange: (List<Int>) -> Unit,
@@ -1833,6 +1839,15 @@ private fun SettingsPage(
                     }
                 }
 
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(Strings.get("scrape_label", lang), style = MaterialTheme.typography.bodyMedium)
+                        Text(Strings.get("scrape_description", lang), style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                    }
+                    Switch(checked = scrapeEnabled, onCheckedChange = onScrapeEnabledChange)
+                }
+
                 Spacer(Modifier.height(8.dp))
 
                 HorizontalDivider()
@@ -1872,6 +1887,7 @@ data class FetchParams(
     val tasksEnabled: Boolean,
     val tasksOutputPath: String,
     val manualEvents: List<Event> = emptyList(),
+    val scrapeEnabled: Boolean = false,
 )
 
 private suspend fun doFetch(
@@ -1900,7 +1916,7 @@ private suspend fun doFetch(
         }
 
         onLog(Strings.get("fetching_events", lang))
-        val apiEvents = withContext(Dispatchers.IO) { MoodleApi(config.moodleUrl, token).fetchEvents(config.fetchDaysBack, config.fetchLimit) }
+        val apiEvents = withContext(Dispatchers.IO) { MoodleApi(config.moodleUrl, token, params.scrapeEnabled, username, password).fetchEvents(config.fetchDaysBack, config.fetchLimit) }
         onLog("${Strings.get("found_events", lang)} ${apiEvents.size}")
         val events = (apiEvents + manualEvents).sortedBy { it.timestart }
 
