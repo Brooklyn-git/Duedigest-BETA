@@ -198,6 +198,7 @@ fun DesktopApp(config: DesktopConfigStore) {
     var tasksEnabled by remember { mutableStateOf(config.tasksEnabled) }
     var tasksOutputPath by remember { mutableStateOf(config.tasksOutputPath) }
     var syncIntervalLabel by remember { mutableStateOf(syncIntervalLabel(config.syncIntervalSeconds, lang)) }
+    var scrapeEnabled by remember { mutableStateOf(config.scrapeEnabled) }
 
     var showTaskDialog by remember { mutableStateOf(false) }
     var editingTask by remember { mutableStateOf<Event?>(null) }
@@ -472,7 +473,7 @@ fun DesktopApp(config: DesktopConfigStore) {
                     newToken
                 }
                 addLog(Strings.get("fetching_events", lang))
-                val api = MoodleApi(url, effectiveToken)
+                val api = MoodleApi(url, effectiveToken, scrapeEnabled, username, pw)
                 val events = withContext(Dispatchers.IO) {
                     api.fetchEvents(daysBackText.toIntOrNull() ?: 7, limitText.toIntOrNull() ?: 100)
                 }
@@ -615,6 +616,9 @@ fun DesktopApp(config: DesktopConfigStore) {
                     limitText = limitText, onLimitTextChange = { limitText = it },
                     syncIntervalLabel = syncIntervalLabel, onSyncIntervalChange = {
                         syncIntervalLabel = it; config.syncIntervalSeconds = syncIntervalFromLabel(it)
+                    },
+                    scrapeEnabled = scrapeEnabled, onScrapeEnabledChange = {
+                        scrapeEnabled = it; config.scrapeEnabled = it
                     },
                     onClearCredsClick = { showClearCredsConfirm = true },
                     onImportFromFile = ::importFromFile,
@@ -1497,6 +1501,7 @@ private fun DesktopSettingsPage(
     daysBackText: String, onDaysBackTextChange: (String) -> Unit,
     limitText: String, onLimitTextChange: (String) -> Unit,
     syncIntervalLabel: String, onSyncIntervalChange: (String) -> Unit,
+    scrapeEnabled: Boolean, onScrapeEnabledChange: (Boolean) -> Unit,
     onClearCredsClick: () -> Unit,
     onImportFromFile: () -> Unit,
     onExportToFile: () -> Unit,
@@ -1695,6 +1700,15 @@ private fun DesktopSettingsPage(
                     options = SYNC_INTERVAL_OPTIONS.map { syncIntervalLabel(it, lang) },
                     onSelect = onSyncIntervalChange,
                 )
+            }
+
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(Strings.get("scrape_label", lang), style = MaterialTheme.typography.bodyMedium)
+                    Text(Strings.get("scrape_description", lang), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                }
+                Switch(checked = scrapeEnabled, onCheckedChange = onScrapeEnabledChange)
             }
 
             HorizontalDivider()
