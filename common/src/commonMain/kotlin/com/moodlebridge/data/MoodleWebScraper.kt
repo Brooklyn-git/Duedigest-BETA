@@ -136,7 +136,7 @@ object MoodleWebScraper {
     private fun parseDate(text: String): Long? {
         if (text.isBlank() || text.equals("Sin fecha", ignoreCase = true)) return null
         val locales = listOf(
-            Locale("es", "MX"), Locale("es"), Locale("en", "US"), Locale.US
+            Locale.of("es", "MX"), Locale.of("es"), Locale.of("en", "US"), Locale.US
         )
         val patterns = listOf(
             "d 'de' MMMM 'de' yyyy, h:mm a",
