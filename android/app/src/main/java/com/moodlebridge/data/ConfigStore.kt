@@ -177,6 +177,10 @@ class ConfigStore(context: Context) {
         get() = prefs.getInt(KEY_SYNC_INTERVAL, 30)
         set(value) = prefs.edit().putInt(KEY_SYNC_INTERVAL, value).apply()
 
+    var scrapeEnabled: Boolean
+        get() = prefs.getBoolean(KEY_SCRAPE_ENABLED, false)
+        set(value) = prefs.edit().putBoolean(KEY_SCRAPE_ENABLED, value).apply()
+
     var lastConfiguredOpacity: Float
         get() = prefs.getFloat(KEY_LAST_OPACITY, 1.0f)
         set(value) { prefs.edit().putFloat(KEY_LAST_OPACITY, value).commit() }
@@ -227,5 +231,6 @@ class ConfigStore(context: Context) {
         const val KEY_DEVICE_ID = "device_id"
         const val KEY_LAST_SYNC_URL = "last_sync_url"
         const val KEY_SYNC_INTERVAL = "sync_interval_seconds"
+        const val KEY_SCRAPE_ENABLED = "scrape_enabled"
     }
 }

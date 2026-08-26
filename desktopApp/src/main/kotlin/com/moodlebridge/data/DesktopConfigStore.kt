@@ -119,6 +119,10 @@ class DesktopConfigStore {
         get() = prefs.get(KEY_LAST_NETWORK_SIG, "")
         set(value) = prefs.put(KEY_LAST_NETWORK_SIG, value)
 
+    var scrapeEnabled: Boolean
+        get() = prefs.getBoolean(KEY_SCRAPE_ENABLED, false)
+        set(value) = prefs.putBoolean(KEY_SCRAPE_ENABLED, value)
+
     val isConfigured: Boolean
         get() = moodleUrl.isNotBlank() && (token.isNotBlank() || (username.isNotBlank() && password.isNotBlank()))
 
@@ -154,5 +158,6 @@ class DesktopConfigStore {
         const val KEY_LAST_SYNC_URL = "last_sync_url"
         const val KEY_SYNC_INTERVAL = "sync_interval_seconds"
         const val KEY_LAST_NETWORK_SIG = "last_network_signature"
+        const val KEY_SCRAPE_ENABLED = "scrape_enabled"
     }
 }
