@@ -141,6 +141,8 @@ object Strings {
         "export_as_qr" to "Export as QR image",
         "import_success" to "Data imported successfully",
         "import_error" to "Could not import data",
+        "scrape_label" to "Scrape web interface",
+        "scrape_description" to "Some Moodle servers block external API access. Enable this to fetch activities by reading the web pages directly. Slower but more compatible.",
     )
 
     private val es = mapOf(
@@ -282,6 +284,8 @@ object Strings {
         "export_as_qr" to "Exportar como imagen QR",
         "import_success" to "Datos importados correctamente",
         "import_error" to "No se pudieron importar los datos",
+        "scrape_label" to "Leer interfaz web",
+        "scrape_description" to "Algunos servidores Moodle bloquean el acceso a la API externa. Activa esto para obtener actividades leyendo las p\u00e1ginas web directamente. M\u00e1s lento pero m\u00e1s compatible.",
     )
 
     fun get(key: String, lang: String = "en"): String {
