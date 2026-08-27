@@ -4,7 +4,6 @@ import okhttp3.Cookie
 import okhttp3.CookieJar
 import okhttp3.FormBody
 import okhttp3.HttpUrl
-import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.jsoup.Jsoup
@@ -51,19 +50,24 @@ object MoodleWebScraper {
     }
 
     private fun login(base: String, username: String, password: String) {
-        val url = "$base/login/index.php"
-        val body = FormBody.Builder()
+        val loginUrl = "$base/login/index.php"
+        val pageResp = client.newCall(Request.Builder().url(loginUrl).get().build()).execute()
+        val pageHtml = pageResp.body?.string() ?: throw IOException("Could not load login page")
+        val doc = Jsoup.parse(pageHtml)
+        val loginToken = doc.select("input[name=\"logintoken\"]").attr("value").orEmpty()
+
+        val bodyBuilder = FormBody.Builder()
             .add("username", username)
             .add("password", password)
-            .build()
-        val request = Request.Builder().url(url).post(body).build()
-        val response = client.newCall(request).execute()
-        val html = response.body?.string() ?: throw IOException("Empty login response")
-        if (response.code >= 400) throw IOException("Login failed (HTTP ${response.code})")
-        val doc = Jsoup.parse(html)
-        if (doc.select("input[name=\"username\"]").isNotEmpty() &&
-            doc.select("#loginerrormessagewrap, .loginerror, #login").isNotEmpty()
-        ) {
+        if (loginToken.isNotBlank()) {
+            bodyBuilder.add("logintoken", loginToken)
+        }
+
+        val response = client.newCall(
+            Request.Builder().url(loginUrl).post(bodyBuilder.build()).build()
+        ).execute()
+        val responseUrl = response.request.url.toString()
+        if (responseUrl.contains("/login")) {
             throw IOException("Login failed — check your credentials")
         }
     }
@@ -72,6 +76,9 @@ object MoodleWebScraper {
         val url = "$base/my/"
         val request = Request.Builder().url(url).get().build()
         val response = client.newCall(request).execute()
+        if (response.request.url.toString().contains("/login")) {
+            throw IOException("Session expired — could not load dashboard")
+        }
         val html = response.body?.string() ?: throw IOException("Empty dashboard response")
         val doc = Jsoup.parse(html)
         val courses = mutableListOf<CourseInfo>()
@@ -99,23 +106,25 @@ object MoodleWebScraper {
         val rows = doc.select("table.generaltable tbody tr")
         val now = System.currentTimeMillis() / 1000
         val result = mutableListOf<Event>()
+        var index = 0
         for (row in rows) {
             val link = row.select("a[href*=\"/mod/assign/view.php?id=\"]").firstOrNull() ?: continue
             val href = link.attr("abs:href").ifEmpty { link.attr("href") }
             val title = link.text().trim()
             if (title.isBlank()) continue
-            val cells = row.select("td, th")
-            val dueDateStr = cells.getOrNull(2)?.text()?.trim().orEmpty()
-            val submissionStatus = cells.getOrNull(3)?.text()?.trim().orEmpty()
+            val cells = row.select("td, th").map { it.text().trim() }
+            val (dueDateStr, submissionStatus) = extractDateAndStatus(cells)
             if (isSubmitted(submissionStatus)) continue
             val duedate = parseDate(dueDateStr)
             if (duedate != null && duedate <= now) continue
+            val description = scrapeDescription(base, href)
+            index++
             result.add(
                 Event(
-                    id = "scrape_${course.id}_${href.hashCode().toUInt()}",
+                    id = "scrape_${course.id}_$index",
                     name = title,
-                    description = "",
-                    timestart = duedate ?: 0L,
+                    description = description,
+                    timestart = duedate ?: Long.MAX_VALUE,
                     timeduration = 0,
                     eventtype = "assign",
                     url = href,
@@ -127,32 +136,94 @@ object MoodleWebScraper {
         return result
     }
 
+    private fun scrapeDescription(base: String, assignmentUrl: String): String {
+        return try {
+            val request = Request.Builder().url(assignmentUrl).get().build()
+            val response = client.newCall(request).execute()
+            val html = response.body?.string() ?: return ""
+            val doc = Jsoup.parse(html)
+            val intro = doc.select("#intro").firstOrNull()
+            if (intro != null) {
+                intro.text().trim().replace(Regex("\\s+"), " ")
+            } else {
+                ""
+            }
+        } catch (_: Exception) {
+            ""
+        }
+    }
+
+    private fun extractDateAndStatus(cells: List<String>): Pair<String, String> {
+        if (cells.size >= 5) {
+            return Pair(cells[2], cells[3])
+        }
+        if (cells.size == 4) {
+            return Pair(cells[1], cells[2])
+        }
+        var date = ""
+        var status = ""
+        for (cell in cells) {
+            val lower = cell.lowercase()
+            if (date.isEmpty() && looksLikeDate(cell)) {
+                date = cell
+            } else if (status.isEmpty() && looksLikeStatus(lower)) {
+                status = cell
+            }
+        }
+        return Pair(date, status)
+    }
+
+    private fun looksLikeDate(text: String): Boolean {
+        if (text.isBlank()) return false
+        val lower = text.lowercase()
+        if ("sin fecha" in lower || "no due date" in lower) return false
+        return parseDate(text) != null || Regex("\\d{1,2}[/\\-]\\d{1,2}[/\\-]\\d{2,4}").containsMatchIn(text)
+    }
+
+    private fun looksLikeStatus(lower: String): Boolean {
+        return "entregad" in lower || "submitted" in lower || "enviad" in lower ||
+            "no entregad" in lower || "not submitted" in lower || "abierto" in lower ||
+            "open" in lower || "calificad" in lower || "graded" in lower ||
+            "cerrad" in lower || "closed" in lower
+    }
+
     private fun isSubmitted(status: String): Boolean {
         val lower = status.lowercase()
-        return "submitted" in lower || "entregado" in lower ||
-            "enviado" in lower || "calificad" in lower
+        return ("submitted" in lower && "not" !in lower) ||
+            ("entregad" in lower && "no" !in lower) ||
+            ("enviad" in lower && "no" !in lower) ||
+            "calificad" in lower || "graded" in lower
     }
 
     private fun parseDate(text: String): Long? {
-        if (text.isBlank() || text.equals("Sin fecha", ignoreCase = true)) return null
+        if (text.isBlank()) return null
+        val lower = text.lowercase().trim()
+        if ("sin fecha" in lower || "no due date" in lower) return null
         val locales = listOf(
-            Locale.of("es", "MX"), Locale.of("es"), Locale.of("en", "US"), Locale.US
+            Locale("es", "MX"), Locale("es"), Locale("en", "US"), Locale.US
         )
         val patterns = listOf(
             "d 'de' MMMM 'de' yyyy, h:mm a",
             "d 'de' MMMM 'de' yyyy, HH:mm",
+            "d 'de' MMMM 'de' yyyy",
             "d MMMM yyyy, h:mm a",
             "d MMMM yyyy, HH:mm",
+            "d MMMM yyyy",
             "d MMM yyyy, h:mm a",
             "d MMM yyyy, HH:mm",
+            "d MMM yyyy",
             "MMMM d, yyyy, h:mm a",
             "MMMM d, yyyy, HH:mm",
+            "MMMM d, yyyy",
             "MMM d, yyyy, h:mm a",
             "MMM d, yyyy, HH:mm",
+            "MMM d, yyyy",
             "dd/MM/yyyy HH:mm",
             "dd/MM/yyyy h:mm a",
+            "dd/MM/yyyy",
             "yyyy-MM-dd HH:mm",
             "yyyy-MM-dd h:mm a",
+            "yyyy-MM-dd",
         )
         for (locale in locales) {
             for (pattern in patterns) {
