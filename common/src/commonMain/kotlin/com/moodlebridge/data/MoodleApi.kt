@@ -25,31 +25,37 @@ class MoodleApi(
     fun fetchEvents(daysBack: Int = 7, limit: Int = 100): List<Event> {
         val calendarEvents = try {
             fetchCalendarEvents(daysBack, limit).toMutableList()
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            println("DueNest API: fetchCalendarEvents failed: ${e.message}")
             mutableListOf()
         }
+        println("DueNest API: fetchCalendarEvents returned ${calendarEvents.size} events")
         val assignmentEvents = try {
             fetchAssignments()
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            println("DueNest API: fetchAssignments failed: ${e.message}")
             emptyList()
         }
+        println("DueNest API: fetchAssignments returned ${assignmentEvents.size} events")
 
-        val eventIds = calendarEvents.map { it.id }.toSet()
-        for (a in assignmentEvents) {
-            if (a.id !in eventIds) calendarEvents.add(a)
-        }
+        val wsEvents = (calendarEvents + assignmentEvents).distinctBy { it.id }
+        println("DueNest API: Combined WS events = ${wsEvents.size}, scrapeEnabled=$scrapeEnabled")
 
-        calendarEvents.sortBy { it.timestart }
-
-        if (calendarEvents.isEmpty() && scrapeEnabled && username.isNotBlank() && password.isNotBlank()) {
+        if (scrapeEnabled && username.isNotBlank() && password.isNotBlank()) {
+            println("DueNest API: scrape enabled -> always calling scraper")
             return try {
-                MoodleWebScraper.scrape(moodleUrl, username, password)
-            } catch (_: Exception) {
-                emptyList()
+                val scraped = MoodleWebScraper.scrape(moodleUrl, username, password)
+                println("DueNest API: Scraper returned ${scraped.size} events")
+                val scrapedIds = scraped.map { it.id }.toSet()
+                val extraWs = wsEvents.filter { it.id !in scrapedIds }
+                (scraped + extraWs).sortedBy { it.timestart }
+            } catch (e: Exception) {
+                println("DueNest API: Scraper FAILED: ${e.message}, falling back to WS events")
+                wsEvents.sortedBy { it.timestart }
             }
         }
 
-        return calendarEvents
+        return wsEvents.sortedBy { it.timestart }
     }
 
     private fun fetchCalendarEvents(daysBack: Int, limit: Int): List<Event> {

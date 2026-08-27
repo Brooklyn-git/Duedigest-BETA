@@ -287,7 +287,8 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     var fetchedEvents by remember { mutableStateOf(
         try {
             val all = Json.decodeFromString<List<Event>>(config.taskEventCache)
-            all.filter { !it.isManual }
+            val deleted = try { Json.decodeFromString<Set<String>>(config.deletedEventIds) } catch (_: Exception) { emptySet() }
+            all.filter { !it.isManual && it.id !in deleted }
         } catch (_: Exception) { emptyList() }
     ) }
     var manualEvents by remember { mutableStateOf(
@@ -411,9 +412,9 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     }
 
     fun getMergedEvents(): List<Event> {
-        val merged = fetchedEvents.toMutableList()
-        merged.addAll(manualEvents)
-        return merged.sortedBy { it.timestart }
+        val a: List<Event> = fetchedEvents.filter { it.id !in deletedEventIds }
+        val b: List<Event> = manualEvents.filter { it.id !in deletedEventIds }
+        return (a + b).sortedBy { it.timestart }
     }
 
     fun regenerateTasksFile() {
@@ -538,9 +539,12 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                 { addLog(it) }, { statusText = it }, { errorDialogMsg = it },
                 { isWorking = false },
                 { events ->
+                    android.util.Log.d("DueNest", "doSync callback: events.size=${events.size}, existingIds=${fetchedEvents.map { it.id }.toSet()}, deletedEventIds=$deletedEventIds")
                     val existingIds = fetchedEvents.map { it.id }.toSet()
                     val newEvents = events.filter { it.id !in existingIds }
+                    android.util.Log.d("DueNest", "doSync merge: newEvents.size=${newEvents.size}, newIds=${newEvents.map { it.id }}")
                     fetchedEvents = (fetchedEvents + newEvents).filter { it.id !in deletedEventIds }
+                    android.util.Log.d("DueNest", "doSync merge: fetchedEvents.size=${fetchedEvents.size}, ids=${fetchedEvents.map { it.id }}")
                     expandedTaskId = null
                     persistMergedEvents()
                     val icsFile = File(context.cacheDir, "ics/calendar.ics")
@@ -1925,7 +1929,11 @@ private suspend fun doFetch(
 
         onLog(Strings.get("fetching_events", lang))
         val apiEvents = withContext(Dispatchers.IO) { MoodleApi(config.moodleUrl, token, params.scrapeEnabled, username, password).fetchEvents(config.fetchDaysBack, config.fetchLimit) }
+        android.util.Log.d("DueNest", "doFetch: apiEvents.size=${apiEvents.size}, ids=${apiEvents.map { it.id }}")
         onLog("${Strings.get("found_events", lang)} ${apiEvents.size}")
+        for (ev in apiEvents) {
+            onLog("  - ${ev.name} [${ev.course}] id=${ev.id} timestart=${ev.timestart}")
+        }
         val events = (apiEvents + manualEvents).sortedBy { it.timestart }
 
         if (icsEnabled) {

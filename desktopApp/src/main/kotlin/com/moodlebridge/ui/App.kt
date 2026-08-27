@@ -482,6 +482,10 @@ fun DesktopApp(config: DesktopConfigStore) {
                 val events = withContext(Dispatchers.IO) {
                     api.fetchEvents(daysBackText.toIntOrNull() ?: 7, limitText.toIntOrNull() ?: 100)
                 }
+                addLog("Fetched ${events.size} events")
+                for (ev in events) {
+                    addLog("  - ${ev.name} [${ev.course}] id=${ev.id} timestart=${ev.timestart}")
+                }
                 val existingIds = fetchedEvents.map { it.id }.toSet()
                 val newEvents = events.filter { it.id !in existingIds }
                 fetchedEvents = (fetchedEvents + newEvents).filter { it.id !in deletedEventIds }

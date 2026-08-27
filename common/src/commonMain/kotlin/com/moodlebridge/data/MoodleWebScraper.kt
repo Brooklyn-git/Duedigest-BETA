@@ -20,11 +20,11 @@ object MoodleWebScraper {
             .readTimeout(30, TimeUnit.SECONDS)
             .followRedirects(true)
             .cookieJar(object : CookieJar {
-                private val store = mutableMapOf<String, MutableList<Cookie>>()
+                private val store = java.util.concurrent.ConcurrentHashMap<String, MutableList<Cookie>>()
 
                 override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
                     val key = url.host
-                    store.getOrPut(key) { mutableListOf() }.let { existing ->
+                    store.getOrPut(key) { java.util.concurrent.CopyOnWriteArrayList() }.let { existing ->
                         for (cookie in cookies) {
                             existing.removeAll { it.name == cookie.name && it.path == cookie.path }
                             existing.add(cookie)
@@ -33,19 +33,25 @@ object MoodleWebScraper {
                 }
 
                 override fun loadForRequest(url: HttpUrl): List<Cookie> =
-                    store[url.host].orEmpty()
+                    store[url.host].orEmpty().toList()
             })
             .build()
     }
 
     fun scrape(moodleUrl: String, username: String, password: String): List<Event> {
         val base = moodleUrl.trimEnd('/')
+        println("DueNest Scraper: Starting scrape for $base")
         login(base, username, password)
+        println("DueNest Scraper: Login OK, collecting courses...")
         val courses = collectCourses(base)
+        println("DueNest Scraper: Found ${courses.size} courses: ${courses.map { it.name }}")
         val events = mutableListOf<Event>()
         for (course in courses) {
-            events.addAll(scrapeAssignments(base, course))
+            val courseEvents = scrapeAssignments(base, course)
+            println("DueNest Scraper: Course '${course.name}' (id=${course.id}) -> ${courseEvents.size} assignments")
+            events.addAll(courseEvents)
         }
+        println("DueNest Scraper: Total events = ${events.size}")
         return events.sortedBy { it.timestart }
     }
 
@@ -76,20 +82,26 @@ object MoodleWebScraper {
         val url = "$base/my/"
         val request = Request.Builder().url(url).get().build()
         val response = client.newCall(request).execute()
-        if (response.request.url.toString().contains("/login")) {
+        val finalUrl = response.request.url.toString()
+        println("DueNest Scraper: Dashboard URL after redirects: $finalUrl")
+        if (finalUrl.contains("/login")) {
             throw IOException("Session expired — could not load dashboard")
         }
         val html = response.body?.string() ?: throw IOException("Empty dashboard response")
+        println("DueNest Scraper: Dashboard HTML length = ${html.length}")
         val doc = Jsoup.parse(html)
+        val allLinks = doc.select("a[href*=\"/course/view.php?id=\"]")
+        println("DueNest Scraper: Found ${allLinks.size} course links in HTML")
         val courses = mutableListOf<CourseInfo>()
         val seen = mutableSetOf<String>()
-        for (link in doc.select("a[href*=\"/course/view.php?id=\"]")) {
+        for (link in allLinks) {
             val href = link.attr("abs:href").ifEmpty { link.attr("href") }
             val idMatch = Regex("id=(\\d+)").find(href) ?: continue
             val id = idMatch.groupValues[1]
             if (id in seen) continue
             seen.add(id)
             val name = link.text().trim().replace(Regex("\\s+"), " ")
+            println("DueNest Scraper:   Course link: id=$id, name='$name', href=$href")
             if (name.isNotBlank()) {
                 courses.add(CourseInfo(id, name))
             }
@@ -105,6 +117,7 @@ object MoodleWebScraper {
         val doc = Jsoup.parse(html)
         val rows = doc.select("table.generaltable tbody tr")
         val now = System.currentTimeMillis() / 1000
+        println("DueNest Scraper:   ${rows.size} rows in assignment table for '${course.name}'")
         val result = mutableListOf<Event>()
         for (row in rows) {
             val link = row.select("a[href*=\"/mod/assign/view.php?id=\"]").firstOrNull() ?: continue
@@ -114,9 +127,16 @@ object MoodleWebScraper {
             val assignId = Regex("id=(\\d+)").find(href)?.groupValues?.get(1) ?: continue
             val cells = row.select("td, th").map { it.text().trim() }
             val (dueDateStr, submissionStatus) = extractDateAndStatus(cells)
-            if (isSubmitted(submissionStatus)) continue
+            if (isSubmitted(submissionStatus)) {
+                println("DueNest Scraper:     SKIP '$title' (submitted: '$submissionStatus')")
+                continue
+            }
             val duedate = parseDate(dueDateStr)
-            if (duedate != null && duedate <= now) continue
+            if (duedate != null && duedate <= now) {
+                println("DueNest Scraper:     SKIP '$title' (past due: $dueDateStr -> $duedate, now=$now)")
+                continue
+            }
+            println("DueNest Scraper:     INCLUDE '$title' (assignId=$assignId, duedate=$duedate, dueStr='$dueDateStr')")
             val description = scrapeDescription(base, href)
             result.add(
                 Event(
