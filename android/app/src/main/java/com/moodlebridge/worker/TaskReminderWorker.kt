@@ -104,7 +104,8 @@ class TaskReminderWorker(
         }
 
         private fun relativeDateLabel(timestart: Long, nowSeconds: Long, lang: String, format24h: Boolean): String {
-            val isOverdue = timestart <= nowSeconds
+            val hasNoDueDate = timestart == Long.MAX_VALUE
+            val isOverdue = !hasNoDueDate && timestart <= nowSeconds
             val diffDays = {
                 val c = Calendar.getInstance().apply { timeInMillis = timestart * 1000 }
                 val n = Calendar.getInstance().apply { timeInMillis = nowSeconds * 1000 }
@@ -112,7 +113,9 @@ class TaskReminderWorker(
                 n.set(Calendar.HOUR_OF_DAY, 0); n.set(Calendar.MINUTE, 0); n.set(Calendar.SECOND, 0); n.set(Calendar.MILLISECOND, 0)
                 ((c.timeInMillis - n.timeInMillis) / (1000 * 60 * 60 * 24)).toInt()
             }()
-            return when {
+            return if (hasNoDueDate) {
+                Strings.get("no_date", lang)
+            } else when {
                 isOverdue -> Strings.get("tasks_overdue", lang)
                 diffDays == 0 -> "${Strings.get("tasks_today", lang)} ${Strings.formatTimestamp(timestart, format24h)}"
                 diffDays == 1 -> "${Strings.get("tasks_tomorrow", lang)} ${Strings.formatTimestamp(timestart, format24h)}"

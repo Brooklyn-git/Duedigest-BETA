@@ -28,7 +28,8 @@ import java.util.Locale
 fun WidgetTaskRow(event: Event, lang: String = "en", format24h: Boolean = true) {
     val cal = Calendar.getInstance().apply { timeInMillis = event.timestart * 1000 }
     val nowSeconds = System.currentTimeMillis() / 1000
-    val isOverdue = event.timestart <= nowSeconds
+    val hasNoDueDate = event.timestart == Long.MAX_VALUE
+    val isOverdue = !hasNoDueDate && event.timestart <= nowSeconds
     val diffDays = {
         val c = Calendar.getInstance().apply { timeInMillis = cal.timeInMillis }
         val n = Calendar.getInstance()
@@ -36,7 +37,9 @@ fun WidgetTaskRow(event: Event, lang: String = "en", format24h: Boolean = true) 
         n.set(Calendar.HOUR_OF_DAY, 0); n.set(Calendar.MINUTE, 0); n.set(Calendar.SECOND, 0); n.set(Calendar.MILLISECOND, 0)
         ((c.timeInMillis - n.timeInMillis) / (1000 * 60 * 60 * 24)).toInt()
     }()
-    val dateLabel = when {
+    val dateLabel = if (hasNoDueDate) {
+        Strings.get("no_date", lang)
+    } else when {
         isOverdue -> Strings.get("tasks_overdue", lang)
         diffDays == 0 -> "${Strings.get("tasks_today", lang)} ${Strings.formatTimestamp(event.timestart, format24h)}"
         diffDays == 1 -> "${Strings.get("tasks_tomorrow", lang)} ${Strings.formatTimestamp(event.timestart, format24h)}"
@@ -48,11 +51,13 @@ fun WidgetTaskRow(event: Event, lang: String = "en", format24h: Boolean = true) 
         }
     }
     val dotColor = when {
+        hasNoDueDate -> NoDateAmber
         isOverdue -> RedOverdue
         diffDays <= 2 -> AmberSoon
         else -> GreenFuture
     }
     val dateColor = when {
+        hasNoDueDate -> NoDateAmber
         isOverdue -> RedOverdue
         diffDays <= 2 -> AmberSoon
         else -> GreenFuture
