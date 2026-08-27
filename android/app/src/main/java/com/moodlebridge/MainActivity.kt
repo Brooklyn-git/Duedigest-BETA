@@ -284,7 +284,12 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     var taskRemindScheduleType by remember { mutableStateOf(config.taskReminderScheduleType) }
     var taskRemindCustomDaysList by remember { mutableStateOf(parseDayList(config.taskReminderCustomDays)) }
     var taskRemindCustomHoursList by remember { mutableStateOf(parseHourList(config.taskReminderCustomHours)) }
-    var fetchedEvents by remember { mutableStateOf(listOf<Event>()) }
+    var fetchedEvents by remember { mutableStateOf(
+        try {
+            val all = Json.decodeFromString<List<Event>>(config.taskEventCache)
+            all.filter { !it.isManual }
+        } catch (_: Exception) { emptyList() }
+    ) }
     var manualEvents by remember { mutableStateOf(
         try { Json.decodeFromString<List<Event>>(config.manualEventCache) } catch (_: Exception) { emptyList() }
     ) }
@@ -1997,6 +2002,9 @@ private fun TasksTabContent(
                 Spacer(Modifier.height(4.dp))
                 Text(Strings.get("intro_step3", lang), style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.height(20.dp))
+                Text(Strings.get("intro_scraping", lang), style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(20.dp))
                 Text(Strings.get("intro_outputs", lang), style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.height(8.dp))
@@ -2117,8 +2125,9 @@ private fun TaskCard(
     use24h: Boolean = true,
 ) {
     val nowSeconds = System.currentTimeMillis() / 1000
+    val hasNoDueDate = event.timestart == Long.MAX_VALUE
     val cal = java.util.Calendar.getInstance().apply { timeInMillis = event.timestart * 1000 }
-    val isOverdue = event.timestart <= nowSeconds
+    val isOverdue = !hasNoDueDate && event.timestart <= nowSeconds
     val diffDays = {
         val c = java.util.Calendar.getInstance().apply { timeInMillis = cal.timeInMillis }
         val n = java.util.Calendar.getInstance()
@@ -2129,6 +2138,8 @@ private fun TaskCard(
     val timeStr = com.moodlebridge.data.Strings.formatTimestamp(event.timestart, use24h)
     val relativeDate = if (isDone) {
         Strings.get("delivered", lang)
+    } else if (hasNoDueDate) {
+        Strings.get("no_date", lang)
     } else when {
         isOverdue -> Strings.get("tasks_overdue", lang)
         diffDays == 0 -> "${Strings.get("tasks_today", lang)} $timeStr"
@@ -2143,6 +2154,7 @@ private fun TaskCard(
 
     val overdueColor = MaterialTheme.colorScheme.error
     val dateColor = if (isDone) MaterialTheme.colorScheme.onSurfaceVariant else when {
+        hasNoDueDate -> Color(0xFFF59E0B)
         isOverdue -> overdueColor
         diffDays <= 2 -> MaterialTheme.colorScheme.tertiary
         else -> Color(0xFF22C55E)
@@ -2153,6 +2165,7 @@ private fun TaskCard(
         dateIcon = Icons.Default.CheckCircle
         dateTint = MaterialTheme.colorScheme.onSurfaceVariant
     } else when {
+        hasNoDueDate -> { dateIcon = Icons.Default.DateRange; dateTint = Color(0xFFF59E0B) }
         isOverdue -> { dateIcon = Icons.Default.Warning; dateTint = overdueColor }
         diffDays <= 2 -> { dateIcon = Icons.Default.DateRange; dateTint = MaterialTheme.colorScheme.tertiary }
         else -> { dateIcon = Icons.Default.DateRange; dateTint = Color(0xFF22C55E) }
@@ -2180,6 +2193,7 @@ private fun TaskCard(
             Spacer(Modifier.width(4.dp))
             Box(
                 modifier = Modifier
+                    .widthIn(max = 90.dp)
                     .clip(RoundedCornerShape(4.dp))
                     .background(MaterialTheme.colorScheme.secondaryContainer)
                     .padding(horizontal = 6.dp, vertical = 2.dp),
