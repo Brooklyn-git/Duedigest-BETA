@@ -313,8 +313,6 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     var dialogCourse by remember { mutableStateOf("") }
     var dialogDate by remember { mutableStateOf("") }
     var dialogTime by remember { mutableStateOf("") }
-    var dialogDuration by remember { mutableStateOf("60") }
-    var dialogUrl by remember { mutableStateOf("") }
     var showDeleteConfirm by remember { mutableStateOf<String?>(null) }
     var showClearCompletedConfirm by remember { mutableStateOf(false) }
     var showClearCredsConfirm by remember { mutableStateOf(false) }
@@ -475,8 +473,6 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
             val h = String.format("%02d", cal.get(java.util.Calendar.HOUR_OF_DAY))
             val min = String.format("%02d", cal.get(java.util.Calendar.MINUTE))
             dialogTime = "$h:$min"
-            dialogDuration = (task.timeduration / 60).toString()
-            dialogUrl = task.url
         } else {
             dialogName = ""; dialogDescription = ""; dialogCourse = ""
             val now = java.util.Calendar.getInstance()
@@ -487,7 +483,6 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
             val h = String.format("%02d", now.get(java.util.Calendar.HOUR_OF_DAY))
             val curMin = String.format("%02d", now.get(java.util.Calendar.MINUTE))
             dialogTime = "$h:$curMin"
-            dialogDuration = "60"; dialogUrl = ""
         }
         showTaskDialog = true
     }
@@ -505,16 +500,15 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
             set(java.util.Calendar.MILLISECOND, 0)
         }
         val timestart = cal.timeInMillis / 1000
-        val durationSec = (dialogDuration.toLongOrNull() ?: 60) * 60
         val id = editingTask?.id ?: "manual_${UUID.randomUUID()}"
         addOrUpdateManualEvent(Event(
             id = id,
             name = dialogName.ifBlank { "Untitled" },
             description = dialogDescription,
             timestart = timestart,
-            timeduration = durationSec,
+            timeduration = 3600,
             eventtype = "manual",
-            url = dialogUrl,
+            url = "",
             course = dialogCourse.ifBlank { "General" },
             modname = "manual",
             source = "manual",
@@ -1017,12 +1011,6 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                             })
                         }
                     }
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(value = dialogDuration, onValueChange = { dialogDuration = it.filter { c -> c.isDigit() } },
-                        label = { Text(Strings.get("task_duration", lang)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(value = dialogUrl, onValueChange = { dialogUrl = it },
-                        label = { Text(Strings.get("task_url", lang)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 }
             },
             confirmButton = {
@@ -2290,6 +2278,18 @@ private fun TaskCard(
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
                         ) {
                             Text(Strings.get("open_in_browser", lang), style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    if (event.description.isNotBlank()) {
+                        OutlinedButton(
+                            onClick = {
+                                val cm = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                cm.setPrimaryClip(android.content.ClipData.newPlainText(event.name, event.description))
+                            },
+                            modifier = Modifier.height(32.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                        ) {
+                            Text(Strings.get("copy_description", lang), style = MaterialTheme.typography.bodySmall)
                         }
                     }
                     TextButton(onClick = onExpand,

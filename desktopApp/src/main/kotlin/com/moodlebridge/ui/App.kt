@@ -212,8 +212,6 @@ fun DesktopApp(config: DesktopConfigStore) {
     var dialogCourse by remember { mutableStateOf("") }
     var dialogDate by remember { mutableStateOf("") }
     var dialogTime by remember { mutableStateOf("") }
-    var dialogDuration by remember { mutableStateOf("60") }
-    var dialogUrl by remember { mutableStateOf("") }
     var showDeleteConfirm by remember { mutableStateOf<String?>(null) }
     var showClearCompletedConfirm by remember { mutableStateOf(false) }
     var showClearCredsConfirm by remember { mutableStateOf(false) }
@@ -407,8 +405,6 @@ fun DesktopApp(config: DesktopConfigStore) {
             val h = String.format("%02d", cal.get(java.util.Calendar.HOUR_OF_DAY))
             val min = String.format("%02d", cal.get(java.util.Calendar.MINUTE))
             dialogTime = "$h:$min"
-            dialogDuration = (task.timeduration / 60).toString()
-            dialogUrl = task.url
         } else {
             dialogName = ""
             dialogDescription = ""
@@ -421,8 +417,6 @@ fun DesktopApp(config: DesktopConfigStore) {
             val h = String.format("%02d", now.get(java.util.Calendar.HOUR_OF_DAY))
             val curMin = String.format("%02d", now.get(java.util.Calendar.MINUTE))
             dialogTime = "$h:$curMin"
-            dialogDuration = "60"
-            dialogUrl = ""
         }
         showTaskDialog = true
     }
@@ -440,7 +434,6 @@ fun DesktopApp(config: DesktopConfigStore) {
             set(java.util.Calendar.MILLISECOND, 0)
         }
         val timestart = cal.timeInMillis / 1000
-        val durationSec = (dialogDuration.toLongOrNull() ?: 60) * 60
         val id = editingTask?.id ?: "manual_${UUID.randomUUID()}"
         addOrUpdateManualEvent(
             Event(
@@ -448,9 +441,9 @@ fun DesktopApp(config: DesktopConfigStore) {
                 name = dialogName.ifBlank { "Untitled" },
                 description = dialogDescription,
                 timestart = timestart,
-                timeduration = durationSec,
+                timeduration = 3600,
                 eventtype = "manual",
-                url = dialogUrl,
+                url = "",
                 course = dialogCourse.ifBlank { "General" },
                 modname = "manual",
                 source = "manual",
@@ -689,12 +682,6 @@ fun DesktopApp(config: DesktopConfigStore) {
                         DatePickerRow(dateStr = dialogDate, onDateChange = { dialogDate = it }, lang = lang)
                         Spacer(Modifier.height(8.dp))
                         TimePickerRow(timeStr = dialogTime, onTimeChange = { dialogTime = it }, use24h = use24h)
-                        Spacer(Modifier.height(8.dp))
-                        OutlinedTextField(value = dialogDuration, onValueChange = { dialogDuration = it.filter { c -> c.isDigit() } },
-                            label = { Text(Strings.get("task_duration", lang)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                        Spacer(Modifier.height(8.dp))
-                        OutlinedTextField(value = dialogUrl, onValueChange = { dialogUrl = it },
-                            label = { Text(Strings.get("task_url", lang)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                     }
                 },
                 confirmButton = { TextButton(onClick = { saveTaskDialog() }) { Text(Strings.get("save", lang)) } },
@@ -1298,6 +1285,16 @@ private fun TaskItem(
                                 try { Desktop.getDesktop().browse(URI(event.url)) } catch (_: Exception) {}
                             }) {
                                 Text(Strings.get("open_in_browser", "en"), style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                        if (event.description.isNotBlank()) {
+                            TextButton(onClick = {
+                                try {
+                                    val selection = java.awt.datatransfer.StringSelection(event.description)
+                                    java.awt.Toolkit.getDefaultToolkit().systemClipboard.setContents(selection, null)
+                                } catch (_: Exception) {}
+                            }) {
+                                Text(Strings.get("copy_description", "en"), style = MaterialTheme.typography.bodySmall)
                             }
                         }
                         TextButton(onClick = onExpand) {
