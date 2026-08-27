@@ -538,7 +538,10 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                 { addLog(it) }, { statusText = it }, { errorDialogMsg = it },
                 { isWorking = false },
                 { events ->
-                    fetchedEvents = events; expandedTaskId = null
+                    val existingIds = fetchedEvents.map { it.id }.toSet()
+                    val newEvents = events.filter { it.id !in existingIds }
+                    fetchedEvents = (fetchedEvents + newEvents).filter { it.id !in deletedEventIds }
+                    expandedTaskId = null
                     persistMergedEvents()
                     val icsFile = File(context.cacheDir, "ics/calendar.ics")
                     val openIntent: Intent
