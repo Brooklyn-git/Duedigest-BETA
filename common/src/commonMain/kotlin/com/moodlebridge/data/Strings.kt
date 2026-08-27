@@ -86,6 +86,7 @@ object Strings {
         "intro_step1" to "1. Go to the Connection tab and enter your Moodle URL, username, and password",
         "intro_step2" to "2. Tap Fetch & sync to download your upcoming assignments and events",
         "intro_step3" to "3. Switch to the Tasks tab to view and check off your tasks",
+        "intro_scraping" to "If your school\u2019s Moodle shows 0 tasks after syncing, it may have restricted web services. Enable \u201cFetch via web scraping\u201d in Settings \u2192 Advanced to fetch assignments directly from the web interface instead.",
         "intro_outputs" to "Output formats",
         "intro_ics" to "\u2013 ICS \u2014 Import into any calendar app.",
         "intro_logseq" to "\u2013 Logseq \u2014 Markdown pages with DEADLINE: timestamps",
@@ -143,6 +144,7 @@ object Strings {
         "import_error" to "Could not import data",
         "scrape_label" to "Scrape web interface",
         "scrape_description" to "Some Moodle servers block external API access. Enable this to fetch activities by reading the web pages directly. Slower but more compatible.",
+        "no_date" to "No due date",
     )
 
     private val es = mapOf(
@@ -229,6 +231,7 @@ object Strings {
         "intro_step1" to "1. Ve a la pesta\u00f1a Conexi\u00f3n e ingresa tu URL, usuario y contrase\u00f1a de Moodle",
         "intro_step2" to "2. Toca Obtener y sincronizar para descargar tus tareas y eventos",
         "intro_step3" to "3. Cambia a la pesta\u00f1a Tareas para ver y marcar tus tareas",
+        "intro_scraping" to "Si tu Moodle muestra 0 tareas despu\u00e9s de sincronizar, es posible que tenga los servicios web restringidos. Activa \u201cObtener v\u00eda web scraping\u201d en Ajustes \u2192 Avanzado para obtener las tareas directamente desde la interfaz web.",
         "intro_outputs" to "Formatos de salida",
         "intro_ics" to "\u2013 ICS \u2014 Importa en cualquier app de calendario (Fossify Calendar, Google Calendar, etc.)",
         "intro_logseq" to "\u2013 Logseq \u2014 P\u00e1ginas Markdown con marcas DEADLINE:",
@@ -286,6 +289,7 @@ object Strings {
         "import_error" to "No se pudieron importar los datos",
         "scrape_label" to "Leer interfaz web",
         "scrape_description" to "Algunos servidores Moodle bloquean el acceso a la API externa. Activa esto para obtener actividades leyendo las p\u00e1ginas web directamente. M\u00e1s lento pero m\u00e1s compatible.",
+        "no_date" to "Sin fecha l\u00edmite",
     )
 
     fun get(key: String, lang: String = "en"): String {
