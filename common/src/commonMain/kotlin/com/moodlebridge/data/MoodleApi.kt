@@ -23,8 +23,16 @@ class MoodleApi(
     private val json = Json { ignoreUnknownKeys = true }
 
     fun fetchEvents(daysBack: Int = 7, limit: Int = 100): List<Event> {
-        val calendarEvents = fetchCalendarEvents(daysBack, limit).toMutableList()
-        val assignmentEvents = fetchAssignments()
+        val calendarEvents = try {
+            fetchCalendarEvents(daysBack, limit).toMutableList()
+        } catch (_: Exception) {
+            mutableListOf()
+        }
+        val assignmentEvents = try {
+            fetchAssignments()
+        } catch (_: Exception) {
+            emptyList()
+        }
 
         val eventIds = calendarEvents.map { it.id }.toSet()
         for (a in assignmentEvents) {
