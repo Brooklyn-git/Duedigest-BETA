@@ -106,22 +106,21 @@ object MoodleWebScraper {
         val rows = doc.select("table.generaltable tbody tr")
         val now = System.currentTimeMillis() / 1000
         val result = mutableListOf<Event>()
-        var index = 0
         for (row in rows) {
             val link = row.select("a[href*=\"/mod/assign/view.php?id=\"]").firstOrNull() ?: continue
             val href = link.attr("abs:href").ifEmpty { link.attr("href") }
             val title = link.text().trim()
             if (title.isBlank()) continue
+            val assignId = Regex("id=(\\d+)").find(href)?.groupValues?.get(1) ?: continue
             val cells = row.select("td, th").map { it.text().trim() }
             val (dueDateStr, submissionStatus) = extractDateAndStatus(cells)
             if (isSubmitted(submissionStatus)) continue
             val duedate = parseDate(dueDateStr)
             if (duedate != null && duedate <= now) continue
             val description = scrapeDescription(base, href)
-            index++
             result.add(
                 Event(
-                    id = "scrape_${course.id}_$index",
+                    id = "assign_$assignId",
                     name = title,
                     description = description,
                     timestart = duedate ?: Long.MAX_VALUE,
