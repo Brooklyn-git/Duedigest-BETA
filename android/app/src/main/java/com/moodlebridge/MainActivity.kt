@@ -130,6 +130,7 @@ import com.moodlebridge.data.PathResolver
 import com.moodlebridge.data.Strings
 import com.moodlebridge.data.MergeResult
 import com.moodlebridge.data.SyncManager
+import com.moodlebridge.data.mergeFetchedEvents
 import com.moodlebridge.worker.NotificationWorker
 import com.moodlebridge.worker.TaskReminderWorker
 import com.moodlebridge.worker.SyncWorker
@@ -533,11 +534,8 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                 { addLog(it) }, { statusText = it }, { errorDialogMsg = it },
                 { isWorking = false },
                 { events ->
-                    android.util.Log.d("DueNest", "doSync callback: events.size=${events.size}, existingIds=${fetchedEvents.map { it.id }.toSet()}, deletedEventIds=$deletedEventIds")
-                    val existingIds = fetchedEvents.map { it.id }.toSet()
-                    val newEvents = events.filter { it.id !in existingIds }
-                    android.util.Log.d("DueNest", "doSync merge: newEvents.size=${newEvents.size}, newIds=${newEvents.map { it.id }}")
-                    fetchedEvents = (fetchedEvents + newEvents).filter { it.id !in deletedEventIds }
+                    android.util.Log.d("DueNest", "doSync callback: events.size=${events.size}, deletedEventIds=$deletedEventIds")
+                    fetchedEvents = mergeFetchedEvents(fetchedEvents, events).filter { it.id !in deletedEventIds }
                     android.util.Log.d("DueNest", "doSync merge: fetchedEvents.size=${fetchedEvents.size}, ids=${fetchedEvents.map { it.id }}")
                     expandedTaskId = null
                     persistMergedEvents()

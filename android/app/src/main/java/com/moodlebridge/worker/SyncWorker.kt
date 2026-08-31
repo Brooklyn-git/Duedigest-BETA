@@ -9,13 +9,17 @@ import androidx.core.content.FileProvider
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.moodlebridge.data.ConfigStore
+import com.moodlebridge.data.Event
 import com.moodlebridge.data.IcsGenerator
 import com.moodlebridge.data.MarkdownGenerator
 import com.moodlebridge.data.MoodleApi
 import com.moodlebridge.data.PathResolver
+import com.moodlebridge.data.mergeFetchedEvents
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 class SyncWorker(
     context: Context,
@@ -52,6 +56,14 @@ class SyncWorker(
 
         return try {
             val events = api.fetchEvents(config.fetchDaysBack, config.fetchLimit)
+
+            val cached = try {
+                Json.decodeFromString<List<Event>>(config.taskEventCache)
+            } catch (_: Exception) {
+                emptyList()
+            }
+            val mergedEvents = mergeFetchedEvents(cached, events)
+            config.taskEventCache = Json.encodeToString(mergedEvents)
 
             if (config.icsEnabled) {
                 val icsContent = IcsGenerator.generate(events)

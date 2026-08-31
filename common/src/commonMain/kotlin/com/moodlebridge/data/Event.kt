@@ -56,4 +56,32 @@ data class Event(
     val source: String = "moodle",
 ) {
     val isManual: Boolean get() = source == "manual"
+
+    val mergeKey: String
+        get() {
+            val idParam = Regex("id=(\\d+)").find(url)?.groupValues?.get(1)
+            if (idParam != null) return "activity:$idParam"
+            val assignId = Regex("^assign_(\\d+)$").find(id)?.groupValues?.get(1)
+            if (assignId != null) return "activity:$assignId"
+            val normalized = url
+                .trim()
+                .substringBefore('#')
+                .trimEnd('/')
+                .lowercase()
+            return if (normalized.isNotBlank()) normalized else "id:$id"
+        }
+}
+
+fun mergeFetchedEvents(cached: List<Event>, fresh: List<Event>): List<Event> {
+    val merged = linkedMapOf<String, Event>()
+    val noDate = Long.MAX_VALUE
+    for (e in cached) merged[e.mergeKey] = e
+    for (e in fresh) {
+        val existing = merged[e.mergeKey]
+        val better = existing == null ||
+            (e.timestart != noDate && existing.timestart == noDate) ||
+            (e.url.isNotBlank() && existing.url.isBlank())
+        if (better) merged[e.mergeKey] = e
+    }
+    return merged.values.sortedBy { it.timestart }
 }

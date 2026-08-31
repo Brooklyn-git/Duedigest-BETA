@@ -38,7 +38,7 @@ class MoodleApi(
         }
         println("DueNest API: fetchAssignments returned ${assignmentEvents.size} events")
 
-        val wsEvents = (calendarEvents + assignmentEvents).distinctBy { it.id }
+        val wsEvents = (calendarEvents + assignmentEvents).distinctBy { it.mergeKey }
         println("DueNest API: Combined WS events = ${wsEvents.size}, scrapeEnabled=$scrapeEnabled")
 
         if (scrapeEnabled && username.isNotBlank() && password.isNotBlank()) {
@@ -46,9 +46,7 @@ class MoodleApi(
             return try {
                 val scraped = MoodleWebScraper.scrape(moodleUrl, username, password)
                 println("DueNest API: Scraper returned ${scraped.size} events")
-                val scrapedIds = scraped.map { it.id }.toSet()
-                val extraWs = wsEvents.filter { it.id !in scrapedIds }
-                (scraped + extraWs).sortedBy { it.timestart }
+                wsEvents.mergeByDedup(scraped)
             } catch (e: Exception) {
                 println("DueNest API: Scraper FAILED: ${e.message}, falling back to WS events")
                 wsEvents.sortedBy { it.timestart }
@@ -90,16 +88,17 @@ class MoodleApi(
             val shortname = course.shortname ?: ""
             for (assign in course.assignments.orEmpty()) {
                 val duedate = assign.duedate ?: 0L
-                if (duedate <= now) continue
+                if (duedate != 0L && duedate <= now) continue
                 result.add(
                     Event(
                         id = "assign_${assign.cmid}",
                         name = assign.name ?: "Untitled",
                         description = stripHtml(assign.intro ?: ""),
-                        timestart = duedate,
+                        timestart = if (duedate > 0L) duedate else Long.MAX_VALUE,
                         timeduration = 0,
                         eventtype = "assign",
-                        url = assign.url ?: "",
+                        url = assign.url?.takeIf { it.isNotBlank() }
+                            ?: "${moodleUrl.trimEnd('/')}/mod/assign/view.php?id=${assign.cmid}",
                         course = shortname,
                         modname = "assign",
                     )
@@ -166,3 +165,17 @@ private fun MoodleEvent.toEvent() = Event(
     course = course?.shortname ?: "",
     modname = modulename ?: "",
 )
+
+private const val NO_DUE_DATE = Long.MAX_VALUE
+
+private fun List<Event>.mergeByDedup(preferred: List<Event>): List<Event> {
+    val merged = linkedMapOf<String, Event>()
+    for (event in preferred) merged[event.mergeKey] = event
+    for (event in this) {
+        val existing = merged[event.mergeKey]
+        val takesNew = existing == null ||
+            (event.timestart != NO_DUE_DATE && existing.timestart == NO_DUE_DATE)
+        if (takesNew) merged[event.mergeKey] = event
+    }
+    return merged.values.sortedBy { it.timestart }
+}

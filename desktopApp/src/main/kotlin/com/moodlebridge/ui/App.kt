@@ -94,6 +94,7 @@ import com.moodlebridge.data.Strings
 import com.moodlebridge.data.SyncManager
 import com.moodlebridge.data.MergeResult
 import com.moodlebridge.data.SyncPayload
+import com.moodlebridge.data.mergeFetchedEvents
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -479,9 +480,7 @@ fun DesktopApp(config: DesktopConfigStore) {
                 for (ev in events) {
                     addLog("  - ${ev.name} [${ev.course}] id=${ev.id} timestart=${ev.timestart}")
                 }
-                val existingIds = fetchedEvents.map { it.id }.toSet()
-                val newEvents = events.filter { it.id !in existingIds }
-                fetchedEvents = (fetchedEvents + newEvents).filter { it.id !in deletedEventIds }
+                fetchedEvents = mergeFetchedEvents(fetchedEvents, events).filter { it.id !in deletedEventIds }
                 expandedTaskId = null
                 persistMergedEvents()
 

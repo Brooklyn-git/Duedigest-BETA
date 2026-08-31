@@ -218,6 +218,10 @@ object MoodleWebScraper {
         if (text.isBlank()) return null
         val lower = text.lowercase().trim()
         if ("sin fecha" in lower || "no due date" in lower) return null
+
+        val cleaned = normalizeDateText(text)
+        val lowerClean = cleaned.lowercase().trim()
+
         val locales = listOf(
             Locale("es", "MX"), Locale("es"), Locale("en", "US"), Locale.US
         )
@@ -225,6 +229,9 @@ object MoodleWebScraper {
             "d 'de' MMMM 'de' yyyy, h:mm a",
             "d 'de' MMMM 'de' yyyy, HH:mm",
             "d 'de' MMMM 'de' yyyy",
+            "d 'de' MMM 'de' yyyy, h:mm a",
+            "d 'de' MMM 'de' yyyy, HH:mm",
+            "d 'de' MMM 'de' yyyy",
             "d MMMM yyyy, h:mm a",
             "d MMMM yyyy, HH:mm",
             "d MMMM yyyy",
@@ -249,14 +256,85 @@ object MoodleWebScraper {
                 try {
                     val sdf = SimpleDateFormat(pattern, locale)
                     sdf.isLenient = false
-                    val date = sdf.parse(text) ?: continue
+                    val date = sdf.parse(cleaned) ?: continue
                     return date.time / 1000
                 } catch (_: Exception) {
                     continue
                 }
             }
         }
-        return null
+
+        // Fallback: regex-based parsing that tolerates weekday prefixes, trailing
+        // text, am/pm variations, and locale variations SimpleDateFormat missed.
+        return parseDateRegex(lowerClean)
+    }
+
+    private fun normalizeDateText(text: String): String {
+        var s = text.trim()
+        val weekdays = listOf(
+            "lunes", "martes", "mi\u00e9rcoles", "miercoles", "jueves", "viernes",
+            "s\u00e1bado", "sabado", "domingo",
+            "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+        )
+        for (day in weekdays) {
+            s = s.replaceFirst(Regex("(?i)^$day[, ]+"), "")
+        }
+        val prefixes = listOf(
+            "due[: ]+", "deadline[: ]+", "vencimiento[: ]+", "entrega[: ]+",
+            "fecha l[i\u00ed]mite[: ]+", "vence[: ]+", "hasta[: ]+",
+        )
+        for (p in prefixes) {
+            s = s.replaceFirst(Regex("(?i)^$p"), "")
+        }
+        return s.trim()
+    }
+
+    private val monthTokens = mapOf(
+        "ene" to 1, "jan" to 1, "feb" to 2, "mar" to 3, "abr" to 4, "apr" to 4,
+        "may" to 5, "jun" to 6, "jul" to 7, "ago" to 8, "aug" to 8, "set" to 9,
+        "sep" to 9, "sept" to 9, "oct" to 10, "nov" to 11, "dic" to 12, "dec" to 12,
+    )
+
+    private fun parseDateRegex(lower: String): Long? {
+        val monthDay = Regex("(\\d{1,2})\\s*(?:st|nd|rd|th)?\\s+(?:de\\s+)?([a-z\u00e1\u00e9\u00ed\u00f1]+)\\s+(?:de\\s+)?(\\d{4})").find(lower)
+        val day = monthDay?.groupValues?.get(1)?.toIntOrNull()
+        val month = monthDay?.groupValues?.get(2)?.let { monthTokens[it.take(3)] }
+        val year = monthDay?.groupValues?.get(3)?.toIntOrNull()
+
+        val numeric = if (month == null || year == null) {
+            Regex("(\\d{1,2})[\\/\\-](\\d{1,2})[\\/\\-](\\d{4}|\\d{2})").find(lower)
+        } else null
+        val numDay = numeric?.groupValues?.get(1)?.toIntOrNull()
+        val numMonth = numeric?.groupValues?.get(2)?.toIntOrNull()
+        val numYear = numeric?.groupValues?.get(3)?.toIntOrNull()
+
+        val finalDay = day ?: numDay ?: return null
+        val finalMonth = month ?: numMonth ?: return null
+        val finalYear = (year ?: numYear ?: return null).let { if (it < 100) it + 2000 else it }
+        if (finalMonth !in 1..12 || finalDay !in 1..31) return null
+
+        val timeMatch = Regex("(\\d{1,2}):(\\d{2})").find(lower)
+        var hour = 0
+        var minute = 0
+        if (timeMatch != null) {
+            hour = timeMatch.groupValues[1].toIntOrNull() ?: 0
+            minute = timeMatch.groupValues[2].toIntOrNull() ?: 0
+            val ampm = Regex("([ap])\\s*\\.?\\s*m\\.?").find(lower)
+            if (ampm != null) {
+                if (ampm.groupValues[1] == "p" && hour < 12) hour += 12
+                if (ampm.groupValues[1] == "a" && hour == 12) hour = 0
+            }
+        }
+
+        return try {
+            val cal = java.util.Calendar.getInstance().apply {
+                clear()
+                set(finalYear, finalMonth - 1, finalDay, hour, minute, 0)
+            }
+            cal.timeInMillis / 1000
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private data class CourseInfo(val id: String, val name: String)
