@@ -710,12 +710,11 @@ fun DesktopApp(config: DesktopConfigStore) {
                 text = { Text(Strings.get("clear_completed_confirm", lang)) },
                 confirmButton = {
                     TextButton(onClick = {
-                        val m: Map<String, Boolean> = taskCompletionMap
-                        val ids: List<String> = m.entries.filter { it.value == true }.map { it.key }
-                        val events: List<Event> = manualEvents
-                        for (id in ids) {
-                            if (events.any { e -> e.id == id }) deleteManualEvent(id)
-                        }
+                        val ids: List<String> = taskCompletionMap.entries.filter { it.value }.map { it.key }
+                        manualEvents = manualEvents.filter { it.id !in ids }
+                        config.manualEventCache = Json.encodeToString(manualEvents)
+                        deletedEventIds = deletedEventIds + ids
+                        config.deletedEventIds = Json.encodeToString(deletedEventIds)
                         taskCompletionMap = emptyMap<String, Boolean>()
                         saveCompletionMap()
                         persistMergedEvents()

@@ -1056,8 +1056,11 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
             text = { Text(Strings.get("clear_completed_confirm", lang)) },
             confirmButton = {
                 TextButton(onClick = {
-                    val completedManual = manualEvents.filter { taskCompletionMap[it.id] == true }
-                    for (ev in completedManual) deleteManualEvent(ev.id)
+                    val completedIds = taskCompletionMap.entries.filter { it.value }.map { it.key }
+                    manualEvents = manualEvents.filter { it.id !in completedIds }
+                    config.manualEventCache = Json.encodeToString(manualEvents)
+                    deletedEventIds = deletedEventIds + completedIds
+                    config.deletedEventIds = Json.encodeToString(deletedEventIds)
                     taskCompletionMap = emptyMap()
                     saveCompletionMap()
                     persistMergedEvents()
