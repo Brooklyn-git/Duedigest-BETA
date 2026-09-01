@@ -1,9 +1,12 @@
 package com.moodlebridge.data
 
+import java.io.File
 import java.util.prefs.Preferences
 
 class DesktopConfigStore {
     private val prefs = Preferences.userNodeForPackage(DesktopConfigStore::class.java)
+
+    private val configDir = File(System.getProperty("user.home"), ".moodlebridge").also { it.mkdirs() }
 
     var moodleUrl: String
         get() = prefs.get(KEY_URL, "")
@@ -82,20 +85,20 @@ class DesktopConfigStore {
         set(value) = prefs.put(KEY_TASKS_PATH, value)
 
     var taskCompletionState: String
-        get() = prefs.get(KEY_TASK_COMPLETION, "{}")
-        set(value) = prefs.put(KEY_TASK_COMPLETION, value)
+        get() = readFile(KEY_TASK_COMPLETION, "{}")
+        set(value) = writeFile(KEY_TASK_COMPLETION, value)
 
     var taskEventCache: String
-        get() = prefs.get(KEY_TASK_EVENT_CACHE, "[]")
-        set(value) = prefs.put(KEY_TASK_EVENT_CACHE, value)
+        get() = readFile(KEY_TASK_EVENT_CACHE, "[]")
+        set(value) = writeFile(KEY_TASK_EVENT_CACHE, value)
 
     var manualEventCache: String
-        get() = prefs.get(KEY_MANUAL_EVENT_CACHE, "[]")
-        set(value) = prefs.put(KEY_MANUAL_EVENT_CACHE, value)
+        get() = readFile(KEY_MANUAL_EVENT_CACHE, "[]")
+        set(value) = writeFile(KEY_MANUAL_EVENT_CACHE, value)
 
     var deletedEventIds: String
-        get() = prefs.get(KEY_DELETED_EVENT_IDS, "[]")
-        set(value) = prefs.put(KEY_DELETED_EVENT_IDS, value)
+        get() = readFile(KEY_DELETED_EVENT_IDS, "[]")
+        set(value) = writeFile(KEY_DELETED_EVENT_IDS, value)
 
     var deviceId: String
         get() {
@@ -126,8 +129,26 @@ class DesktopConfigStore {
     val isConfigured: Boolean
         get() = moodleUrl.isNotBlank() && (token.isNotBlank() || (username.isNotBlank() && password.isNotBlank()))
 
+    private fun readFile(key: String, default: String): String {
+        val file = File(configDir, key)
+        return if (file.exists()) {
+            try { file.readText() } catch (e: Exception) { com.moodlebridge.Log.w("Config", "Failed to read $key", e); default }
+        } else {
+            val legacy = prefs.get(key, default)
+            if (legacy != default) writeFile(key, legacy)
+            legacy
+        }
+    }
+
+    private fun writeFile(key: String, value: String) {
+        try { File(configDir, key).writeText(value) } catch (e: Exception) { com.moodlebridge.Log.w("Config", "Failed to write $key", e) }
+    }
+
     fun clear() {
         try { prefs.clear() } catch (e: Exception) { com.moodlebridge.Log.w("Config", "Failed to clear preferences", e) }
+        listOf(KEY_TASK_COMPLETION, KEY_TASK_EVENT_CACHE, KEY_MANUAL_EVENT_CACHE, KEY_DELETED_EVENT_IDS).forEach {
+            try { File(configDir, it).delete() } catch (e: Exception) { com.moodlebridge.Log.w("Config", "Failed to delete $it", e) }
+        }
     }
 
     private companion object {
