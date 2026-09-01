@@ -205,6 +205,7 @@ fun DesktopApp(config: DesktopConfigStore) {
     var tasksOutputPath by remember { mutableStateOf(config.tasksOutputPath) }
     var syncIntervalLabel by remember { mutableStateOf(syncIntervalLabel(config.syncIntervalSeconds, lang)) }
     var scrapeEnabled by remember { mutableStateOf(config.scrapeEnabled) }
+    var skipFinishedTasks by remember { mutableStateOf(config.skipFinishedTasks) }
 
     var showTaskDialog by remember { mutableStateOf(false) }
     var editingTask by remember { mutableStateOf<Event?>(null) }
@@ -472,7 +473,7 @@ fun DesktopApp(config: DesktopConfigStore) {
                     newToken
                 }
                 addLog(Strings.get("fetching_events", lang))
-                val api = MoodleApi(url, effectiveToken, scrapeEnabled, username, pw)
+                val api = MoodleApi(url, effectiveToken, scrapeEnabled, username, pw, skipFinishedTasks)
                 val events = withContext(Dispatchers.IO) {
                     api.fetchEvents(daysBackText.toIntOrNull() ?: 7, limitText.toIntOrNull() ?: 100)
                 }
@@ -622,6 +623,9 @@ fun DesktopApp(config: DesktopConfigStore) {
                     },
                     scrapeEnabled = scrapeEnabled, onScrapeEnabledChange = {
                         scrapeEnabled = it; config.scrapeEnabled = it
+                    },
+                    skipFinishedTasks = skipFinishedTasks, onSkipFinishedChange = {
+                        skipFinishedTasks = it; config.skipFinishedTasks = it
                     },
                     onClearCredsClick = { showClearCredsConfirm = true },
                     onImportFromFile = ::importFromFile,
@@ -1550,6 +1554,7 @@ private fun DesktopSettingsPage(
     limitText: String, onLimitTextChange: (String) -> Unit,
     syncIntervalLabel: String, onSyncIntervalChange: (String) -> Unit,
     scrapeEnabled: Boolean, onScrapeEnabledChange: (Boolean) -> Unit,
+    skipFinishedTasks: Boolean, onSkipFinishedChange: (Boolean) -> Unit,
     onClearCredsClick: () -> Unit,
     onImportFromFile: () -> Unit,
     onExportToFile: () -> Unit,
@@ -1757,6 +1762,15 @@ private fun DesktopSettingsPage(
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                 }
                 Switch(checked = scrapeEnabled, onCheckedChange = onScrapeEnabledChange)
+            }
+
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(Strings.get("skip_finished_label", lang), style = MaterialTheme.typography.bodyMedium)
+                    Text(Strings.get("skip_finished_description", lang), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                }
+                Switch(checked = skipFinishedTasks, onCheckedChange = onSkipFinishedChange)
             }
 
             HorizontalDivider()

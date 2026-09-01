@@ -40,6 +40,7 @@ data class AssignCourse(
 
 @Serializable
 data class Assignment(
+    val id: Int? = null,
     val name: String? = null,
     val cmid: Int? = null,
     val duedate: Long? = null,
@@ -50,6 +51,22 @@ data class Assignment(
 
 @Serializable
 data class AssignResponse(val courses: List<AssignCourse>? = null)
+
+@Serializable
+data class SubmissionResponse(
+    val lastattempt: LastAttempt? = null,
+)
+
+@Serializable
+data class LastAttempt(
+    val submission: SubmissionData? = null,
+    val graded: Boolean = false,
+)
+
+@Serializable
+data class SubmissionData(
+    val status: String? = null,
+)
 
 @Serializable
 data class Quiz(

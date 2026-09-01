@@ -150,6 +150,8 @@ object Strings {
         "import_error" to "Could not import data",
         "scrape_label" to "Scrape web interface",
         "scrape_description" to "Some Moodle servers block external API access. Enable this to fetch activities by reading the web pages directly. Slower but more compatible.",
+        "skip_finished_label" to "Skip finished tasks",
+        "skip_finished_description" to "Hide assignments you have already submitted or graded. Uses extra API calls per assignment.",
         "no_date" to "No due date",
     )
 
@@ -301,6 +303,8 @@ object Strings {
         "import_error" to "No se pudieron importar los datos",
         "scrape_label" to "Leer interfaz web",
         "scrape_description" to "Algunos servidores Moodle bloquean el acceso a la API externa. Activa esto para obtener actividades leyendo las p\u00e1ginas web directamente. M\u00e1s lento pero m\u00e1s compatible.",
+        "skip_finished_label" to "Ocultar tareas terminadas",
+        "skip_finished_description" to "Oculta las tareas que ya enviaste o que ya fueron calificadas. Usa llamadas API adicionales por tarea.",
         "no_date" to "Sin fecha l\u00edmite",
     )
 

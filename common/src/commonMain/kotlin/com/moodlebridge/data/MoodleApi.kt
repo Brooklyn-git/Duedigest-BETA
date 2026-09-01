@@ -14,6 +14,7 @@ class MoodleApi(
     private val scrapeEnabled: Boolean = false,
     private val username: String = "",
     private val password: String = "",
+    private val skipFinishedTasks: Boolean = true,
 ) {
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
@@ -21,6 +22,10 @@ class MoodleApi(
         .build()
 
     private val json = Json { ignoreUnknownKeys = true }
+
+    private val currentUserId: Int? by lazy {
+        try { fetchCurrentUserId() } catch (e: Exception) { null }
+    }
 
     fun fetchEvents(daysBack: Int = 7, limit: Int = 100): List<Event> {
         val calendarEvents = try {
@@ -121,6 +126,7 @@ class MoodleApi(
                 val duedate = assign.duedate ?: 0L
                 val availableFrom = assign.allosubmissionsfromdate?.takeIf { it > 0L }
                 if (availableFrom == null && duedate != 0L && duedate <= now) continue
+                if (skipFinishedTasks && isAssignmentFinished(assign.id)) continue
                 result.add(
                     Event(
                         id = "assign_${assign.cmid}",
@@ -139,6 +145,24 @@ class MoodleApi(
             }
         }
         return result
+    }
+
+    private fun isAssignmentFinished(assignId: Int?): Boolean {
+        if (assignId == null) return false
+        val userId = currentUserId ?: 0
+        val params = mapOf(
+            "wstoken" to token,
+            "moodlewsrestformat" to "json",
+            "wsfunction" to "mod_assign_get_submission_status",
+            "assignid" to assignId.toString(),
+            "userid" to userId.toString(),
+        )
+        val url = "$moodleUrl/webservice/rest/server.php?${params.toQueryString()}"
+        val response = client.newCall(Request.Builder().url(url).get().build()).execute()
+        val body = response.body?.string() ?: return false
+        val data = json.decodeFromString<SubmissionResponse>(body)
+        val attempt = data.lastattempt ?: return false
+        return attempt.graded || attempt.submission?.status == "submitted"
     }
 
     private fun fetchQuizzes(courseMap: Map<Int, String>): List<Event> {
@@ -352,7 +376,7 @@ private fun MoodleEvent.toEvent() = Event(
     timeduration = timeduration ?: 0L,
     eventtype = eventtype ?: "",
     url = url ?: "",
-    course = course?.displayName,
+    course = course?.displayName ?: "",
     modname = modulename ?: "",
 )
 

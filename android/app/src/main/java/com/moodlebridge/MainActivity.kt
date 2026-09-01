@@ -306,6 +306,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     var tasksOutputPath by remember { mutableStateOf(config.tasksOutputPath) }
     var syncIntervalLbl by remember { mutableStateOf(syncIntervalLabel(config.syncIntervalSeconds, lang)) }
     var scrapeEnabled by remember { mutableStateOf(config.scrapeEnabled) }
+    var skipFinishedTasks by remember { mutableStateOf(config.skipFinishedTasks) }
 
     var showTaskDialog by remember { mutableStateOf(false) }
     var editingTask by remember { mutableStateOf<Event?>(null) }
@@ -762,6 +763,9 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                 },
                 scrapeEnabled = scrapeEnabled, onScrapeEnabledChange = {
                     scrapeEnabled = it; config.scrapeEnabled = it
+                },
+                skipFinishedTasks = skipFinishedTasks, onSkipFinishedChange = {
+                    skipFinishedTasks = it; config.skipFinishedTasks = it
                 },
                 notifEnabled = notifEnabled, onNotifEnabledChange = { enabled ->
                     notifEnabled = enabled; config.notificationsEnabled = enabled
@@ -1514,6 +1518,7 @@ private fun SettingsPage(
     limitText: String, onLimitChange: (String) -> Unit,
     syncIntervalLabel: String, onSyncIntervalChange: (String) -> Unit,
     scrapeEnabled: Boolean, onScrapeEnabledChange: (Boolean) -> Unit,
+    skipFinishedTasks: Boolean, onSkipFinishedChange: (Boolean) -> Unit,
     notifEnabled: Boolean, onNotifEnabledChange: (Boolean) -> Unit,
     notifScheduleType: String, onNotifScheduleTypeChange: (String) -> Unit,
     notifCustomDaysList: List<Int>, onNotifCustomDaysListChange: (List<Int>) -> Unit,
@@ -1849,6 +1854,15 @@ private fun SettingsPage(
                     Switch(checked = scrapeEnabled, onCheckedChange = onScrapeEnabledChange)
                 }
 
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(Strings.get("skip_finished_label", lang), style = MaterialTheme.typography.bodyMedium)
+                        Text(Strings.get("skip_finished_description", lang), style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                    }
+                    Switch(checked = skipFinishedTasks, onCheckedChange = onSkipFinishedChange)
+                }
+
                 Spacer(Modifier.height(8.dp))
 
                 HorizontalDivider()
@@ -1917,7 +1931,7 @@ private suspend fun doFetch(
         }
 
         onLog(Strings.get("fetching_events", lang))
-        val apiEvents = withContext(Dispatchers.IO) { MoodleApi(config.moodleUrl, token, params.scrapeEnabled, username, password).fetchEvents(config.fetchDaysBack, config.fetchLimit) }
+        val apiEvents = withContext(Dispatchers.IO) { MoodleApi(config.moodleUrl, token, params.scrapeEnabled, username, password, config.skipFinishedTasks).fetchEvents(config.fetchDaysBack, config.fetchLimit) }
         android.util.Log.d("DueNest", "doFetch: apiEvents.size=${apiEvents.size}, ids=${apiEvents.map { it.id }}")
         onLog("${Strings.get("found_events", lang)} ${apiEvents.size}")
         for (ev in apiEvents) {

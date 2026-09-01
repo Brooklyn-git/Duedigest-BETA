@@ -126,6 +126,10 @@ class DesktopConfigStore {
         get() = prefs.getBoolean(KEY_SCRAPE_ENABLED, false)
         set(value) = prefs.putBoolean(KEY_SCRAPE_ENABLED, value)
 
+    var skipFinishedTasks: Boolean
+        get() = prefs.getBoolean(KEY_SKIP_FINISHED, true)
+        set(value) = prefs.putBoolean(KEY_SKIP_FINISHED, value)
+
     val isConfigured: Boolean
         get() = moodleUrl.isNotBlank() && (token.isNotBlank() || (username.isNotBlank() && password.isNotBlank()))
 
@@ -180,5 +184,6 @@ class DesktopConfigStore {
         const val KEY_SYNC_INTERVAL = "sync_interval_seconds"
         const val KEY_LAST_NETWORK_SIG = "last_network_signature"
         const val KEY_SCRAPE_ENABLED = "scrape_enabled"
+        const val KEY_SKIP_FINISHED = "skip_finished_tasks"
     }
 }
