@@ -249,10 +249,12 @@ class MoodleApi(
     }
 
     private fun fetchEnrolledCourses(): Map<Int, String> {
+        val userid = fetchCurrentUserId()
         val params = mapOf(
             "wstoken" to token,
             "moodlewsrestformat" to "json",
             "wsfunction" to "core_enrol_get_users_courses",
+            "userid" to userid.toString(),
         )
         val url = "$moodleUrl/webservice/rest/server.php?${params.toQueryString()}"
         val response = client.newCall(Request.Builder().url(url).get().build()).execute()
@@ -263,6 +265,19 @@ class MoodleApi(
             val shortname = course.shortname?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
             id to shortname
         }.toMap()
+    }
+
+    private fun fetchCurrentUserId(): Int {
+        val params = mapOf(
+            "wstoken" to token,
+            "moodlewsrestformat" to "json",
+            "wsfunction" to "core_webservice_get_site_info",
+        )
+        val url = "$moodleUrl/webservice/rest/server.php?${params.toQueryString()}"
+        val response = client.newCall(Request.Builder().url(url).get().build()).execute()
+        val body = response.body?.string() ?: throw IOException("Empty response")
+        val data = json.decodeFromString<SiteInfo>(body)
+        return data.userid ?: throw IOException("site info missing userid")
     }
 
     companion object {
@@ -315,6 +330,11 @@ private data class LoginResponse(
 private data class EnrolledCourse(
     val id: Int? = null,
     val shortname: String? = null,
+)
+
+@Serializable
+private data class SiteInfo(
+    val userid: Int? = null,
 )
 
 private fun MoodleEvent.toEvent() = Event(
