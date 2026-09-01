@@ -2204,7 +2204,7 @@ private fun TaskCard(
                     .background(MaterialTheme.colorScheme.secondaryContainer)
                     .padding(horizontal = 6.dp, vertical = 2.dp),
             ) {
-                Text(event.course.ifBlank { "?" }, style = MaterialTheme.typography.labelSmall,
+                Text(Strings.get(event.typeLabelKey, lang), style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSecondaryContainer)
             }
             Spacer(Modifier.width(8.dp))
