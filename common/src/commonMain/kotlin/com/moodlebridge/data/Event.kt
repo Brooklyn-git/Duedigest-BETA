@@ -50,6 +50,7 @@ data class Quiz(
     val intro: String? = null,
     val timeopen: Long? = null,
     val timeclose: Long? = null,
+    val course: Int? = null,
 )
 
 @Serializable
@@ -62,6 +63,7 @@ data class Forum(
     val intro: String? = null,
     val duedate: Long? = null,
     val cutoffdate: Long? = null,
+    val course: Int? = null,
 )
 
 @Serializable
@@ -89,6 +91,13 @@ data class Event(
 
     fun isOverdueStatus(now: Long): Boolean =
         timestart != Long.MAX_VALUE && now >= (cutoffDate ?: timestart)
+
+    val typeLabelKey: String
+        get() = when (modname) {
+            "quiz" -> "type_exam"
+            "forum" -> "type_forum"
+            else -> "type_task"
+        }
 
     val mergeKey: String
         get() {

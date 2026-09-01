@@ -37,15 +37,23 @@ class MoodleApi(
             emptyList()
         }
         println("DueNest API: fetchAssignments returned ${assignmentEvents.size} events")
+        val courseMap = try {
+            fetchEnrolledCourses()
+        } catch (e: Exception) {
+            println("DueNest API: fetchEnrolledCourses failed: ${e.message}")
+            emptyMap()
+        }
+        println("DueNest API: Enrolled courses = ${courseMap.size}")
+
         val quizEvents = try {
-            fetchQuizzes()
+            fetchQuizzes(courseMap)
         } catch (e: Exception) {
             println("DueNest API: fetchQuizzes failed: ${e.message}")
             emptyList()
         }
         println("DueNest API: fetchQuizzes returned ${quizEvents.size} events")
         val forumEvents = try {
-            fetchForums()
+            fetchForums(courseMap)
         } catch (e: Exception) {
             println("DueNest API: fetchForums failed: ${e.message}")
             emptyList()
@@ -133,7 +141,7 @@ class MoodleApi(
         return result
     }
 
-    private fun fetchQuizzes(): List<Event> {
+    private fun fetchQuizzes(courseMap: Map<Int, String>): List<Event> {
         val now = System.currentTimeMillis() / 1000
         val params = mapOf(
             "wstoken" to token,
@@ -164,7 +172,7 @@ class MoodleApi(
                     timeduration = 0,
                     eventtype = "quiz",
                     url = "${moodleUrl.trimEnd('/')}/mod/quiz/view.php?id=$cmid",
-                    course = "",
+                    course = courseMap[quiz.course] ?: "",
                     modname = "quiz",
                     availableFrom = availableFrom,
                 )
@@ -173,7 +181,7 @@ class MoodleApi(
         return result
     }
 
-    private fun fetchForums(): List<Event> {
+    private fun fetchForums(courseMap: Map<Int, String>): List<Event> {
         val now = System.currentTimeMillis() / 1000
         val params = mapOf(
             "wstoken" to token,
@@ -199,7 +207,7 @@ class MoodleApi(
                         timeduration = 0,
                         eventtype = "forum",
                         url = "${moodleUrl.trimEnd('/')}/mod/forum/view.php?id=$cmid",
-                        course = "",
+                        course = courseMap[forum.course] ?: "",
                         modname = "forum",
                     )
                 )
@@ -216,7 +224,7 @@ class MoodleApi(
                         timeduration = 0,
                         eventtype = "forum",
                         url = "${moodleUrl.trimEnd('/')}/mod/forum/view.php?id=$cmid",
-                        course = "",
+                        course = courseMap[forum.course] ?: "",
                         modname = "forum",
                     )
                 )
@@ -230,7 +238,7 @@ class MoodleApi(
                         timeduration = 0,
                         eventtype = "forum",
                         url = "${moodleUrl.trimEnd('/')}/mod/forum/view.php?id=$cmid",
-                        course = "",
+                        course = courseMap[forum.course] ?: "",
                         modname = "forum",
                         cutoffDate = cutoff.takeIf { it > 0L },
                     )
@@ -238,6 +246,23 @@ class MoodleApi(
             }
         }
         return result
+    }
+
+    private fun fetchEnrolledCourses(): Map<Int, String> {
+        val params = mapOf(
+            "wstoken" to token,
+            "moodlewsrestformat" to "json",
+            "wsfunction" to "core_enrol_get_users_courses",
+        )
+        val url = "$moodleUrl/webservice/rest/server.php?${params.toQueryString()}"
+        val response = client.newCall(Request.Builder().url(url).get().build()).execute()
+        val body = response.body?.string() ?: throw IOException("Empty response")
+        val data = json.decodeFromString<List<EnrolledCourse>>(body)
+        return data.mapNotNull { course ->
+            val id = course.id ?: return@mapNotNull null
+            val shortname = course.shortname?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            id to shortname
+        }.toMap()
     }
 
     companion object {
@@ -284,6 +309,12 @@ class MoodleApi(
 private data class LoginResponse(
     val token: String? = null,
     val error: String? = null,
+)
+
+@Serializable
+private data class EnrolledCourse(
+    val id: Int? = null,
+    val shortname: String? = null,
 )
 
 private fun MoodleEvent.toEvent() = Event(
