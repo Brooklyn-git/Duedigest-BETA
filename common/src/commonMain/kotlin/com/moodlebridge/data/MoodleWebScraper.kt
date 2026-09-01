@@ -47,8 +47,8 @@ object MoodleWebScraper {
         println("DueNest Scraper: Found ${courses.size} courses: ${courses.map { it.name }}")
         val events = mutableListOf<Event>()
         for (course in courses) {
-            val courseEvents = scrapeAssignments(base, course)
-            println("DueNest Scraper: Course '${course.name}' (id=${course.id}) -> ${courseEvents.size} assignments")
+            val courseEvents = scrapeCourse(base, course)
+            println("DueNest Scraper: Course '${course.name}' (id=${course.id}) -> ${courseEvents.size} events")
             events.addAll(courseEvents)
         }
         println("DueNest Scraper: Total events = ${events.size}")
@@ -107,6 +107,116 @@ object MoodleWebScraper {
             }
         }
         return courses
+    }
+
+    private fun scrapeCourse(base: String, course: CourseInfo): List<Event> {
+        return scrapeAssignments(base, course) + scrapeQuizzes(base, course) + scrapeForums(base, course)
+    }
+
+    private fun scrapeQuizzes(base: String, course: CourseInfo): List<Event> {
+        val url = "$base/mod/quiz/index.php?id=${course.id}"
+        val request = Request.Builder().url(url).get().build()
+        val response = client.newCall(request).execute()
+        val html = response.body?.string() ?: return emptyList()
+        val doc = Jsoup.parse(html)
+        val now = System.currentTimeMillis() / 1000
+        val result = mutableListOf<Event>()
+        val seen = mutableSetOf<String>()
+        for (link in doc.select("a[href*=\"/mod/quiz/view.php?id=\"]")) {
+            val href = link.attr("abs:href").ifEmpty { link.attr("href") }
+            val cmid = Regex("id=(\\d+)").find(href)?.groupValues?.get(1) ?: continue
+            if (!seen.add(cmid)) continue
+            val title = link.text().trim()
+            if (title.isBlank()) continue
+            val pageText = fetchPageText(base, href)
+            val timeclose = dateAfterLabel(pageText, "(closes ") ?: dateAfterLabel(pageText, "will close on")
+                ?: dateAfterLabel(pageText, "closes:") ?: dateAfterLabel(pageText, "closed on")
+            if (timeclose != null && timeclose <= now) {
+                println("DueNest Scraper:     SKIP '$title' (quiz closed: $timeclose, now=$now)")
+                continue
+            }
+            val timeopen = dateAfterLabel(pageText, "(opens ") ?: dateAfterLabel(pageText, "opens:")
+            println("DueNest Scraper:     INCLUDE '$title' (quiz cmid=$cmid, open=$timeopen, close=$timeclose)")
+            result.add(
+                Event(
+                    id = "quiz_$cmid",
+                    name = title,
+                    description = scrapeDescription(base, href),
+                    timestart = timeclose ?: Long.MAX_VALUE,
+                    timeduration = 0,
+                    eventtype = "quiz",
+                    url = href,
+                    course = course.name,
+                    modname = "quiz",
+                    availableFrom = timeopen,
+                )
+            )
+        }
+        return result
+    }
+
+    private fun scrapeForums(base: String, course: CourseInfo): List<Event> {
+        val url = "$base/mod/forum/index.php?id=${course.id}"
+        val request = Request.Builder().url(url).get().build()
+        val response = client.newCall(request).execute()
+        val html = response.body?.string() ?: return emptyList()
+        val doc = Jsoup.parse(html)
+        val now = System.currentTimeMillis() / 1000
+        val result = mutableListOf<Event>()
+        val seen = mutableSetOf<String>()
+        for (link in doc.select("a[href*=\"/mod/forum/view.php?id=\"]")) {
+            val href = link.attr("abs:href").ifEmpty { link.attr("href") }
+            val cmid = Regex("id=(\\d+)").find(href)?.groupValues?.get(1) ?: continue
+            if (!seen.add(cmid)) continue
+            val title = link.text().trim()
+            if (title.isBlank()) continue
+            val pageText = fetchPageText(base, href)
+            val due = dateAfterLabel(pageText, "due date for posting to this forum is")
+                ?: dateAfterLabel(pageText, "due date for posting to this forum was")
+                ?: dateAfterLabel(pageText, "due:")
+                ?: dateAfterLabel(pageText, "fecha l\u00edmite para publicar en este foro es")
+                ?: dateAfterLabel(pageText, "fecha l\u00edmite para publicar en este foro fue")
+                ?: dateAfterLabel(pageText, "fecha l\u00edmite:")
+            val cutoff = dateAfterLabel(pageText, "cut-off") ?: dateAfterLabel(pageText, "corte")
+            println(
+                "DueNest Scraper:     INCLUDE '$title' (forum cmid=$cmid, due=$due, cutoff=$cutoff) " +
+                    "late=${due != null && due <= now}"
+            )
+            result.add(
+                Event(
+                    id = "forum_$cmid",
+                    name = title,
+                    description = scrapeDescription(base, href),
+                    timestart = due ?: Long.MAX_VALUE,
+                    timeduration = 0,
+                    eventtype = "forum",
+                    url = href,
+                    course = course.name,
+                    modname = "forum",
+                    cutoffDate = cutoff,
+                )
+            )
+        }
+        return result
+    }
+
+    private fun fetchPageText(base: String, pageUrl: String): String {
+        return try {
+            val request = Request.Builder().url(pageUrl).get().build()
+            val response = client.newCall(request).execute()
+            val html = response.body?.string() ?: return ""
+            Jsoup.parse(html).text().trim()
+        } catch (_: Exception) {
+            ""
+        }
+    }
+
+    private fun dateAfterLabel(text: String, label: String): Long? {
+        val lower = text.lowercase()
+        val idx = lower.indexOf(label)
+        if (idx < 0) return null
+        val start = idx + label.length
+        return parseDate(lower.substring(start, minOf(start + 150, lower.length)))
     }
 
     private fun scrapeAssignments(base: String, course: CourseInfo): List<Event> {
