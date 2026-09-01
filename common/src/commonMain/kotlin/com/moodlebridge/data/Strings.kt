@@ -80,6 +80,10 @@ object Strings {
         "tasks_path" to "DueNest Markdown (native)",
         "collapse" to "Collapse",
         "copy_description" to "Copy",
+        "available_from" to "Available from",
+        "due" to "Due",
+        "late" to "Late",
+        "cutoff" to "Cut-off",
         "intro_title" to "DueNest",
         "intro_welcome" to "Welcome to DueNest \u2014 your Moodle deadline tracker.",
         "intro_getting_started" to "Getting started",
@@ -224,6 +228,10 @@ object Strings {
         "tasks_path" to "DueNest Markdown (nativo)",
         "collapse" to "Colapsar",
         "copy_description" to "Copiar",
+        "available_from" to "Disponible desde",
+        "due" to "Vence",
+        "late" to "Atrasada",
+        "cutoff" to "Corte",
         "intro_title" to "DueNest",
         "intro_welcome" to "Bienvenido a DueNest \u2014 tu gestor de plazos de Moodle.",
         "intro_getting_started" to "Primeros pasos",
@@ -305,6 +313,22 @@ object Strings {
             val ampm = if (h < 12) "AM" else "PM"
             val h12 = when { h == 0 -> 12; h > 12 -> h - 12; else -> h }
             String.format("%d:%02d %s", h12, m, ampm)
+        }
+    }
+
+    fun formatDateTime(timestamp: Long, use24h: Boolean, lang: String = "en"): String {
+        val locale = if (lang == "es") java.util.Locale("es") else java.util.Locale.ENGLISH
+        val months = java.text.DateFormatSymbols.getInstance(locale).shortMonths.take(12)
+        val cal = java.util.Calendar.getInstance().apply { timeInMillis = timestamp * 1000 }
+        val month = months[cal.get(java.util.Calendar.MONTH)]
+            .replaceFirstChar { it.uppercaseChar() }
+        val day = cal.get(java.util.Calendar.DAY_OF_MONTH)
+        val year = cal.get(java.util.Calendar.YEAR)
+        val time = formatTimestamp(timestamp, use24h)
+        return if (lang == "es") {
+            "$day $month $year, $time"
+        } else {
+            "$month $day, $year, $time"
         }
     }
 

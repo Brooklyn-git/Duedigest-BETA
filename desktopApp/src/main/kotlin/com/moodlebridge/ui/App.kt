@@ -1146,8 +1146,11 @@ private fun TaskItem(
 ) {
     val nowSeconds = System.currentTimeMillis() / 1000
     val hasNoDueDate = event.timestart == Long.MAX_VALUE
+    val availableFrom = event.availableFrom
+    val cutoffDate = event.cutoffDate
     val cal = java.util.Calendar.getInstance().apply { timeInMillis = event.timestart * 1000 }
-    val isOverdue = !hasNoDueDate && event.timestart <= nowSeconds
+    val isOverdue = event.isOverdueStatus(nowSeconds) && !event.isLate(nowSeconds)
+    val isLate = event.isLate(nowSeconds)
     val diffDays = {
         val c = java.util.Calendar.getInstance().apply { timeInMillis = cal.timeInMillis }
         val n = java.util.Calendar.getInstance()
@@ -1161,7 +1164,8 @@ private fun TaskItem(
     } else if (hasNoDueDate) {
         Strings.get("no_date", lang)
     } else when {
-        isOverdue -> Strings.get("tasks_overdue", "en")
+        isOverdue -> Strings.get("tasks_overdue", lang)
+        isLate -> Strings.get("late", lang)
         diffDays == 0 -> "${Strings.get("tasks_today", "en")} $timeStr"
         diffDays == 1 -> "${Strings.get("tasks_tomorrow", "en")} $timeStr"
         diffDays <= 7 -> Strings.get("tasks_in_days", "en").replace("{n}", diffDays.toString())
@@ -1175,17 +1179,20 @@ private fun TaskItem(
     val dateColor = if (isCompleted) MaterialTheme.colorScheme.onSurfaceVariant else when {
         hasNoDueDate -> Color(0xFFF59E0B)
         isOverdue -> overdueColor
+        isLate -> Color(0xFFF59E0B)
         diffDays <= 2 -> MaterialTheme.colorScheme.tertiary
         else -> Color(0xFF22C55E)
     }
     val dateIcon = if (isCompleted) Icons.Default.CheckCircle else when {
         hasNoDueDate -> Icons.Default.DateRange
         isOverdue -> Icons.Default.Warning
+        isLate -> Icons.Default.Warning
         else -> Icons.Default.DateRange
     }
     val dateTint = if (isCompleted) MaterialTheme.colorScheme.onSurfaceVariant else when {
         hasNoDueDate -> Color(0xFFF59E0B)
         isOverdue -> overdueColor
+        isLate -> Color(0xFFF59E0B)
         diffDays <= 2 -> MaterialTheme.colorScheme.tertiary
         else -> Color(0xFF22C55E)
     }
@@ -1260,11 +1267,36 @@ private fun TaskItem(
             AnimatedVisibility(visible = isExpanded) {
                 Column(modifier = Modifier.padding(start = 42.dp, end = 12.dp, bottom = 10.dp)) {
                     if (event.isManual) {
-                        Text(Strings.get("manual", "en"), style = MaterialTheme.typography.labelSmall,
+                        Text(Strings.get("manual", lang), style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.tertiary)
                         Spacer(Modifier.height(4.dp))
                     }
+                    if (availableFrom != null && availableFrom != Long.MAX_VALUE) {
+                        Text(Strings.get("available_from", lang) + ": " + Strings.formatDateTime(availableFrom, use24h, lang),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(2.dp))
+                    }
+                    if (!hasNoDueDate) {
+                        Text(Strings.get("due", lang) + ": " + Strings.formatDateTime(event.timestart, use24h, lang),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(2.dp))
+                    }
+                    if (cutoffDate != null) {
+                        Text(Strings.get("cutoff", lang) + ": " + Strings.formatDateTime(cutoffDate, use24h, lang),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(2.dp))
+                    }
                     if (event.description.isNotBlank()) {
+                        if (availableFrom != null && availableFrom != Long.MAX_VALUE ||
+                            !hasNoDueDate || cutoffDate != null) {
+                            Spacer(Modifier.height(6.dp))
+                        }
+                        Text(Strings.get("task_description", lang), style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(2.dp))
                         Text(event.description, style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.height(8.dp))
@@ -1285,14 +1317,14 @@ private fun TaskItem(
                                 Text(Strings.get("open_in_browser", "en"), style = MaterialTheme.typography.bodySmall)
                             }
                         }
-                        if (event.description.isNotBlank()) {
+                        if (event.description.isNotBlank() && event.modname != "quiz" && event.modname != "forum") {
                             TextButton(onClick = {
                                 try {
                                     val selection = java.awt.datatransfer.StringSelection(event.description)
                                     java.awt.Toolkit.getDefaultToolkit().systemClipboard.setContents(selection, null)
                                 } catch (_: Exception) {}
                             }) {
-                                Text(Strings.get("copy_description", "en"), style = MaterialTheme.typography.bodySmall)
+                                Text(Strings.get("copy_description", lang), style = MaterialTheme.typography.bodySmall)
                             }
                         }
                         TextButton(onClick = onExpand) {
