@@ -36,11 +36,36 @@ data class Assignment(
     val cmid: Int? = null,
     val duedate: Long? = null,
     val intro: String? = null,
+    val allosubmissionsfromdate: Long? = null,
     val url: String? = null,
 )
 
 @Serializable
 data class AssignResponse(val courses: List<AssignCourse>? = null)
+
+@Serializable
+data class Quiz(
+    val name: String? = null,
+    val coursemodule: Int? = null,
+    val intro: String? = null,
+    val timeopen: Long? = null,
+    val timeclose: Long? = null,
+)
+
+@Serializable
+data class QuizResponse(val quizzes: List<Quiz>? = null)
+
+@Serializable
+data class Forum(
+    val name: String? = null,
+    val cmid: Int? = null,
+    val intro: String? = null,
+    val duedate: Long? = null,
+    val cutoffdate: Long? = null,
+)
+
+@Serializable
+data class ForumResponse(val forums: List<Forum>? = null)
 
 @Serializable
 data class Event(
@@ -54,8 +79,16 @@ data class Event(
     val course: String,
     val modname: String,
     val source: String = "moodle",
+    val availableFrom: Long? = null,
+    val cutoffDate: Long? = null,
 ) {
     val isManual: Boolean get() = source == "manual"
+
+    fun isLate(now: Long): Boolean =
+        timestart != Long.MAX_VALUE && now >= timestart && cutoffDate != null && now < cutoffDate
+
+    fun isOverdueStatus(now: Long): Boolean =
+        timestart != Long.MAX_VALUE && now >= (cutoffDate ?: timestart)
 
     val mergeKey: String
         get() {

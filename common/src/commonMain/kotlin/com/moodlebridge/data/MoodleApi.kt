@@ -37,8 +37,31 @@ class MoodleApi(
             emptyList()
         }
         println("DueNest API: fetchAssignments returned ${assignmentEvents.size} events")
+        val quizEvents = try {
+            fetchQuizzes()
+        } catch (e: Exception) {
+            println("DueNest API: fetchQuizzes failed: ${e.message}")
+            emptyList()
+        }
+        println("DueNest API: fetchQuizzes returned ${quizEvents.size} events")
+        val forumEvents = try {
+            fetchForums()
+        } catch (e: Exception) {
+            println("DueNest API: fetchForums failed: ${e.message}")
+            emptyList()
+        }
+        println("DueNest API: fetchForums returned ${forumEvents.size} events")
 
-        val wsEvents = (calendarEvents + assignmentEvents).distinctBy { it.mergeKey }
+        val dedicated = (assignmentEvents + quizEvents + forumEvents).toMutableList()
+        val knownKeys = dedicated.map { it.mergeKey }.toSet()
+        val wsEvents = (dedicated + calendarEvents.filter { it.mergeKey !in knownKeys }).distinctBy { it.mergeKey }
+            .map { event ->
+                if (event.course.isNotBlank()) event
+                else {
+                    val course = calendarEvents.firstOrNull { it.mergeKey == event.mergeKey }?.course.orEmpty()
+                    if (course.isBlank()) event else event.copy(course = course)
+                }
+            }
         println("DueNest API: Combined WS events = ${wsEvents.size}, scrapeEnabled=$scrapeEnabled")
 
         if (scrapeEnabled && username.isNotBlank() && password.isNotBlank()) {
@@ -88,7 +111,8 @@ class MoodleApi(
             val shortname = course.shortname ?: ""
             for (assign in course.assignments.orEmpty()) {
                 val duedate = assign.duedate ?: 0L
-                if (duedate != 0L && duedate <= now) continue
+                val availableFrom = assign.allosubmissionsfromdate?.takeIf { it > 0L }
+                if (availableFrom == null && duedate != 0L && duedate <= now) continue
                 result.add(
                     Event(
                         id = "assign_${assign.cmid}",
@@ -101,6 +125,114 @@ class MoodleApi(
                             ?: "${moodleUrl.trimEnd('/')}/mod/assign/view.php?id=${assign.cmid}",
                         course = shortname,
                         modname = "assign",
+                        availableFrom = availableFrom?.takeIf { it != duedate },
+                    )
+                )
+            }
+        }
+        return result
+    }
+
+    private fun fetchQuizzes(): List<Event> {
+        val now = System.currentTimeMillis() / 1000
+        val params = mapOf(
+            "wstoken" to token,
+            "moodlewsrestformat" to "json",
+            "wsfunction" to "mod_quiz_get_quizzes_by_courses",
+        )
+        val url = "$moodleUrl/webservice/rest/server.php?${params.toQueryString()}"
+        val response = client.newCall(Request.Builder().url(url).get().build()).execute()
+        val body = response.body?.string() ?: throw IOException("Empty response")
+        val data = json.decodeFromString<QuizResponse>(body)
+        val result = mutableListOf<Event>()
+        for (quiz in data.quizzes.orEmpty()) {
+            val cmid = quiz.coursemodule ?: continue
+            val open = quiz.timeopen ?: 0L
+            val close = quiz.timeclose ?: 0L
+            val (timestart, availableFrom) = when {
+                close > 0L -> close to (open.takeIf { it > 0L && it != close })
+                open > 0L -> open to null
+                else -> Long.MAX_VALUE to null
+            }
+            if (close > 0L && close <= now) continue
+            result.add(
+                Event(
+                    id = "quiz_$cmid",
+                    name = quiz.name ?: "Untitled",
+                    description = stripHtml(quiz.intro ?: ""),
+                    timestart = timestart,
+                    timeduration = 0,
+                    eventtype = "quiz",
+                    url = "${moodleUrl.trimEnd('/')}/mod/quiz/view.php?id=$cmid",
+                    course = "",
+                    modname = "quiz",
+                    availableFrom = availableFrom,
+                )
+            )
+        }
+        return result
+    }
+
+    private fun fetchForums(): List<Event> {
+        val now = System.currentTimeMillis() / 1000
+        val params = mapOf(
+            "wstoken" to token,
+            "moodlewsrestformat" to "json",
+            "wsfunction" to "mod_forum_get_forums_by_courses",
+        )
+        val url = "$moodleUrl/webservice/rest/server.php?${params.toQueryString()}"
+        val response = client.newCall(Request.Builder().url(url).get().build()).execute()
+        val body = response.body?.string() ?: throw IOException("Empty response")
+        val data = json.decodeFromString<ForumResponse>(body)
+        val result = mutableListOf<Event>()
+        for (forum in data.forums.orEmpty()) {
+            val cmid = forum.cmid ?: continue
+            val due = forum.duedate ?: 0L
+            val cutoff = forum.cutoffdate ?: 0L
+            if (cutoff <= 0L && due <= 0L) {
+                result.add(
+                    Event(
+                        id = "forum_$cmid",
+                        name = forum.name ?: "Untitled",
+                        description = stripHtml(forum.intro ?: ""),
+                        timestart = Long.MAX_VALUE,
+                        timeduration = 0,
+                        eventtype = "forum",
+                        url = "${moodleUrl.trimEnd('/')}/mod/forum/view.php?id=$cmid",
+                        course = "",
+                        modname = "forum",
+                    )
+                )
+                continue
+            }
+            if (cutoff > 0L && cutoff <= now) continue
+            if (due <= 0L) {
+                result.add(
+                    Event(
+                        id = "forum_$cmid",
+                        name = forum.name ?: "Untitled",
+                        description = stripHtml(forum.intro ?: ""),
+                        timestart = cutoff,
+                        timeduration = 0,
+                        eventtype = "forum",
+                        url = "${moodleUrl.trimEnd('/')}/mod/forum/view.php?id=$cmid",
+                        course = "",
+                        modname = "forum",
+                    )
+                )
+            } else {
+                result.add(
+                    Event(
+                        id = "forum_$cmid",
+                        name = forum.name ?: "Untitled",
+                        description = stripHtml(forum.intro ?: ""),
+                        timestart = due,
+                        timeduration = 0,
+                        eventtype = "forum",
+                        url = "${moodleUrl.trimEnd('/')}/mod/forum/view.php?id=$cmid",
+                        course = "",
+                        modname = "forum",
+                        cutoffDate = cutoff.takeIf { it > 0L },
                     )
                 )
             }
