@@ -124,6 +124,13 @@ data class Event(
             else -> "type_task"
         }
 
+    val typeKey: String
+        get() = when (modname) {
+            "quiz" -> "exam"
+            "forum" -> "forum"
+            else -> "task"
+        }
+
     val mergeKey: String
         get() {
             val idParam = Regex("id=(\\d+)").find(url)?.groupValues?.get(1)

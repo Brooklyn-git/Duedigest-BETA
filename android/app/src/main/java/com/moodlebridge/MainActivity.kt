@@ -76,6 +76,9 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Forum
+import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.EventNote
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
@@ -2130,6 +2133,19 @@ private fun TasksTabContent(
 
 }
 
+private class TypeBadgeStyle(
+    val container: Color,
+    val content: Color,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+)
+
+@Composable
+private fun typeBadgeStyle(typeKey: String): TypeBadgeStyle = when (typeKey) {
+    "exam" -> TypeBadgeStyle(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer, Icons.Default.School)
+    "forum" -> TypeBadgeStyle(Color(0xFF14B8A6).copy(alpha = 0.18f), Color(0xFF0F766E), Icons.Default.Forum)
+    else -> TypeBadgeStyle(MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer, Icons.Default.EventNote)
+}
+
 @Composable
 private fun TaskCard(
     event: Event, isDone: Boolean, isExpanded: Boolean,
@@ -2211,15 +2227,20 @@ private fun TaskCard(
             Checkbox(checked = isDone, onCheckedChange = { onToggle() },
                 modifier = Modifier.size(24.dp))
             Spacer(Modifier.width(4.dp))
+            val typeBadge = typeBadgeStyle(event.typeKey)
             Box(
                 modifier = Modifier
-                    .widthIn(max = 90.dp)
+                    .widthIn(max = 110.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(MaterialTheme.colorScheme.secondaryContainer)
+                    .background(typeBadge.container)
                     .padding(horizontal = 6.dp, vertical = 2.dp),
             ) {
-                Text(Strings.get(event.typeLabelKey, lang), style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(typeBadge.icon, contentDescription = null, modifier = Modifier.size(12.dp), tint = typeBadge.content)
+                    Spacer(Modifier.width(3.dp))
+                    Text(Strings.get(event.typeLabelKey, lang), style = MaterialTheme.typography.labelSmall,
+                        color = typeBadge.content)
+                }
             }
             Spacer(Modifier.width(8.dp))
             Text(
