@@ -19,7 +19,12 @@ data class MoodleEvent(
 data class Description(val text: String? = null)
 
 @Serializable
-data class Course(val shortname: String? = null)
+data class Course(
+    val shortname: String? = null,
+    val fullname: String? = null,
+) {
+    val displayName: String get() = fullname?.takeIf { it.isNotBlank() } ?: shortname.orEmpty()
+}
 
 @Serializable
 data class CalendarResponse(val events: List<MoodleEvent>? = null)
@@ -27,8 +32,11 @@ data class CalendarResponse(val events: List<MoodleEvent>? = null)
 @Serializable
 data class AssignCourse(
     val shortname: String? = null,
+    val fullname: String? = null,
     val assignments: List<Assignment>? = null,
-)
+) {
+    val displayName: String get() = fullname?.takeIf { it.isNotBlank() } ?: shortname.orEmpty()
+}
 
 @Serializable
 data class Assignment(

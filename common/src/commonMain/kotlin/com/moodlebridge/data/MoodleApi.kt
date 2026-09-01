@@ -116,7 +116,7 @@ class MoodleApi(
         val data = json.decodeFromString<AssignResponse>(body)
         val result = mutableListOf<Event>()
         for (course in data.courses.orEmpty()) {
-            val shortname = course.shortname ?: ""
+            val courseName = course.displayName
             for (assign in course.assignments.orEmpty()) {
                 val duedate = assign.duedate ?: 0L
                 val availableFrom = assign.allosubmissionsfromdate?.takeIf { it > 0L }
@@ -131,7 +131,7 @@ class MoodleApi(
                         eventtype = "assign",
                         url = assign.url?.takeIf { it.isNotBlank() }
                             ?: "${moodleUrl.trimEnd('/')}/mod/assign/view.php?id=${assign.cmid}",
-                        course = shortname,
+                        course = courseName,
                         modname = "assign",
                         availableFrom = availableFrom?.takeIf { it != duedate },
                     )
@@ -262,8 +262,8 @@ class MoodleApi(
         val data = json.decodeFromString<List<EnrolledCourse>>(body)
         return data.mapNotNull { course ->
             val id = course.id ?: return@mapNotNull null
-            val shortname = course.shortname?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-            id to shortname
+            val name = course.displayName.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            id to name
         }.toMap()
     }
 
@@ -330,7 +330,14 @@ private data class LoginResponse(
 private data class EnrolledCourse(
     val id: Int? = null,
     val shortname: String? = null,
-)
+    val fullname: String? = null,
+    val displayname: String? = null,
+) {
+    val displayName: String
+        get() = displayname?.takeIf { it.isNotBlank() }
+            ?: fullname?.takeIf { it.isNotBlank() }
+            ?: shortname.orEmpty()
+}
 
 @Serializable
 private data class SiteInfo(
@@ -345,7 +352,7 @@ private fun MoodleEvent.toEvent() = Event(
     timeduration = timeduration ?: 0L,
     eventtype = eventtype ?: "",
     url = url ?: "",
-    course = course?.shortname ?: "",
+    course = course?.displayName,
     modname = modulename ?: "",
 )
 
