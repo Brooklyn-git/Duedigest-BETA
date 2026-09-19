@@ -131,6 +131,8 @@ import com.moodlebridge.data.MarkdownGenerator
 import com.moodlebridge.data.MoodleApi
 import com.moodlebridge.data.PathResolver
 import com.moodlebridge.data.Strings
+import com.moodlebridge.data.UntrustedCertificate
+import com.moodlebridge.data.findUntrustedCert
 import com.moodlebridge.data.MergeResult
 import com.moodlebridge.data.SyncManager
 import com.moodlebridge.data.mergeFetchedEvents
@@ -272,6 +274,8 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     var showSettingsPage by remember { mutableStateOf(false) }
     var isWorking by remember { mutableStateOf(false) }
     var errorDialogMsg by remember { mutableStateOf<String?>(null) }
+    var pendingCertTrust by remember { mutableStateOf<UntrustedCertificate?>(null) }
+    var lastUsedPw by remember { mutableStateOf("") }
     var statusText by remember { mutableStateOf(config.lastSyncMessage) }
     val logLines = remember { mutableStateListOf<String>() }
     var notifEnabled by remember { mutableStateOf(config.notificationsEnabled) }
@@ -523,6 +527,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
     }
 
     fun doSync(pw: String) {
+        lastUsedPw = pw
         isWorking = true; logLines.clear(); statusText = ""
         scope.launch {
             val manual = manualEvents.toList()
@@ -536,6 +541,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
             )
             doFetch(context, config, params,
                 { addLog(it) }, { statusText = it }, { errorDialogMsg = it },
+                { untrusted -> pendingCertTrust = untrusted },
                 { isWorking = false },
                 { events ->
                     android.util.Log.d("Duedigest", "doSync callback: events.size=${events.size}, deletedEventIds=$deletedEventIds")
@@ -1053,6 +1059,29 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                 title = { Text(Strings.get("error", lang)) },
                 text = { Text(errorDialogMsg ?: "") },
                 confirmButton = { TextButton(onClick = { errorDialogMsg = null }) { Text("OK") } })
+        }
+
+    // ── Untrusted certificate ───────────────────────────────
+        val pendingCert = pendingCertTrust
+        if (pendingCert != null) {
+            AlertDialog(onDismissRequest = { pendingCertTrust = null },
+                containerColor = cs.surface, titleContentColor = cs.onSurface, textContentColor = cs.onSurface,
+                title = { Text(Strings.get("cert_untrusted_title", lang)) },
+                text = {
+                    Text(Strings.get("cert_untrusted_warn", lang)
+                        .replace("{host}", pendingCert.host)
+                        .replace("{fingerprint}", pendingCert.fingerprint))
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        config.acceptCertFingerprint(pendingCert.host, pendingCert.fingerprint)
+                        pendingCertTrust = null
+                        doSync(lastUsedPw)
+                    }) { Text(Strings.get("cert_accept", lang)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { pendingCertTrust = null }) { Text(Strings.get("cancel", lang)) }
+                })
         }
 
     // ── Clear completed confirmation ────────────────────────
@@ -1910,8 +1939,9 @@ data class FetchParams(
 
 private suspend fun doFetch(
     context: Context, config: ConfigStore, params: FetchParams,
-    onLog: (String) -> Unit, onStatus: (String) -> Unit, onError: (String) -> Unit, onDone: () -> Unit,
-    onEventsFetched: (List<Event>) -> Unit = {},
+    onLog: (String) -> Unit, onStatus: (String) -> Unit, onError: (String) -> Unit,
+    onCertError: (UntrustedCertificate) -> Unit = {},
+    onDone: () -> Unit, onEventsFetched: (List<Event>) -> Unit = {},
 ) {
     val (url, username, password, savePw, icsEnabled, logseqEnabled, obsidianEnabled,
          icsPath, logseqPath, obsidianPath, daysBackText, limitText, lang,
@@ -1926,15 +1956,16 @@ private suspend fun doFetch(
         config.fetchDaysBack = daysBackText.toIntOrNull() ?: 7; config.fetchLimit = limitText.toIntOrNull() ?: 100
 
         var token = config.token
+        val fingerprintProvider: (String) -> String? = { host -> config.getAcceptedFingerprint(host) }
         if (token.isBlank()) {
             onLog(Strings.get("no_cached_token", lang))
-            token = withContext(Dispatchers.IO) { MoodleApi.login(url, username, password) }
+            token = withContext(Dispatchers.IO) { MoodleApi.login(url, username, password, fingerprintProvider) }
             config.token = token; if (!savePw) config.password = ""
             onLog(Strings.get("login_success", lang))
         }
 
         onLog(Strings.get("fetching_events", lang))
-        val apiEvents = withContext(Dispatchers.IO) { MoodleApi(config.moodleUrl, token, params.scrapeEnabled, username, password, config.skipFinishedTasks).fetchEvents(config.fetchDaysBack, config.fetchLimit) }
+        val apiEvents = withContext(Dispatchers.IO) { MoodleApi(config.moodleUrl, token, params.scrapeEnabled, username, password, config.skipFinishedTasks, fingerprintProvider).fetchEvents(config.fetchDaysBack, config.fetchLimit) }
         android.util.Log.d("Duedigest", "doFetch: apiEvents.size=${apiEvents.size}, ids=${apiEvents.map { it.id }}")
         onLog("${Strings.get("found_events", lang)} ${apiEvents.size}")
         for (ev in apiEvents) {
@@ -1971,11 +2002,19 @@ private suspend fun doFetch(
         onStatus("${Strings.get("done", lang)} \u2014 ${events.size} events")
         onLog(Strings.get("done", lang))
     } catch (e: Exception) {
-        val msg = e.message ?: "Unknown error"
-        config.lastSyncMessage = "${Strings.get("error", lang)}: $msg"
-        onStatus("${Strings.get("error", lang)}: $msg")
-        onLog("${Strings.get("error", lang)}: $msg")
-        onError(msg)
+        val untrusted = findUntrustedCert(e)
+        if (untrusted != null) {
+            config.lastSyncMessage = "${Strings.get("cert_untrusted_title", lang)}: ${untrusted.host} (${untrusted.fingerprint})"
+            onStatus(Strings.get("cert_untrusted_title", lang))
+            onLog(config.lastSyncMessage)
+            onCertError(untrusted)
+        } else {
+            val msg = e.message ?: "Unknown error"
+            config.lastSyncMessage = "${Strings.get("error", lang)}: $msg"
+            onStatus("${Strings.get("error", lang)}: $msg")
+            onLog("${Strings.get("error", lang)}: $msg")
+            onError(msg)
+        }
     } finally { onDone() }
 }
 

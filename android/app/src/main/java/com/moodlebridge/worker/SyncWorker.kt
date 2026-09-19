@@ -14,6 +14,7 @@ import com.moodlebridge.data.IcsGenerator
 import com.moodlebridge.data.MarkdownGenerator
 import com.moodlebridge.data.MoodleApi
 import com.moodlebridge.data.PathResolver
+import com.moodlebridge.data.findUntrustedCert
 import com.moodlebridge.data.mergeFetchedEvents
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -44,7 +45,7 @@ class SyncWorker(
 
         val newToken = try {
             withContext(Dispatchers.IO) {
-                MoodleApi.login(config.moodleUrl, config.username, pw)
+                MoodleApi.login(config.moodleUrl, config.username, pw, provider(config))
             }
         } catch (e: Exception) {
             config.lastSyncMessage = "Auth failed: ${e.message}"
@@ -52,7 +53,7 @@ class SyncWorker(
         }
         config.token = newToken
 
-        val api = MoodleApi(config.moodleUrl, config.token, config.scrapeEnabled, config.username, pw)
+        val api = MoodleApi(config.moodleUrl, config.token, config.scrapeEnabled, config.username, pw, config.skipFinishedTasks, provider(config))
 
         return try {
             val events = api.fetchEvents(config.fetchDaysBack, config.fetchLimit)
@@ -98,15 +99,22 @@ class SyncWorker(
             notifyResult(events.size, config.icsEnabled, fromApp)
             Result.success()
         } catch (e: Exception) {
-            config.lastSyncMessage = "Error: ${e.message ?: "Unknown"}"
-            if (e.message?.contains("Login", ignoreCase = true) == true ||
+            val untrusted = findUntrustedCert(e)
+            if (untrusted != null) {
+                config.lastSyncMessage =
+                    "Untrusted certificate: ${untrusted.host} (${untrusted.fingerprint}) — open the app to accept it"
+            } else if (e.message?.contains("Login", ignoreCase = true) == true ||
                 e.message?.contains("token", ignoreCase = true) == true
             ) {
                 config.lastSyncMessage = "Auth failed — reconfigure"
+            } else {
+                config.lastSyncMessage = "Error: ${e.message ?: "Unknown"}"
             }
             Result.retry()
         }
     }
+
+    private fun provider(config: ConfigStore): (String) -> String? = { host -> config.getAcceptedFingerprint(host) }
 
     private fun openIcsInCalendar() {
         val icsFile = File(applicationContext.cacheDir, "ics/calendar.ics")

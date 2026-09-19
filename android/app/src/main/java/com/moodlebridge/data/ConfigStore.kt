@@ -4,6 +4,10 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.encodeToString
 
 class ConfigStore(context: Context) {
 
@@ -189,6 +193,27 @@ class ConfigStore(context: Context) {
         get() = prefs.getFloat(KEY_LAST_OPACITY, 1.0f)
         set(value) { prefs.edit().putFloat(KEY_LAST_OPACITY, value).commit() }
 
+    fun acceptCertFingerprint(host: String, fingerprint: String) {
+        val map = parseCertFingerprints().toMutableMap()
+        map[host] = fingerprint
+        putCertFingerprints(map)
+    }
+
+    fun getAcceptedFingerprint(host: String): String? = parseCertFingerprints()[host]
+
+    private fun parseCertFingerprints(): Map<String, String> =
+        try {
+            val json = prefs.getString(KEY_CERT_FINGERPRINTS, "{}") ?: "{}"
+            Json.parseToJsonElement(json).jsonObject
+                .mapValues { it.value.jsonPrimitive.content }
+        } catch (_: Exception) {
+            emptyMap()
+        }
+
+    private fun putCertFingerprints(map: Map<String, String>) {
+        prefs.edit().putString(KEY_CERT_FINGERPRINTS, Json.encodeToString(map)).commit()
+    }
+
     val isConfigured: Boolean
         get() = moodleUrl.isNotBlank() && (token.isNotBlank() || (username.isNotBlank() && password.isNotBlank()))
 
@@ -237,5 +262,6 @@ class ConfigStore(context: Context) {
         const val KEY_SYNC_INTERVAL = "sync_interval_seconds"
         const val KEY_SCRAPE_ENABLED = "scrape_enabled"
         const val KEY_SKIP_FINISHED = "skip_finished_tasks"
+        const val KEY_CERT_FINGERPRINTS = "accepted_cert_fingerprints"
     }
 }

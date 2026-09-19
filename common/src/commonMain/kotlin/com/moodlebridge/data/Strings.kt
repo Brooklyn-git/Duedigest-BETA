@@ -153,6 +153,9 @@ object Strings {
         "skip_finished_label" to "Skip finished tasks",
         "skip_finished_description" to "Hide assignments you have already submitted or graded. Uses extra API calls per assignment.",
         "no_date" to "No due date",
+        "cert_untrusted_title" to "Untrusted certificate",
+        "cert_untrusted_warn" to "Your Moodle server's security certificate is not recognized by Android.\n\nServer: {host}\nSHA-256 fingerprint:\n{fingerprint}\n\nOnly accept this if you are sure this is your school's or your own server. Accepting lets whoever holds this certificate's private key act as the server.",
+        "cert_accept" to "Accept certificate",
     )
 
     private val es = mapOf(
@@ -306,6 +309,9 @@ object Strings {
         "skip_finished_label" to "Ocultar tareas terminadas",
         "skip_finished_description" to "Oculta las tareas que ya enviaste o que ya fueron calificadas. Usa llamadas API adicionales por tarea.",
         "no_date" to "Sin fecha l\u00edmite",
+        "cert_untrusted_title" to "Certificado no confiable",
+        "cert_untrusted_warn" to "El certificado de seguridad de tu servidor Moodle no es reconocido por Android.\n\nServidor: {host}\nHuella SHA-256:\n{fingerprint}\n\nAcepta esto solo si est\u00e1s seguro de que es tu servidor o el de tu escuela. Al aceptar, quien tenga la clave privada de este certificado podr\u00e1 hacerse pasar por el servidor.",
+        "cert_accept" to "Aceptar certificado",
     )
 
     fun get(key: String, lang: String = "en"): String {
