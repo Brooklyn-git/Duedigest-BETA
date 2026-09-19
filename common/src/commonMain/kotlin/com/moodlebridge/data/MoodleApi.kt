@@ -15,8 +15,9 @@ class MoodleApi(
     private val username: String = "",
     private val password: String = "",
     private val skipFinishedTasks: Boolean = true,
+    private val fingerprintProvider: (String) -> String? = { null },
 ) {
-    private val client = OkHttpClient.Builder()
+    private val client = buildTrustClient(fingerprintProvider)
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
@@ -80,7 +81,7 @@ class MoodleApi(
         if (scrapeEnabled && username.isNotBlank() && password.isNotBlank()) {
             println("Duedigest API: scrape enabled -> always calling scraper")
             return try {
-                val scraped = MoodleWebScraper.scrape(moodleUrl, username, password)
+                val scraped = MoodleWebScraper.scrape(moodleUrl, username, password, fingerprintProvider)
                 println("Duedigest API: Scraper returned ${scraped.size} events")
                 wsEvents.mergeByDedup(scraped)
             } catch (e: Exception) {
@@ -305,8 +306,13 @@ class MoodleApi(
     }
 
     companion object {
-        fun login(baseUrl: String, username: String, password: String): String {
-            val client = OkHttpClient.Builder()
+        fun login(
+            baseUrl: String,
+            username: String,
+            password: String,
+            fingerprintProvider: (String) -> String? = { null },
+        ): String {
+            val client = buildTrustClient(fingerprintProvider)
                 .connectTimeout(30, TimeUnit.SECONDS)
                 .readTimeout(30, TimeUnit.SECONDS)
                 .build()

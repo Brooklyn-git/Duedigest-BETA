@@ -15,7 +15,7 @@ import java.util.concurrent.TimeUnit
 object MoodleWebScraper {
 
     private val client: OkHttpClient by lazy {
-        OkHttpClient.Builder()
+        buildTrustClient { host -> providerHolder.get()?.invoke(host) }
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .followRedirects(true)
@@ -38,7 +38,23 @@ object MoodleWebScraper {
             .build()
     }
 
-    fun scrape(moodleUrl: String, username: String, password: String): List<Event> {
+    private val providerHolder = ThreadLocal<((String) -> String?)?>()
+
+    fun scrape(
+        moodleUrl: String,
+        username: String,
+        password: String,
+        fingerprintProvider: (String) -> String? = { null },
+    ): List<Event> {
+        providerHolder.set(fingerprintProvider)
+        try {
+            return scrapeInternal(moodleUrl, username, password)
+        } finally {
+            providerHolder.remove()
+        }
+    }
+
+    private fun scrapeInternal(moodleUrl: String, username: String, password: String): List<Event> {
         val base = moodleUrl.trimEnd('/')
         println("Duedigest Scraper: Starting scrape for $base")
         login(base, username, password)
