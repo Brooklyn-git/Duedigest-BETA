@@ -11,7 +11,7 @@
 - TaskItem rewritten to match Android TaskCard (animateColorAsState bg, course badge, colored icon + relative date, expand animation).
 - FAB moved to BottomEnd (bottom-right).
 - "Clear completed" only shown when completed tasks exist (derivedStateOf).
-- Dialog theme fix (cs inside DueNestTheme).
+- Dialog theme fix (cs inside DuedigestTheme).
 - Horizontal padding: 32dp throughout.
 - 12h/24h order swapped (12h first).
 - Date picker: 3 dropdowns (Year / Month / Day) in one row, widthIn(max=140.dp).

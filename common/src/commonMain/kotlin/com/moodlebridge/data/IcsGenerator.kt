@@ -6,11 +6,11 @@ object IcsGenerator {
         val lines = mutableListOf(
             "BEGIN:VCALENDAR",
             "VERSION:2.0",
-            "PRODID:-//DueNest//EN",
-            "X-WR-CALNAME:DueNest",
+            "PRODID:-//Duedigest//EN",
+            "X-WR-CALNAME:Duedigest",
         )
         for (ev in events) {
-            val uid = "${ev.id}@duenest"
+            val uid = "${ev.id}@duedigest"
             val dtstart = fmtIcsDt(ev.timestart)
             val durationSec = ev.timeduration
             val endTs = if (durationSec > 0) ev.timestart + durationSec else ev.timestart + 3600

@@ -13,7 +13,7 @@ fun main() = application {
     val config = DesktopConfigStore()
     Window(
         onCloseRequest = ::exitApplication,
-        title = "DueNest",
+        title = "Duedigest",
         state = WindowState(size = DpSize(960.dp, 700.dp)),
     ) {
         DesktopApp(config)

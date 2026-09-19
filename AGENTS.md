@@ -32,7 +32,7 @@ While AI assisted code is allowed, all AI written code needs to be reviewed and 
 - FAB on tasks tab must be at bottom-right. "Clear completed" only shown when completed tasks exist.
 - Date/time picker must use dropdowns (Year/Month/Day, Hour/Min, AM/PM) respecting 12h/24h setting, with localized month names.
 - Month names must be text (Jan, Feb… / ene, feb…) and respect language setting.
-- Dialogs must follow DueNestTheme (not default Compose colors).
+- Dialogs must follow DuedigestTheme (not default Compose colors).
 - Horizontal padding everywhere: 32dp.
 - Desktop layout must use a collapsible left sidebar (Connection / Tasks / Settings) instead of top tabs. Settings is a page on the right, not a dialog.
 - No status text or progress bar on the Tasks tab.

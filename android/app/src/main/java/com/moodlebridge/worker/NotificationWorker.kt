@@ -76,7 +76,7 @@ class NotificationWorker(
 
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_my_calendar)
-            .setContentTitle("DueNest")
+            .setContentTitle("Duedigest")
             .setContentText(Strings.get("notif_body", lang).replace("\\n", "\n"))
             .setStyle(
                 NotificationCompat.BigTextStyle()
@@ -91,8 +91,8 @@ class NotificationWorker(
     }
 
     companion object {
-        const val CHANNEL_ID = "due_nest_reminder"
-        const val WORK_NAME = "due_nest_notification_worker"
+        const val CHANNEL_ID = "due_digest_reminder"
+        const val WORK_NAME = "due_digest_notification_worker"
 
         fun schedule(context: Context) {
             val config = ConfigStore(context)

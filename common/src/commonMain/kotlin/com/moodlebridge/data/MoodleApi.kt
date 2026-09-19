@@ -31,39 +31,39 @@ class MoodleApi(
         val calendarEvents = try {
             fetchCalendarEvents(daysBack, limit).toMutableList()
         } catch (e: Exception) {
-            println("DueNest API: fetchCalendarEvents failed: ${e.message}")
+            println("Duedigest API: fetchCalendarEvents failed: ${e.message}")
             mutableListOf()
         }
-        println("DueNest API: fetchCalendarEvents returned ${calendarEvents.size} events")
+        println("Duedigest API: fetchCalendarEvents returned ${calendarEvents.size} events")
         val assignmentEvents = try {
             fetchAssignments()
         } catch (e: Exception) {
-            println("DueNest API: fetchAssignments failed: ${e.message}")
+            println("Duedigest API: fetchAssignments failed: ${e.message}")
             emptyList()
         }
-        println("DueNest API: fetchAssignments returned ${assignmentEvents.size} events")
+        println("Duedigest API: fetchAssignments returned ${assignmentEvents.size} events")
         val courseMap = try {
             fetchEnrolledCourses()
         } catch (e: Exception) {
-            println("DueNest API: fetchEnrolledCourses failed: ${e.message}")
+            println("Duedigest API: fetchEnrolledCourses failed: ${e.message}")
             emptyMap()
         }
-        println("DueNest API: Enrolled courses = ${courseMap.size}")
+        println("Duedigest API: Enrolled courses = ${courseMap.size}")
 
         val quizEvents = try {
             fetchQuizzes(courseMap)
         } catch (e: Exception) {
-            println("DueNest API: fetchQuizzes failed: ${e.message}")
+            println("Duedigest API: fetchQuizzes failed: ${e.message}")
             emptyList()
         }
-        println("DueNest API: fetchQuizzes returned ${quizEvents.size} events")
+        println("Duedigest API: fetchQuizzes returned ${quizEvents.size} events")
         val forumEvents = try {
             fetchForums(courseMap)
         } catch (e: Exception) {
-            println("DueNest API: fetchForums failed: ${e.message}")
+            println("Duedigest API: fetchForums failed: ${e.message}")
             emptyList()
         }
-        println("DueNest API: fetchForums returned ${forumEvents.size} events")
+        println("Duedigest API: fetchForums returned ${forumEvents.size} events")
 
         val dedicated = (assignmentEvents + quizEvents + forumEvents).toMutableList()
         val knownKeys = dedicated.map { it.mergeKey }.toSet()
@@ -75,16 +75,16 @@ class MoodleApi(
                     if (course.isBlank()) event else event.copy(course = course)
                 }
             }
-        println("DueNest API: Combined WS events = ${wsEvents.size}, scrapeEnabled=$scrapeEnabled")
+        println("Duedigest API: Combined WS events = ${wsEvents.size}, scrapeEnabled=$scrapeEnabled")
 
         if (scrapeEnabled && username.isNotBlank() && password.isNotBlank()) {
-            println("DueNest API: scrape enabled -> always calling scraper")
+            println("Duedigest API: scrape enabled -> always calling scraper")
             return try {
                 val scraped = MoodleWebScraper.scrape(moodleUrl, username, password)
-                println("DueNest API: Scraper returned ${scraped.size} events")
+                println("Duedigest API: Scraper returned ${scraped.size} events")
                 wsEvents.mergeByDedup(scraped)
             } catch (e: Exception) {
-                println("DueNest API: Scraper FAILED: ${e.message}, falling back to WS events")
+                println("Duedigest API: Scraper FAILED: ${e.message}, falling back to WS events")
                 wsEvents.sortedBy { it.timestart }
             }
         }

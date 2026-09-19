@@ -10,4 +10,4 @@
     android:minResizeWidth="40dp"
     android:minResizeHeight="40dp"
     android:widgetCategory="home_screen"
-    android:label="DueNest Tasks" />
+    android:label="Duedigest Tasks" />

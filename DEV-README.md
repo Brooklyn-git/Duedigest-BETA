@@ -1,6 +1,6 @@
-# DueNest — Developer Guide
+# Duedigest — Developer Guide
 
-DueNest fetches deadlines and activities from Moodle and pushes them to your calendar app. Android and Desktop share a single Kotlin codebase via Compose Multiplatform.
+Duedigest fetches deadlines and activities from Moodle and pushes them to your calendar app. Android and Desktop share a single Kotlin codebase via Compose Multiplatform.
 
 | Platform | Stack |
 |----------|-------|

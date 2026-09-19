@@ -306,7 +306,7 @@ private val AppTypography = Typography(
 )
 
 @Composable
-fun DueNestTheme(
+fun DuedigestTheme(
     themeMode: String = "system",
     content: @Composable () -> Unit,
 ) {

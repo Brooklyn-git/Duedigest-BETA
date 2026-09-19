@@ -36,8 +36,8 @@ class TaskReminderWorker(
     }
 
     companion object {
-        const val CHANNEL_ID = "due_nest_task_reminder"
-        const val WORK_NAME = "due_nest_task_reminder_worker"
+        const val CHANNEL_ID = "due_digest_task_reminder"
+        const val WORK_NAME = "due_digest_task_reminder_worker"
 
         fun showNotification(context: Context) {
             val config = ConfigStore(context)
@@ -92,7 +92,7 @@ class TaskReminderWorker(
 
             val notification = NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_menu_edit)
-                .setContentTitle("DueNest")
+                .setContentTitle("Duedigest")
                 .setContentText(title)
                 .setStyle(inboxStyle)
                 .setContentIntent(contentPendingIntent)

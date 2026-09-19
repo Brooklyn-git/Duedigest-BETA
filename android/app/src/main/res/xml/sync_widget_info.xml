@@ -10,5 +10,5 @@
     android:minResizeWidth="40dp"
     android:minResizeHeight="120dp"
     android:widgetCategory="home_screen"
-    android:label="DueNest Sync" />
+    android:label="Duedigest Sync" />
  

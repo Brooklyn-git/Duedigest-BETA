@@ -61,7 +61,7 @@
         <receiver
             android:name=".widget.SyncWidgetReceiver"
             android:exported="true"
-            android:label="DueNest Sync">
+            android:label="Duedigest Sync">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -73,7 +73,7 @@
         <receiver
             android:name=".widget.TaskWidgetReceiver"
             android:exported="true"
-            android:label="DueNest Tasks">
+            android:label="Duedigest Tasks">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -85,7 +85,7 @@
         <receiver
             android:name=".widget.FetchTaskWidgetReceiver"
             android:exported="true"
-            android:label="DueNest fetch + tasks">
+            android:label="Duedigest fetch + tasks">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>

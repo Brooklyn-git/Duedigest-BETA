@@ -116,7 +116,7 @@ private fun FetchTaskWidgetContent(context: Context, config: ConfigStore, widget
                 )
                 Spacer(GlanceModifier.width(6.dp))
                 Text(
-                    text = "DueNest",
+                    text = "Duedigest",
                     style = TextStyle(
                         color = ColorProvider(TextPrimary),
                         fontWeight = FontWeight.Bold,

@@ -367,7 +367,7 @@ fun DesktopApp(config: DesktopConfigStore) {
             val fc = JFileChooser()
             fc.dialogTitle = Strings.get("sync_export", lang)
             fc.fileFilter = javax.swing.filechooser.FileNameExtensionFilter("JSON files", "json")
-            fc.selectedFile = File("duenest-sync.json")
+            fc.selectedFile = File("duedigest-sync.json")
             if (fc.showSaveDialog(null) == JFileChooser.APPROVE_OPTION) {
                 var file = fc.selectedFile
                 if (!file.name.endsWith(".json")) file = File(file.absolutePath + ".json")
@@ -381,7 +381,7 @@ fun DesktopApp(config: DesktopConfigStore) {
             val fc = JFileChooser()
             fc.dialogTitle = Strings.get("sync_export_qr", lang)
             fc.fileFilter = javax.swing.filechooser.FileNameExtensionFilter("PNG images", "png")
-            fc.selectedFile = File("duenest-qr.png")
+            fc.selectedFile = File("duedigest-qr.png")
             if (fc.showSaveDialog(null) == JFileChooser.APPROVE_OPTION) {
                 var file = fc.selectedFile
                 if (!file.name.endsWith(".png")) file = File(file.absolutePath + ".png")
@@ -521,7 +521,7 @@ fun DesktopApp(config: DesktopConfigStore) {
         }
     }
 
-    DueNestTheme(themeMode = themeMode) {
+    DuedigestTheme(themeMode = themeMode) {
     val cs = MaterialTheme.colorScheme
     var sidebarExpanded by remember { mutableStateOf(true) }
     var selectedSection by remember { mutableStateOf(1) }

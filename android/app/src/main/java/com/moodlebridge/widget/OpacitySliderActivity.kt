@@ -80,7 +80,7 @@ class OpacitySliderActivity : ComponentActivity() {
                             )
                             Spacer(Modifier.width(6.dp))
                             Text(
-                                text = "DueNest",
+                                text = "Duedigest",
                                 color = TextWhite.copy(alpha = opacity.coerceIn(0.3f, 1f)),
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp,

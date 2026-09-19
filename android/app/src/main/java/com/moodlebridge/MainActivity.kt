@@ -125,7 +125,7 @@ import androidx.core.content.FileProvider
 import androidx.core.view.WindowCompat
 import com.moodlebridge.data.ConfigStore
 import com.moodlebridge.data.Event
-import com.moodlebridge.ui.DueNestTheme
+import com.moodlebridge.ui.DuedigestTheme
 import com.moodlebridge.data.IcsGenerator
 import com.moodlebridge.data.MarkdownGenerator
 import com.moodlebridge.data.MoodleApi
@@ -194,20 +194,20 @@ class MainActivity : ComponentActivity() {
         val lastNetId = prefs().getString("last_network_id", null)
         if (lastNetId != null && currentNetId?.toString() != lastNetId && config.lastSyncUrl.isNotBlank()) {
             config.lastSyncUrl = ""
-            android.util.Log.d("DueNest", "Network changed — cleared sync URL")
+            android.util.Log.d("Duedigest", "Network changed — cleared sync URL")
         }
         prefs().edit().putString("last_network_id", currentNetId?.toString() ?: "").apply()
 
         setContent { MainContent(config = config, autoSync = intent?.getStringExtra("sync") == "true") }
     }
 
-    private fun prefs() = getSharedPreferences("duenest_network", android.content.Context.MODE_PRIVATE)
+    private fun prefs() = getSharedPreferences("duedigest_network", android.content.Context.MODE_PRIVATE)
     private fun createNotificationChannel() {
         val syncCh = NotificationChannel(SyncWorker.CHANNEL_ID, "Moodle Sync", NotificationManager.IMPORTANCE_DEFAULT)
         getSystemService(NotificationManager::class.java).createNotificationChannel(syncCh)
-        val reminderCh = NotificationChannel(NotificationWorker.CHANNEL_ID, "DueNest Reminders", NotificationManager.IMPORTANCE_DEFAULT)
+        val reminderCh = NotificationChannel(NotificationWorker.CHANNEL_ID, "Duedigest Reminders", NotificationManager.IMPORTANCE_DEFAULT)
         getSystemService(NotificationManager::class.java).createNotificationChannel(reminderCh)
-        val taskCh = NotificationChannel(TaskReminderWorker.CHANNEL_ID, "DueNest Task Reminders", NotificationManager.IMPORTANCE_DEFAULT)
+        val taskCh = NotificationChannel(TaskReminderWorker.CHANNEL_ID, "Duedigest Task Reminders", NotificationManager.IMPORTANCE_DEFAULT)
         getSystemService(NotificationManager::class.java).createNotificationChannel(taskCh)
     }
 }
@@ -538,9 +538,9 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                 { addLog(it) }, { statusText = it }, { errorDialogMsg = it },
                 { isWorking = false },
                 { events ->
-                    android.util.Log.d("DueNest", "doSync callback: events.size=${events.size}, deletedEventIds=$deletedEventIds")
+                    android.util.Log.d("Duedigest", "doSync callback: events.size=${events.size}, deletedEventIds=$deletedEventIds")
                     fetchedEvents = mergeFetchedEvents(fetchedEvents, events).filter { it.id !in deletedEventIds }
-                    android.util.Log.d("DueNest", "doSync merge: fetchedEvents.size=${fetchedEvents.size}, ids=${fetchedEvents.map { it.id }}")
+                    android.util.Log.d("Duedigest", "doSync merge: fetchedEvents.size=${fetchedEvents.size}, ids=${fetchedEvents.map { it.id }}")
                     expandedTaskId = null
                     persistMergedEvents()
                     val icsFile = File(context.cacheDir, "ics/calendar.ics")
@@ -576,7 +576,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
         }
     }
 
-    DueNestTheme(themeMode = themeMode) {
+    DuedigestTheme(themeMode = themeMode) {
         val currentThemeIsDark = when (themeMode) {
             "amoled_dark" -> true
             "dark" -> true
@@ -599,7 +599,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                     ?.hostAddress
             } catch (_: Exception) { null }
 
-            Log.d("DueNest", "Android periodic sync loop started. interval=${config.syncIntervalSeconds}s, lastSyncUrl='${config.lastSyncUrl}', androidIp=$androidIp")
+            Log.d("Duedigest", "Android periodic sync loop started. interval=${config.syncIntervalSeconds}s, lastSyncUrl='${config.lastSyncUrl}', androidIp=$androidIp")
             var firstRun = true
             while (true) {
                 val interval = config.syncIntervalSeconds
@@ -617,13 +617,13 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                                     .toRequestBody("application/json; charset=utf-8".toMediaType())
                                 val reqBuilder = OkHttpRequest.Builder().url("$savedUrl/sync").post(reqBody)
                                 if (androidIp != null) reqBuilder.addHeader("X-Sync-Server-URL", "http://$androidIp:8766")
-                                Log.d("DueNest", "Android periodic POST to $savedUrl, events=${sp.manualEvents.size}")
+                                Log.d("Duedigest", "Android periodic POST to $savedUrl, events=${sp.manualEvents.size}")
                                 val resp = client.newCall(reqBuilder.build()).execute()
                                 val respBody = resp.body?.string()
-                                Log.d("DueNest", "Android periodic response: code=${resp.code}, bodyLen=${respBody?.length}")
+                                Log.d("Duedigest", "Android periodic response: code=${resp.code}, bodyLen=${respBody?.length}")
                                 if (resp.isSuccessful && respBody != null) {
                                     val peerUrl = resp.header("X-Sync-Server-URL")
-                                    Log.d("DueNest", "Android periodic peerUrl from header: $peerUrl")
+                                    Log.d("Duedigest", "Android periodic peerUrl from header: $peerUrl")
                                     if (!peerUrl.isNullOrBlank()) config.lastSyncUrl = peerUrl
                                     val remote = SyncManager.deserializePayload(respBody)
                                     if (remote != null) {
@@ -637,9 +637,9 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                                                 config.taskCompletionState = Json.encodeToString(taskCompletionMap)
                                                 config.deletedEventIds = Json.encodeToString(deletedEventIds)
                                                 persistMergeRef?.invoke()
-                                                Log.d("DueNest", "Auto-sync applied: ${merged.manualEvents.size} events")
+                                                Log.d("Duedigest", "Auto-sync applied: ${merged.manualEvents.size} events")
                                             } else {
-                                                Log.d("DueNest", "Auto-sync: no changes to apply")
+                                                Log.d("Duedigest", "Auto-sync: no changes to apply")
                                             }
                                             if (merged.syncIntervalSeconds != config.syncIntervalSeconds) {
                                                 config.syncIntervalSeconds = merged.syncIntervalSeconds
@@ -647,23 +647,23 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                                             }
                                         }
                                     } else {
-                                        Log.d("DueNest", "Auto-sync: deserialization returned null")
+                                        Log.d("Duedigest", "Auto-sync: deserialization returned null")
                                     }
                                 } else {
-                                    Log.d("DueNest", "Auto-sync: response not successful, code=${resp.code}")
+                                    Log.d("Duedigest", "Auto-sync: response not successful, code=${resp.code}")
                                 }
                             } catch (e: Exception) {
-                                Log.d("DueNest", "Auto-sync FAILED: ${e.message}")
+                                Log.d("Duedigest", "Auto-sync FAILED: ${e.message}")
                             }
                         }
                     } else {
-                        Log.d("DueNest", "Android periodic sync: lastSyncUrl is empty, skipping")
+                        Log.d("Duedigest", "Android periodic sync: lastSyncUrl is empty, skipping")
                     }
                 } else {
-                    Log.d("DueNest", "Android periodic sync: interval=0 (manual), skipping")
+                    Log.d("Duedigest", "Android periodic sync: interval=0 (manual), skipping")
                 }
                 val delayMs = if (firstRun) { firstRun = false; 1_000 } else (interval * 1000L).coerceAtLeast(1_000)
-                Log.d("DueNest", "Android periodic sync: sleeping ${delayMs}ms")
+                Log.d("Duedigest", "Android periodic sync: sleeping ${delayMs}ms")
                 if (interval > 0) kotlinx.coroutines.delay(delayMs) else kotlinx.coroutines.delay(60_000)
             }
         }
@@ -681,11 +681,11 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                             val files = HashMap<String, String>()
                             session.parseBody(files)
                             val body = files["postData"] ?: ""
-                            android.util.Log.d("DueNest", "NanoHTTPD POST received, bodyLen=${body.length}")
+                            android.util.Log.d("Duedigest", "NanoHTTPD POST received, bodyLen=${body.length}")
                             val remote = SyncManager.deserializePayload(body)
                             if (remote != null) {
                                 val peerUrl = session.headers["x-sync-server-url"]
-                                Log.d("DueNest", "NanoHTTPD peerUrl=$peerUrl")
+                                Log.d("Duedigest", "NanoHTTPD peerUrl=$peerUrl")
                                 if (!peerUrl.isNullOrBlank() && config.lastSyncUrl != peerUrl) {
                                     config.lastSyncUrl = peerUrl
                                 }
@@ -706,24 +706,24 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                                 } catch (_: Exception) { null }
                                 val resp = newFixedLengthResponse(fi.iki.elonen.NanoHTTPD.Response.Status.OK, "application/json; charset=utf-8", respBody)
                                 if (androidIp != null) resp.addHeader("X-Sync-Server-URL", "http://$androidIp:8766")
-                                Log.d("DueNest", "NanoHTTPD responding OK, androidIp=$androidIp, events=${merged.manualEvents.size}")
+                                Log.d("Duedigest", "NanoHTTPD responding OK, androidIp=$androidIp, events=${merged.manualEvents.size}")
                                 syncServerChannel.trySend(merged)
                                 return resp
                             } else {
-                                Log.e("DueNest", "NanoHTTPD deserialize returned null, body starts with: ${body.take(80)}")
+                                Log.e("Duedigest", "NanoHTTPD deserialize returned null, body starts with: ${body.take(80)}")
                                 return newFixedLengthResponse(fi.iki.elonen.NanoHTTPD.Response.Status.BAD_REQUEST, "application/json; charset=utf-8", "bad payload")
                             }
                         } catch (e: Exception) {
-                            Log.e("DueNest", "NanoHTTPD serve error: ${e.message}", e)
+                            Log.e("Duedigest", "NanoHTTPD serve error: ${e.message}", e)
                             return newFixedLengthResponse(fi.iki.elonen.NanoHTTPD.Response.Status.INTERNAL_ERROR, MIME_PLAINTEXT, "error")
                         }
                     }
                 }
                 s.start()
-                Log.d("DueNest", "NanoHTTPD server started on port 8766")
+                Log.d("Duedigest", "NanoHTTPD server started on port 8766")
                 s
             } catch (e: Exception) {
-                Log.e("DueNest", "NanoHTTPD server failed to start: ${e.message}", e)
+                Log.e("Duedigest", "NanoHTTPD server failed to start: ${e.message}", e)
                 null
             }
 
@@ -1118,7 +1118,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = {
                         showExportFormatDialog = false
-                        exportJsonLauncher.launch("duenest-sync.json")
+                        exportJsonLauncher.launch("duedigest-sync.json")
                     }, modifier = Modifier.fillMaxWidth()) {
                         Text(Strings.get("export_as_json", lang))
                     }
@@ -1132,7 +1132,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                             val bmp = Bitmap.createBitmap(400, 400, Bitmap.Config.RGB_565)
                             for (x in 0 until 400) for (y in 0 until 400)
                                 bmp.setPixel(x, y, if (matrix.get(x, y)) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
-                            val file = File(context.cacheDir, "ics/duenest-qr.png")
+                            val file = File(context.cacheDir, "ics/duedigest-qr.png")
                             file.parentFile?.mkdirs()
                             java.io.FileOutputStream(file).use { out ->
                                 bmp.compress(Bitmap.CompressFormat.PNG, 100, out)
@@ -1269,9 +1269,9 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
 
         LaunchedEffect(Unit) {
             for (content in scanChannel) {
-                Log.d("DueNest", "QR raw content length: ${content.length}, starts: ${content.take(80)}")
+                Log.d("Duedigest", "QR raw content length: ${content.length}, starts: ${content.take(80)}")
                 val (url, remotePayload) = SyncManager.decodeQrContent(content)
-                Log.d("DueNest", "QR decoded: url=$url, remoteEvents=${remotePayload?.manualEvents?.size}, remoteCompletions=${remotePayload?.taskCompletion?.size}")
+                Log.d("Duedigest", "QR decoded: url=$url, remoteEvents=${remotePayload?.manualEvents?.size}, remoteCompletions=${remotePayload?.taskCompletion?.size}")
                 val applyMerged: (MergeResult) -> Unit = { merged ->
                     manualEvents = merged.manualEvents
                     taskCompletionMap = merged.taskCompletion
@@ -1292,7 +1292,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                     }
                 }
                 if (url != null) {
-                    Log.d("DueNest", "POST to $url/sync with ${syncPayload.manualEvents.size} events, ${syncPayload.taskCompletion.size} completions")
+                    Log.d("Duedigest", "POST to $url/sync with ${syncPayload.manualEvents.size} events, ${syncPayload.taskCompletion.size} completions")
                     syncMergeMsg = Strings.get("sync_syncing", lang)
                     withContext(Dispatchers.IO) {
                         try {
@@ -1312,7 +1312,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                             if (androidIp != null) reqBuilder.addHeader("X-Sync-Server-URL", "http://$androidIp:8766")
                             val resp = client.newCall(reqBuilder.build()).execute()
                             val respBody = resp.body?.string()
-                            Log.d("DueNest", "POST response: code=${resp.code}, bodyLen=${respBody?.length}")
+                            Log.d("Duedigest", "POST response: code=${resp.code}, bodyLen=${respBody?.length}")
                             if (resp.isSuccessful && respBody != null) {
                                 val peerUrl = resp.header("X-Sync-Server-URL")
                                 if (!peerUrl.isNullOrBlank()) config.lastSyncUrl = peerUrl
@@ -1330,7 +1330,7 @@ private fun MainContent(config: ConfigStore, autoSync: Boolean) {
                                 withContext(Dispatchers.Main) { applyMerged(merged) }
                             }
                         } catch (e: Exception) {
-                            Log.e("DueNest", "POST failed: ${e.message}")
+                            Log.e("Duedigest", "POST failed: ${e.message}")
                             if (remotePayload != null) {
                                 val merged = SyncManager.mergePayload(syncPayload, remotePayload)
                                 withContext(Dispatchers.Main) {
@@ -1791,7 +1791,7 @@ private fun SettingsPage(
                     }
                 }
 
-                // DueNest
+                // Duedigest
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Icon(painterResource(R.drawable.ic_folder), null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.width(12.dp))
@@ -1935,7 +1935,7 @@ private suspend fun doFetch(
 
         onLog(Strings.get("fetching_events", lang))
         val apiEvents = withContext(Dispatchers.IO) { MoodleApi(config.moodleUrl, token, params.scrapeEnabled, username, password, config.skipFinishedTasks).fetchEvents(config.fetchDaysBack, config.fetchLimit) }
-        android.util.Log.d("DueNest", "doFetch: apiEvents.size=${apiEvents.size}, ids=${apiEvents.map { it.id }}")
+        android.util.Log.d("Duedigest", "doFetch: apiEvents.size=${apiEvents.size}, ids=${apiEvents.map { it.id }}")
         onLog("${Strings.get("found_events", lang)} ${apiEvents.size}")
         for (ev in apiEvents) {
             onLog("  - ${ev.name} [${ev.course}] id=${ev.id} timestart=${ev.timestart}")

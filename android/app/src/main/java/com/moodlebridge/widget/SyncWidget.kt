@@ -107,7 +107,7 @@ private fun SyncWidgetContent(context: Context, config: ConfigStore, widgetId: S
             )
             Spacer(GlanceModifier.width(6.dp))
             Text(
-                text = "DueNest",
+                text = "Duedigest",
                 style = TextStyle(
                     color = ColorProvider(TextPrimary),
                     fontWeight = FontWeight.Bold,

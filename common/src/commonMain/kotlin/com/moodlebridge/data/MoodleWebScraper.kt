@@ -40,18 +40,18 @@ object MoodleWebScraper {
 
     fun scrape(moodleUrl: String, username: String, password: String): List<Event> {
         val base = moodleUrl.trimEnd('/')
-        println("DueNest Scraper: Starting scrape for $base")
+        println("Duedigest Scraper: Starting scrape for $base")
         login(base, username, password)
-        println("DueNest Scraper: Login OK, collecting courses...")
+        println("Duedigest Scraper: Login OK, collecting courses...")
         val courses = collectCourses(base)
-        println("DueNest Scraper: Found ${courses.size} courses: ${courses.map { it.name }}")
+        println("Duedigest Scraper: Found ${courses.size} courses: ${courses.map { it.name }}")
         val events = mutableListOf<Event>()
         for (course in courses) {
             val courseEvents = scrapeCourse(base, course)
-            println("DueNest Scraper: Course '${course.name}' (id=${course.id}) -> ${courseEvents.size} events")
+            println("Duedigest Scraper: Course '${course.name}' (id=${course.id}) -> ${courseEvents.size} events")
             events.addAll(courseEvents)
         }
-        println("DueNest Scraper: Total events = ${events.size}")
+        println("Duedigest Scraper: Total events = ${events.size}")
         return events.sortedBy { it.timestart }
     }
 
@@ -83,15 +83,15 @@ object MoodleWebScraper {
         val request = Request.Builder().url(url).get().build()
         val response = client.newCall(request).execute()
         val finalUrl = response.request.url.toString()
-        println("DueNest Scraper: Dashboard URL after redirects: $finalUrl")
+        println("Duedigest Scraper: Dashboard URL after redirects: $finalUrl")
         if (finalUrl.contains("/login")) {
             throw IOException("Session expired — could not load dashboard")
         }
         val html = response.body?.string() ?: throw IOException("Empty dashboard response")
-        println("DueNest Scraper: Dashboard HTML length = ${html.length}")
+        println("Duedigest Scraper: Dashboard HTML length = ${html.length}")
         val doc = Jsoup.parse(html)
         val allLinks = doc.select("a[href*=\"/course/view.php?id=\"]")
-        println("DueNest Scraper: Found ${allLinks.size} course links in HTML")
+        println("Duedigest Scraper: Found ${allLinks.size} course links in HTML")
         val courses = mutableListOf<CourseInfo>()
         val seen = mutableSetOf<String>()
         for (link in allLinks) {
@@ -101,7 +101,7 @@ object MoodleWebScraper {
             if (id in seen) continue
             seen.add(id)
             val name = link.text().trim().replace(Regex("\\s+"), " ")
-            println("DueNest Scraper:   Course link: id=$id, name='$name', href=$href")
+            println("Duedigest Scraper:   Course link: id=$id, name='$name', href=$href")
             if (name.isNotBlank()) {
                 courses.add(CourseInfo(id, name))
             }
@@ -132,11 +132,11 @@ object MoodleWebScraper {
             val timeclose = dateAfterLabel(pageText, "(closes ") ?: dateAfterLabel(pageText, "will close on")
                 ?: dateAfterLabel(pageText, "closes:") ?: dateAfterLabel(pageText, "closed on")
             if (timeclose != null && timeclose <= now) {
-                println("DueNest Scraper:     SKIP '$title' (quiz closed: $timeclose, now=$now)")
+                println("Duedigest Scraper:     SKIP '$title' (quiz closed: $timeclose, now=$now)")
                 continue
             }
             val timeopen = dateAfterLabel(pageText, "(opens ") ?: dateAfterLabel(pageText, "opens:")
-            println("DueNest Scraper:     INCLUDE '$title' (quiz cmid=$cmid, open=$timeopen, close=$timeclose)")
+            println("Duedigest Scraper:     INCLUDE '$title' (quiz cmid=$cmid, open=$timeopen, close=$timeclose)")
             result.add(
                 Event(
                     id = "quiz_$cmid",
@@ -179,7 +179,7 @@ object MoodleWebScraper {
                 ?: dateAfterLabel(pageText, "fecha l\u00edmite:")
             val cutoff = dateAfterLabel(pageText, "cut-off") ?: dateAfterLabel(pageText, "corte")
             println(
-                "DueNest Scraper:     INCLUDE '$title' (forum cmid=$cmid, due=$due, cutoff=$cutoff) " +
+                "Duedigest Scraper:     INCLUDE '$title' (forum cmid=$cmid, due=$due, cutoff=$cutoff) " +
                     "late=${due != null && due <= now}"
             )
             result.add(
@@ -227,7 +227,7 @@ object MoodleWebScraper {
         val doc = Jsoup.parse(html)
         val rows = doc.select("table.generaltable tbody tr")
         val now = System.currentTimeMillis() / 1000
-        println("DueNest Scraper:   ${rows.size} rows in assignment table for '${course.name}'")
+        println("Duedigest Scraper:   ${rows.size} rows in assignment table for '${course.name}'")
         val result = mutableListOf<Event>()
         for (row in rows) {
             val link = row.select("a[href*=\"/mod/assign/view.php?id=\"]").firstOrNull() ?: continue
@@ -238,15 +238,15 @@ object MoodleWebScraper {
             val cells = row.select("td, th").map { it.text().trim() }
             val (dueDateStr, submissionStatus) = extractDateAndStatus(cells)
             if (isSubmitted(submissionStatus)) {
-                println("DueNest Scraper:     SKIP '$title' (submitted: '$submissionStatus')")
+                println("Duedigest Scraper:     SKIP '$title' (submitted: '$submissionStatus')")
                 continue
             }
             val duedate = parseDate(dueDateStr)
             if (duedate != null && duedate <= now) {
-                println("DueNest Scraper:     SKIP '$title' (past due: $dueDateStr -> $duedate, now=$now)")
+                println("Duedigest Scraper:     SKIP '$title' (past due: $dueDateStr -> $duedate, now=$now)")
                 continue
             }
-            println("DueNest Scraper:     INCLUDE '$title' (assignId=$assignId, duedate=$duedate, dueStr='$dueDateStr')")
+            println("Duedigest Scraper:     INCLUDE '$title' (assignId=$assignId, duedate=$duedate, dueStr='$dueDateStr')")
             val description = scrapeDescription(base, href)
             result.add(
                 Event(

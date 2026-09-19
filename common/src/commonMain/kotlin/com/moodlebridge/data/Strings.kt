@@ -3,7 +3,7 @@ package com.moodlebridge.data
 object Strings {
 
     private val en = mapOf(
-        "app_title" to "DueNest",
+        "app_title" to "Duedigest",
         "subtitle" to "Fetch and manage your moodle activities!",
         "connection" to "Connection",
         "log_in" to "Log in",
@@ -77,7 +77,7 @@ object Strings {
         "completed_tasks" to "Completed tasks",
         "delivered" to "Delivered",
         "clear_creds_confirm" to "Delete all saved user data?\nThis will clear credentials, settings, and tasks.",
-        "tasks_path" to "DueNest Markdown (native)",
+        "tasks_path" to "Duedigest Markdown (native)",
         "collapse" to "Collapse",
         "copy_description" to "Copy",
         "available_from" to "Available from",
@@ -87,8 +87,8 @@ object Strings {
         "type_task" to "Task",
         "type_exam" to "Exam",
         "type_forum" to "Forum",
-        "intro_title" to "DueNest",
-        "intro_welcome" to "Welcome to DueNest \u2014 your Moodle deadline tracker.",
+        "intro_title" to "Duedigest",
+        "intro_welcome" to "Welcome to Duedigest \u2014 your Moodle deadline tracker.",
         "intro_getting_started" to "Getting started",
         "intro_setup_outputs" to "Before connecting, open Settings \u2192 Output Settings to choose which formats you want (ICS, Logseq, Obsidian, Tasks). You can configure them now and they\u2019ll be ready for your first sync.",
         "intro_step1" to "1. Go to the Connection tab and enter your Moodle URL, username, and password",
@@ -156,7 +156,7 @@ object Strings {
     )
 
     private val es = mapOf(
-        "app_title" to "DueNest",
+        "app_title" to "Duedigest",
         "subtitle" to "Sincroniza y gestiona tus actividades de moodle!",
         "connection" to "Conexi\u00f3n",
         "log_in" to "Iniciar sesi\u00f3n",
@@ -230,7 +230,7 @@ object Strings {
         "completed_tasks" to "Tareas completadas",
         "delivered" to "Entregado",
         "clear_creds_confirm" to "¿Borrar todos los datos de usuario guardados?\nSe borrarán credenciales, configuración y tareas.",
-        "tasks_path" to "DueNest Markdown (nativo)",
+        "tasks_path" to "Duedigest Markdown (nativo)",
         "collapse" to "Colapsar",
         "copy_description" to "Copiar",
         "available_from" to "Disponible desde",
@@ -240,8 +240,8 @@ object Strings {
         "type_task" to "Tarea",
         "type_exam" to "Examen",
         "type_forum" to "Foro",
-        "intro_title" to "DueNest",
-        "intro_welcome" to "Bienvenido a DueNest \u2014 tu gestor de plazos de Moodle.",
+        "intro_title" to "Duedigest",
+        "intro_welcome" to "Bienvenido a Duedigest \u2014 tu gestor de plazos de Moodle.",
         "intro_getting_started" to "Primeros pasos",
         "intro_setup_outputs" to "Antes de conectar, abre Ajustes \u2192 Configuraci\u00f3n de salida para elegir los formatos que quieras (ICS, Logseq, Obsidian, Tareas). Puedes configurarlos ahora y estar\u00e1n listos para tu primera sincronizaci\u00f3n.",
         "intro_step1" to "1. Ve a la pesta\u00f1a Conexi\u00f3n e ingresa tu URL, usuario y contrase\u00f1a de Moodle",
