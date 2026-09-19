@@ -1,8 +1,17 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.serialization")
     id("org.jetbrains.kotlin.plugin.compose")
+}
+
+val keystorePropertiesFile = file(System.getProperty("user.home") + "/.keystores/duedigest.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.inputStream().use { load(it) }
+    }
 }
 
 android {
@@ -17,8 +26,26 @@ android {
         versionName = "1.0"
     }
 
+    val releaseSigning = signingConfigs.create("release").apply {
+        if (keystorePropertiesFile.exists()) {
+            storeFile = file(keystoreProperties.getProperty("storeFile")!!)
+            storePassword = keystoreProperties.getProperty("storePassword")
+            keyAlias = keystoreProperties.getProperty("keyAlias")!!
+            keyPassword = keystoreProperties.getProperty("keyPassword")
+        }
+    }
+
     buildFeatures {
         compose = true
+    }
+
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = releaseSigning
+            }
+        }
     }
 
     compileOptions {
