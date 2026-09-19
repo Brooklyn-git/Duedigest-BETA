@@ -85,6 +85,85 @@
 - syncIntervalSeconds: 0=Manual, 15, 30, 60, 300, 600, 1800. Default 30.
 - Desktop WiFi detection: network signature stored in DesktopConfigStore.lastNetworkSignature.
 
+# Security Fix Plan (added 2026-09-19)
+
+Security review outcome. Fixes are ordered by priority; each is an independent, atomically revertible commit. Follow TDD per AGENTS.md: write the failing test first, then implement, then build.
+
+Build/verify after each fix:
+- `./gradlew :common:desktopTest` (common lib + tests)
+- `./gradlew :androidApp:assembleDebug`
+- `./gradlew :desktopApp:jar && bash run.sh`
+- Manually test the affected flow on both platforms.
+
+## Threat model
+- Active LAN attacker on the same Wi-Fi (can send/receive on the sync port).
+- Passive LAN attacker (can sniff plaintext HTTP sync).
+- Malicious/compromised data sources: QR codes, sync peers, Moodle event URLs.
+- Trusted: the Moodle server (TOFU cert accept flow already exists), the user's own devices.
+
+## Fix 1 — Authenticated LAN sync (High: open `/sync` endpoint + sync hijack)
+Closes the unauthenticated POST and the `X-Sync-Server-URL` trust issue.
+
+Design: two-token pairing.
+- Each device owns a `deviceToken` (validates inbound POSTs to its own server) and a separate `peerToken` (sent on outbound POSTs to the paired device). Tokens are exchanged via the existing QR pairing and a request header — no new UI, no passwords to type.
+- QR gains an `"s"` field carrying the generator's `deviceToken`: `{"u":"<server url>","d":"<data>","s":"<deviceToken>"}`. Old QRs without `s` are rejected with a "device must be updated to pair" message.
+
+Changes:
+- `common` `SyncManager.kt`:
+  - `fun decodeQrContent(content): Triple<String?, SyncPayload?, String?>` (url, payload, token).
+  - `fun encodeQrContent(serverUrl, payload, token?)` — includes `"s"` when token provided.
+  - `expect fun randomToken(): String` + actuals in `androidMain`/`desktopMain` using `java.security.SecureRandom` (32 hex chars).
+  - Size guards in `deserializePayload`: reject decoded base64 > MAX_SYNC_BODY (e.g. 2 MB) and decompressed output > MAX_SYNC_BODY (decompression-bomb DoS).
+- `config` (both `ConfigStore.kt` and `DesktopConfigStore.kt`): add `deviceToken` (lazy-generated, persisted) and `peerToken` (string). `lastSyncUrl` stays as the peer URL.
+- Sync servers (`MainActivity.kt` NanoHTTPD ~680-728, `App.kt` HttpServer ~793-836):
+  - Read `Authorization: Bearer <token>`. If missing/!= `config.deviceToken` → 401, no merge, no `lastSyncUrl`/`peerToken` update.
+  - On valid POST: merge, then adopt `X-Sync-Server-URL` (→ `lastSyncUrl`) and `X-Sync-Device-Token` (→ `peerToken`) so the peer can POST back.
+- Sync clients (periodic loop `MainActivity.kt:612-675` / `App.kt:885-929`, scan POST ~1323-1365, import ~323-355):
+  - Send `Authorization: Bearer <peerToken>` + `X-Sync-Device-Token: <deviceToken>` + existing `X-Sync-Server-URL`.
+  - On scan/import: store `peerToken` from QR `s` + `lastSyncUrl` from `u`; skip the merge fallback if token is null (show "update other device").
+- Test (`common/src/desktopTest/.../SyncSecurityTest.kt`): token encode/decode roundtrip; 401 path (server rejects wrong token) via unit-testing a small pure helper `SyncServerAuth.isAuthorized(header, deviceToken)`; old-QR (no `s`) yields null token.
+- Note: pairs sync only if the other device is on this version. Forward-compatible QR generation.
+
+## Fix 2 — Moodle URLs forced to HTTPS (High: cleartext credentials)
+- `common` `MoodleApi.kt`: add `normalizeMoodleUrl(url)`: upgrade `http://` → `https://`; reject anything without http(s) scheme (throw config error). Call on `login()` entry.
+- Android `MainActivity.kt` + desktop `App.kt`: normalize + validate on every URL save and at fetch start; set a clear error message via `Strings` (new `connection_url_invalid` EN/ES).
+- Keep `android:usesCleartextTraffic="true"` — LAN sync needs plaintext HTTP to arbitrary LAN IPs (not expressible in network security config). Document: only the LAN sync channel is cleartext; Moodle creds are HTTPS-only.
+- Behavior change: an `http://` Moodle URL is now auto-upgraded/blocked. Flag with the dev; route users with self-signed HTTPS through the existing TOFU accept flow.
+
+## Fix 3 — Desktop no longer persists the password (Medium)
+- `DesktopConfigStore.kt`: stop writing `password` to `Preferences`. Keep token persisted (needed for background fetch).
+- `App.kt` (~170-178, 574-576): password stays in-memory for the session regardless of `savePassword`; `savePassword` only keeps the checkbox state + username. On close, password is gone.
+- Android: already EncryptedSharedPreferences — no change.
+- Test: unit test for the config-store behavior (desktopTest can't reach desktopApp module; do a manual check or move logic note). Manual verification: save with savePassword on → relaunch → password field empty.
+
+## Fix 4 — Stop putting the password in WorkManager inputData (Medium)
+- `PasswordPromptActivity.kt:58`: replace `putString("override_password", password)` with a sentinel flag only; write the password to `ConfigStore.pendingPassword` (EncryptedSharedPreferences, same store as `password`).
+- `ConfigStore.kt`: add `pendingPassword: String` get/set + `clearPendingPassword()`.
+- `SyncWorker.kt:38-39`: `val pw = config.pendingPassword.ifBlank { config.password }`; clear `pendingPassword` after reading. Keep `fromApp` detection via the inputData sentinel.
+
+## Fix 5 — Validate server URLs from QR/import/headers before POSTing (Medium)
+- `common` `SyncManager.kt`: `fun isValidServerUrl(url): Boolean` — scheme must be `http`/`https` and host must be `localhost`, a loopback, RFC1918, link-local, or ULA IP literal; refuse public hosts and other schemes. `fun isSafeHttpUrl(url): Boolean` — scheme ∈ {http, https} (used by Fix 6).
+- Enforce in: scan POST (`MainActivity.kt:1323`, desktop import ~330), periodic loops (before each POST), and before adopting any `X-Sync-Server-URL`/response header value (server + client side).
+- Test: acceptance/rejection matrix (public host rejected; localhost ok; `file://`, `intent://`, trailing-path weirdness rejected; IPv6 literal ok).
+
+## Fix 6 — Event URL allowlist for "Open in browser" (Medium)
+- `MainActivity.kt:2376-2388` and desktop open-browser path: before `ACTION_VIEW`, require `isSafeHttpUrl(event.url)`; otherwise ignore the tap.
+- Test: `isSafeHttpUrl("intent://...")==false`, `("file:///etc/passwd")==false`, `("https://...")==true`.
+
+## Fix 7 — Exported components + desktop logging (Low)
+- `AndroidManifest.xml`: confirm only launcher (`MainActivity`) and `APPWIDGET_CONFIGURE` activities (Opacity/TaskOpacity sliders) are exported — required by Android; leave as-is. No other activity is exported. Widget receivers export is required. No change expected.
+- Slider activities: validate the incoming widget-id extra (only used for opacity config) so malformed extras can't be written.
+- Desktop `Main.kt:12`: `Log.init(false)` by default; enable only with `-Dduedigest.debug=true`.
+
+## Fix 8 — Residual: plaintext LAN sync channel (accepted risk, High #3)
+- Decide + document: sync stays plaintext HTTP on the LAN. Passive sniffers on shared Wi-Fi can read task data and the device token during sync. Mitigations without TLS: pair/sync only on trusted networks; add a "Forget synced device" action (Settings > Advanced) that wipes `lastSyncUrl`, `peerToken`, `deviceToken` (regenerate) — cheap and useful.
+- Future work (not now): LAN TLS via ephemeral self-signed cert with the fingerprint carried in the QR `s` field + reuse of the TOFU accept flow.
+
+## Out of scope for this pass
+- `wstoken` in query string (Moodle REST design; covered by HTTPS enforcement in Fix 2).
+- Rate-limiting the sync endpoints (auth token + small payload cap already raise the bar; revisit if needed).
+- Full LAN TLS (Fix 8 future work).
+
 # Relevant Files
 - desktopApp/src/main/kotlin/com/moodlebridge/ui/App.kt: all desktop UI, sync server, QR display/import/export.
 - desktopApp/src/main/kotlin/com/moodlebridge/Main.kt: desktop entry point.
