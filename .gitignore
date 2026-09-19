@@ -1,0 +1,33 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+local.properties
+*.iml
+
+# Kotlin
+.kotlin/
+
+# IDE
+.idea/
+
+# JVM heap dumps
+*.hprof
+
+# Python (legacy desktop app — replaced by Compose Desktop)
+desktop/config.json
+desktop/test_pipeline.py
+desktop/output/
+
+desktop/langs.json
+desktop/moodle_api.yaml
+desktop/moodle_cal_flet.py
+desktop/moodle_cal.py
+desktop/
+
+desktop/__pycache__/
+output/
+__pycache__/
+
+# Dev notes
+.opencode/
