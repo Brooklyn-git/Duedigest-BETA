@@ -1,35 +1,22 @@
+# APP CURRENTLY IN PROGRESS (BETA)
+
+Even though Duedigest is functional, it still lacks from some features, has bugs, potential security issues and needs visual polishing and branding. That's why it is still in BETA and not official release. 
+USE UNDER YOUR OWN RISK.
+
 # Duedigest
 
 **Fetch and manage your moodle activities efforlessly!**
 
-Duedigest is a cross-platform app that automatically fetches your Moodle assignment deadlines and exports them to your favorite calendar or note-taking app. Never miss a deadline again!
+Duedigest is a cross-platform app that automatically fetches your Moodle assignment deadlines and exports them to a calendar or note-taking app. 
+Built by a student and for students to help others and myself with time-managing issues.
 
-## Why Duedigest?
+## Features
 
-It is tedious and tiresome for students to enter to the college's platform, subject by subject, only to see their pendent assignments (if any!), which can lead to errors in the organization.
-
-
-This application is made to help students with assignments in Moodle to organize their activities using external applications or Duedigest itself with just a click!
-
-## Can I use Duedigest like a to-do/tasks app?
-
-Of course you can! Duedigest is an application that adapts to the user's needs, allowing you to add manual tasks or courses if necessary, not only Moodle asignments!
-
-It will also send you reminds to avoid you forget your tasks, and also has widgets that shows your tasks in your android phone, to help you to not forget them!
-
-## Security concerns?
-
-Don't worry! Duedigest does NOT store your data in any server! It is stored directly in your device. 
-
-It won't even store your password if you don't want to, and can delete all your stored data if you want!
-
-## Features at a glance
-
-- **Multi-format export** — Duedigest allows you to export your Moodle tasks to your calendar, Logseq and Obsidian, but also allows you to manage your tasks with Duedigest.
-- **Customizable reminders** — daily, weekly, or custom schedules
+- **Multi-format export** — Duedigest allows you to export your Moodle tasks to your calendar, Logseq (pre-alpha) and Obsidian (pre-alpha), but also allows you to manage your tasks with Duedigest.
+- **Customizable reminders** — daily, weekly, or custom schedules.
 - **Manual events** — add your own deadlines alongside Moodle data
-- **Themes** — Light, Dark, AMOLED Dark, or follow your system setting
-- **English & Spanish** — full localization support
+- **Themes** — It counts with several themes, even more than the typical light, dark and AMOLED themes. Choose your favorite!
+- **English & Spanish** — full localization support.
 
 ## License
 
